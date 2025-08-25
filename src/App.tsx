@@ -19,7 +19,10 @@ import "aos/dist/aos.css";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
-// Dummy pages (chỉ giữ lại mấy cái test thôi)
+// Import AuthProvider + AuthButtons
+import { AuthProvider } from "./context/AuthContext";
+import AuthButtons from "./Components/settings/auth/AuthButtons"; // ✅ sửa lại path cho chuẩn (chữ thường)
+
 const Airlines = () => <h2>Airlines Page</h2>;
 const Vacation = () => <h2>Vacation Page</h2>;
 const FindMore = () => <h2>Find More Page</h2>;
@@ -28,17 +31,11 @@ const Admin = () => <h2>Admin Dashboard</h2>;
 function Layout() {
   const location = useLocation();
 
-  // init AOS mỗi khi Layout mount
   useEffect(() => {
-    AOS.init({
-      duration: 800,
-      delay: 100,
-      once: true,
-    });
+    AOS.init({ duration: 800, delay: 100, once: true });
     AOS.refresh();
   }, []);
 
-  // Các route KHÔNG hiện header + footer
   const hiddenLayoutRoutes = ["/login", "/register", "/admin"];
   const isHidden = hiddenLayoutRoutes.some((route) =>
     location.pathname.startsWith(route)
@@ -52,10 +49,18 @@ function Layout() {
           {location.pathname === "/" ? (
             <Header />
           ) : (
-            <nav>
-              <Link to="/">Hotels</Link> | <Link to="/airlines">Airlines</Link>{" "}
-              | <Link to="/vacation">Vacation</Link> |{" "}
-              <Link to="/find-more">Find More</Link>
+            <nav className="sub-header">
+              <div className="sub-header__links">
+                <Link to="/">Hotels</Link> |{" "}
+                <Link to="/airlines">Airlines</Link> |{" "}
+                <Link to="/vacation">Vacation</Link> |{" "}
+                <Link to="/find-more">Find More</Link>
+              </div>
+
+              {/* 👇 Nút đăng nhập / đăng ký / đăng xuất */}
+              <div className="sub-header__auth">
+                <AuthButtons />
+              </div>
             </nav>
           )}
         </>
@@ -80,8 +85,10 @@ function Layout() {
 
 export default function App() {
   return (
-    <Router>
-      <Layout />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Layout />
+      </Router>
+    </AuthProvider>
   );
 }

@@ -3,7 +3,7 @@ import { Document, ObjectId } from "mongodb";
 export type Role = "student" | "teacher" | "admin";
 
 export interface IUser {
-  _id?: ObjectId;
+  _id?: string;
   username: string;
   email: string;
   password: string; // hashed

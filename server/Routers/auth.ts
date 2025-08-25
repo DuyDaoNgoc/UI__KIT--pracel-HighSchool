@@ -1,8 +1,7 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { User } from "../models/User"; // nhớ export dạng { User } trong models/User.ts
-import { IUserDocument } from "../types/user";
+import { connectDB } from "../configs/db";
 
 const router = Router();
 
@@ -25,14 +24,17 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const existingUser = await users.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({
+    await users.insertOne({
       username,
       email,
       password: hashedPassword,
@@ -42,9 +44,9 @@ router.post("/register", async (req: Request, res: Response) => {
       schoolYear,
       phone,
       address,
+      createdAt: new Date(),
     });
 
-    await newUser.save();
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
@@ -55,11 +57,15 @@ router.post("/register", async (req: Request, res: Response) => {
 router.post("/login", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({ message: "Missing email or password" });
     }
 
-    const user: IUserDocument | null = await User.findOne({ email });
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const user = await users.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }

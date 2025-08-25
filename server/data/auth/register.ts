@@ -28,6 +28,7 @@ export async function registerUser(req: Request, res: Response) {
     const userRole: IUser["role"] =
       role === "teacher" ? "teacher" : role === "admin" ? "admin" : "student";
 
+    // createUser đã trả về SafeUser (không có password)
     const safeUser = await createUser({
       username,
       email,

@@ -16,7 +16,7 @@ export async function connectDB(): Promise<Db> {
   if (!db) {
     await client.connect();
     db = client.db(process.env.MONGO_DB_NAME || "Duy04");
-    console.log("✅ MongoDB connected");
+    console.log("✅ MongoDB connected (native driver)");
   }
   return db;
 }
