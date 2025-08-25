@@ -1,0 +1,46 @@
+@use "../abstracts/" as *;
+/*HEADER*/
+.header {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  justify-content: space-around;
+  padding: 24px;
+  padding-top: 40px;
+  align-items: center;
+  top: 0;
+  width: 100%;
+  @include tablet {
+    justify-content: space-between;
+  }
+}
+/*LOGO*/
+.logo {
+  margin: 0;
+  font-size: 36px;
+  color: #ebcb80;
+  & a {
+    text-decoration: none;
+    color: #ebcb80;
+    font-size: 36px;
+    @include tablet {
+      font-size: 24px;
+    }
+    @include mobile {
+      font-size: 20px;
+    }
+  }
+  @include tablet {
+    font-size: 24px;
+  }
+  @include mobile {
+    font-size: 20px;
+  }
+}
+.hambuger {
+  display: none;
+  @include mobile {
+    cursor: pointer;
+    display: block;
+  }
+}

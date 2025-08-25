@@ -1,0 +1,42 @@
+import React from "react";
+const DiamondIcon: React.FC = () => (
+  <svg
+    width="34"
+    height="29"
+    viewBox="0 0 34 29"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M32.3764 8.01575L16.6882 27.894L1 8.01575L8.54233 1H24.834L32.3764 8.01575Z"
+      stroke="#4B4B4B"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M2.42224 8.82227H31.9884"
+      stroke="#4B4B4B"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8.8222 1.71118L11.8392 7.7451L16.6663 1.71118L21.4934 7.7451L24.5104 1.71118"
+      stroke="#4B4B4B"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M21.3209 9.42571L16.4939 26.924L11.6667 8.82227"
+      stroke="#4B4B4B"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+export default DiamondIcon;

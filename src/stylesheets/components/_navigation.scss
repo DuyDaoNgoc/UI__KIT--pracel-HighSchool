@@ -1,0 +1,41 @@
+@use "../abstracts/" as *;
+/*NAVIGATION*/
+.main__menu {
+  text-transform: uppercase;
+  gap: 49px;
+  font-size: 18px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  @include tablet {
+    font-size: 12px;
+  }
+  @include mobile {
+    display: none;
+  }
+}
+.li a {
+  text-decoration: none;
+  color: white;
+  cursor: pointer;
+  &:hover {
+    color: var(--light-yellow);
+  }
+}
+
+/*ICONS*/
+.main__icons {
+  display: flex;
+  align-items: center;
+  &--gap {
+    gap: 42px;
+
+    @include mobile {
+      gap: 24px;
+    }
+  }
+}
+.product-list__item {
+  gap: 15px;
+  margin-top: 25px;
+}

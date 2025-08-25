@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": "./src",
+    "paths": {},
+    "typeRoots": ["./node_modules/@types", "./src/types"]
+  },
+  "include": ["src", "src/types", "server.ts"],
+  "exclude": ["node_modules", "dist"]
+}

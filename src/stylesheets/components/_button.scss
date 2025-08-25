@@ -1,0 +1,174 @@
+@use "../abstracts/" as *;
+.btn {
+  width: min(100vh, 210px);
+  height: 48px;
+  color: #4b4b4b;
+  border: none;
+  border-radius: 50px;
+  font-size: 16px;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  @include tablet {
+    font-size: 11px;
+    width: min(100vh, 140px);
+  }
+  @include mobile {
+    font-size: 11px;
+    width: min(100vh, 140px);
+  }
+  &__background-2 {
+    width: min(100vh, 210px);
+    height: 48px;
+    color: #4b4b4b;
+    border: none;
+    border-radius: 50px;
+    font-size: 16px;
+    cursor: pointer;
+    position: relative;
+    z-index: 2;
+    @include tablet {
+      font-size: 11px;
+      height: 32px;
+      width: min(100%, 140px);
+    }
+    @include mobile {
+      font-size: 11px;
+      height: 32px;
+      width: min(100%, 140px);
+    }
+  }
+  &--active:active {
+    color: #fff;
+    box-shadow: -1px 1px 25px 6px;
+  }
+}
+.scroll-down {
+  cursor: pointer;
+  animation: bounce 1s infinite;
+}
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+.list__items--btn {
+  gap: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+.items--btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  &:active {
+    box-shadow: 0px 2px 4px 0px #00000033;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #ebcb80;
+  }
+  &:nth-child(4) {
+    box-shadow: 0px 2px 4px 0px #00000033;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #ebcb80;
+  }
+  &:nth-child(5) {
+    @include mobile {
+      display: none;
+    }
+  }
+}
+.nav-dots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  &--items {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    cursor: pointer;
+    &:active {
+      background: #ffffff;
+    }
+  }
+  @include mobile {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+.dots--active {
+  background: #ffffff;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.content__dot--items {
+  display: flex;
+  align-items: center;
+  gap: 89px;
+  @include tablet {
+    gap: 20px !important;
+  }
+  @include mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 20px !important;
+  }
+}
+
+/* Ẩn menu desktop khi ở mobile */
+
+.nav-desktop,
+.creater__user {
+  @include mobile {
+  }
+}
+.hamburger {
+  @include tablet {
+    display: none;
+  }
+  @include mobile {
+    display: block;
+    cursor: pointer;
+  }
+  display: none;
+}
+
+/* Mặc định ẩn menu mobile */
+.mobile-menu {
+  position: absolute;
+  top: 60px; /* chỉnh theo chiều cao header */
+  right: 0;
+  width: 200px;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 20px;
+  border-radius: 8px;
+  z-index: 100;
+  & ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    & li {
+      margin: 10px 0;
+      & a {
+        color: white;
+        text-decoration: none;
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+.mobile-auth {
+  margin-top: 20px;
+}

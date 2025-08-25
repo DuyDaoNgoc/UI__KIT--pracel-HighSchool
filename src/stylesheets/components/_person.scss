@@ -1,0 +1,75 @@
+@use "../abstracts/" as *;
+/*GIRD TEMPLATE*/
+.testimonials {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  @include desktop {
+    padding: 30px;
+  }
+  @include tablet {
+    padding: 15px;
+  }
+  &__grid {
+    grid-template: 1fr 1fr / 1fr 1fr;
+    place-items: center;
+    display: grid;
+    padding: 29px 20px;
+    @include mobile {
+      grid-template: 1fr 1fr 1fr /1fr;
+      place-items: center;
+      display: grid;
+      padding: 29px 20px;
+    }
+  }
+  &__items--content {
+    justify-content: center;
+    align-items: flex-start;
+    gap: 15px;
+    width: 100% !important;
+    max-width: 554px;
+    padding: 41px;
+    display: flex;
+    @include tablet {
+      padding: 30px;
+    }
+    @include mobile {
+      padding: 15px;
+    }
+  }
+  &__items--hover:hover {
+    box-shadow: 0px 4px 16px 0px #00000033;
+  }
+  &__items--description {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    margin-bottom: 10px;
+    text-align: start;
+    color: #4b4b4b;
+    @include tablet {
+      font-size: 11px;
+    }
+    @include mobile {
+      font-size: 11px;
+    }
+  }
+}
+
+/*BORDER RADIUS*/
+.person__img--size {
+  width: 96px;
+  height: 96px;
+  @include tablet {
+    width: 64px;
+    height: 64px;
+  }
+  @include mobile {
+    width: 48px;
+    height: 48px;
+  }
+}
+.person__img--circle {
+  border: 2px solid #e6e6e6;
+  border-radius: 50px;
+}

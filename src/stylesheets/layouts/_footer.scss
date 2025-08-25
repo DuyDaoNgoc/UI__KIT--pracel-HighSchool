@@ -1,0 +1,178 @@
+@use "../abstracts/" as *;
+
+.footer {
+  background: $footer;
+  width: 100%;
+  height: auto;
+  display: flex;
+  padding: 40px 24px;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+  @include mobile {
+    flex-direction: column;
+    padding: 20px;
+  }
+  &--logo {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 30%;
+    @include mobile {
+      width: 100%;
+      align-items: center;
+      text-align: center;
+    }
+  }
+  &--input {
+    background: none;
+    border: 1px solid #7d7d7d;
+    width: 262px;
+    height: 48px;
+    border-radius: 5px 0 0 5px;
+    color: white;
+    padding: 10px;
+    outline: none;
+    @include tablet {
+      width: 158px;
+      height: 26px;
+    }
+    @include mobile {
+      width: 158px;
+      height: 26px;
+    }
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &--btn {
+    background: #ebcb80;
+    width: 51px;
+    height: 48px;
+    border: none;
+    cursor: pointer;
+    border-radius: 0 5px 5px 0;
+    @include tablet {
+      height: 26px;
+      width: 24px;
+    }
+    @include mobile {
+      height: 26px;
+      width: 24px;
+    }
+    & svg {
+      @include mobile {
+        width: 11px;
+        height: 11px;
+      }
+    }
+  }
+  &--btn:active svg path {
+    stroke: #fff;
+  }
+  &--btn:active {
+    box-shadow: -1px 1px 25px 6px #ebcb80;
+  }
+  &--btn svg path {
+    stroke: $footer;
+  }
+  &__email {
+    display: flex;
+    flex-direction: row;
+  }
+}
+.nav__footer {
+  display: flex;
+  gap: 128px;
+  justify-content: flex-end;
+  &--container {
+    width: 40%;
+    display: flex;
+    flex-direction: column;
+    gap: 47px;
+    @include tablet {
+      width: 51%;
+    }
+    @include mobile {
+      gap: 32px;
+      width: 100%;
+    }
+  }
+  @include tablet {
+    gap: 82px;
+  }
+  @include mobile {
+    gap: 82px;
+    text-align: center;
+    gap: 0;
+    justify-content: space-between;
+  }
+  &--items {
+    color: #fff;
+    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+  }
+  &--items a {
+    text-decoration: none;
+    color: white;
+  }
+}
+
+.footer__icons--container {
+  display: flex;
+  justify-content: flex-end;
+  @include tablet {
+    display: flex;
+    justify-content: flex-end;
+  }
+  @include mobile {
+    justify-content: center;
+    text-align: center;
+  }
+}
+.footer__icons--items {
+  display: flex;
+  flex-direction: column;
+  gap: 23px;
+}
+.icons--items-ft {
+  display: flex;
+  gap: 41px;
+  cursor: pointer;
+  @include tablet {
+    gap: 27px;
+  }
+  @include mobile {
+    gap: 27px;
+  }
+}
+.content--ft-flex {
+  display: none;
+  @include mobile {
+    display: flex;
+    justify-content: center;
+  }
+}
+.icons--items-ft svg {
+  width: 25px;
+  height: 25px;
+  & path {
+    fill: #ebcb80;
+  }
+  @include tablet {
+    width: 17px;
+    height: 17px;
+  }
+  @include mobile {
+    width: 17px;
+    height: 17px;
+  }
+}
+.content--ft-hidden {
+  @include mobile {
+    display: none;
+  }
+}
