@@ -11,6 +11,30 @@ export async function loginUser(req: Request, res: Response) {
     if (!email || !password)
       return res.status(400).json({ message: "Missing email or password" });
 
+    // 1. Check admin trong .env
+    if (
+      email === process.env.ADMIN_EMAIL &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const token = jwt.sign(
+        { email, role: "admin" },
+        process.env.JWT_SECRET as string,
+        { expiresIn: "7d" }
+      );
+
+      return res.status(200).json({
+        message: "Login successful",
+        token,
+        user: {
+          id: "admin",
+          username: "Administrator",
+          role: "admin",
+          email,
+        },
+      });
+    }
+
+    // 2. Nếu không phải admin → check trong DB
     const user = await findUserByEmail(email);
     if (!user)
       return res.status(401).json({ message: "Invalid email or password" });

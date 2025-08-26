@@ -5,8 +5,22 @@ import authRoutes from "./Routers/auth";
 import { connectDB, ensureIndexes } from "./configs/db";
 import bcrypt from "bcryptjs";
 import { IUser } from "./types/user";
+import { verifyToken, checkRole } from "./middleware/authMiddleware";
 
 dotenv.config();
+
+// 👉 Khai báo mở rộng type cho Express.Request
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        role: "student" | "teacher" | "admin";
+        email: string;
+      };
+    }
+  }
+}
 
 const app = express();
 app.use(cors());
@@ -15,6 +29,17 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 
+// ✅ Route test bảo vệ bởi token
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({ message: "✅ Access granted", user: req.user });
+});
+
+// ✅ Route chỉ cho admin
+app.get("/api/admin", verifyToken, checkRole(["admin"]), (req, res) => {
+  res.json({ message: "✅ Admin access", user: req.user });
+});
+
+// ✅ Seed admin user (upsert tránh lỗi duplicate key)
 async function seedAdmin() {
   const db = await connectDB();
   const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -23,18 +48,24 @@ async function seedAdmin() {
   if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
 
   const users = db.collection<IUser>("users");
-  const exists = await users.findOne({ email: ADMIN_EMAIL });
-  if (!exists) {
-    const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-    await users.insertOne({
-      username: "admin",
-      email: ADMIN_EMAIL,
-      password: hash,
-      role: "admin",
-      createdAt: new Date(),
-    });
-    console.log("✅ Seeded admin:", ADMIN_EMAIL);
-  }
+
+  const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+
+  await users.updateOne(
+    { username: "admin" }, // 🔑 filter theo username
+    {
+      $set: {
+        username: "admin",
+        email: ADMIN_EMAIL,
+        password: hash,
+        role: "admin",
+        createdAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
+
+  console.log("✅ Admin ensured:", ADMIN_EMAIL);
 }
 
 const PORT = Number(process.env.PORT) || 8000;

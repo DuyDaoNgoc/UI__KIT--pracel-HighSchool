@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { connectDB } from "../configs/db";
+import { verifyToken, checkRole } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -62,6 +63,29 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing email or password" });
     }
 
+    // 1. Check admin từ .env
+    if (
+      email === process.env.ADMIN_EMAIL &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const token = jwt.sign(
+        { email, role: "admin" },
+        process.env.JWT_SECRET as string,
+        { expiresIn: "1h" }
+      );
+
+      return res.json({
+        token,
+        user: {
+          id: "admin",
+          username: "Administrator",
+          role: "admin",
+          email,
+        },
+      });
+    }
+
+    // 2. Nếu không phải admin → check trong DB
     const db = await connectDB();
     const users = db.collection("users");
 
@@ -94,5 +118,20 @@ router.post("/login", async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error", error: err });
   }
 });
+
+// ✅ Protected route (test token)
+router.get("/me", verifyToken, (req: Request, res: Response) => {
+  res.json({ user: req.user });
+});
+
+// ✅ Admin-only route
+router.get(
+  "/admin",
+  verifyToken,
+  checkRole(["admin"]),
+  (req: Request, res: Response) => {
+    res.json({ message: "Welcome Admin!" });
+  }
+);
 
 export default router;

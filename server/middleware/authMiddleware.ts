@@ -4,13 +4,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-interface AuthPayload extends JwtPayload {
+// Payload trong token
+export interface AuthPayload extends JwtPayload {
   id: string;
   role: "student" | "teacher" | "admin";
   email: string;
 }
 
-interface AuthRequest extends Request {
+// Mở rộng type cho Request
+export interface AuthRequest extends Request {
   user?: AuthPayload;
 }
 
@@ -22,7 +24,7 @@ export const verifyToken = (
 ) => {
   const authHeader = req.headers["authorization"];
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return res
       .status(401)
       .json({ message: "Access denied. No token provided." });
@@ -36,9 +38,9 @@ export const verifyToken = (
       process.env.JWT_SECRET as string
     ) as AuthPayload;
 
-    req.user = decoded;
+    req.user = decoded; // ✅ không lỗi nữa
     next();
-  } catch (err) {
+  } catch {
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };
@@ -59,3 +61,6 @@ export const checkRole = (roles: Array<"student" | "teacher" | "admin">) => {
     next();
   };
 };
+
+// ✅ Shortcut dành riêng cho admin
+export const requireAdmin = checkRole(["admin"]);
