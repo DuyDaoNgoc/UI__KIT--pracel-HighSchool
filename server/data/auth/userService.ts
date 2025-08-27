@@ -1,6 +1,5 @@
 import { connectDB } from "../../configs/db";
 import { IUser, CreateUserInput, SafeUser } from "../../types/user";
-
 import bcrypt from "bcryptjs";
 
 export async function findUserByEmail(email: string): Promise<IUser | null> {
@@ -13,9 +12,18 @@ export async function createUser(input: CreateUserInput): Promise<SafeUser> {
   const hashedPassword = await bcrypt.hash(input.password, 10);
 
   const newUser: IUser = {
-    ...input,
+    username: input.username,
+    email: input.email,
     password: hashedPassword,
-    createdAt: new Date(),
+    role: input.role,
+    dob: input.dob,
+    class: input.class,
+    schoolYear: input.schoolYear,
+    phone: input.phone,
+    address: input.address,
+    avatar:
+      input.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png", // ✅ default avatar
+    createdAt: input.createdAt ?? new Date(), // ✅ giữ nếu truyền vào, không thì tạo mới
   };
 
   const result = await db.collection<IUser>("users").insertOne(newUser);

@@ -5,6 +5,13 @@ export interface User {
   username: string;
   email: string;
   role: Role;
+  dob?: Date;
+  class?: string;
+  schoolYear?: string;
+  phone?: string;
+  address?: string;
+  avatar: string;
+  createdAt: Date;
 }
 
 export interface LoginResponse {

@@ -1,4 +1,4 @@
-import { Document, ObjectId } from "mongodb";
+import { Document } from "mongoose";
 
 export type Role = "student" | "teacher" | "admin";
 
@@ -6,19 +6,24 @@ export interface IUser {
   _id?: string;
   username: string;
   email: string;
-  password: string; // hashed
+  password: string;
   role: Role;
   dob?: Date;
-  class?: string; // lớp
-  schoolYear?: string; // niên khóa
+  class?: string;
+  schoolYear?: string;
   phone?: string;
   address?: string;
-  createdAt?: Date;
+  avatar: string; // ✅ bắt buộc vì mongoose cần default
+  createdAt: Date; // ✅ luôn có khi lưu vào DB
 }
 
-// 👉 Đây là cho mongoose Document
-export interface IUserDocument extends IUser, Document {}
+// Input khi tạo user
+export type CreateUserInput = Omit<IUser, "_id" | "createdAt"> & {
+  createdAt?: Date;
+};
 
-// 👉 Các type tiện ích
-export type CreateUserInput = Omit<IUser, "_id" | "createdAt">;
+// Trả về FE (ẩn password)
 export type SafeUser = Omit<IUser, "password">;
+
+// ✅ alias cho mongoose
+export type IUserDocument = IUser & Document;

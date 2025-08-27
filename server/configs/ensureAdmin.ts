@@ -1,31 +1,22 @@
+import { Db } from "mongodb";
 import bcrypt from "bcryptjs";
-import { connectDB } from "./db";
 import { IUser } from "../types/user";
 
-export async function ensureAdminUser() {
-  const db = await connectDB();
-  const users = db.collection<IUser>("users");
+export async function ensureAdmin(db: Db) {
+  const adminEmail = "admin@example.com";
+  const existing = await db
+    .collection<IUser>("users")
+    .findOne({ email: adminEmail });
+  if (existing) return;
 
-  const adminEmail = process.env.ADMIN_EMAIL as string;
-  const adminPassword = process.env.ADMIN_PASSWORD as string;
+  const hashedPassword = await bcrypt.hash("admin123", 10);
 
-  if (!adminEmail || !adminPassword) {
-    console.warn("⚠️ ADMIN_EMAIL or ADMIN_PASSWORD missing in .env");
-    return;
-  }
-
-  const existing = await users.findOne({ email: adminEmail });
-  if (!existing) {
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-    await users.insertOne({
-      username: "Administrator",
-      email: adminEmail,
-      password: hashedPassword,
-      role: "admin",
-      createdAt: new Date(),
-    });
-    console.log("✅ Admin user created in DB");
-  } else {
-    console.log("ℹ️ Admin user already exists");
-  }
+  await db.collection<IUser>("users").insertOne({
+    username: "admin",
+    email: adminEmail,
+    password: hashedPassword,
+    role: "admin",
+    avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png", // ✅ thêm avatar mặc định
+    createdAt: new Date(),
+  });
 }

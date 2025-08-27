@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { http } from "../../lib/http";
-import { LoginResponse } from "../../types/auth";
+import { LoginResponse, User } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -8,7 +8,7 @@ const Login: React.FC = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // <- lấy hàm login từ context
+  const { login } = useAuth(); // context đòi SafeUser
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
@@ -20,7 +20,14 @@ const Login: React.FC = () => {
     try {
       const res = await http.post<LoginResponse>("/auth/login", form);
       const { user, token } = res.data;
-      login(user, token); // <- gọi login() để setUser + token
+
+      // ✅ ép FE User thành SafeUser (Date object)
+      const safeUser = {
+        ...user,
+        createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+      };
+
+      login(safeUser, token);
       alert("Login successful!");
       navigate("/");
     } catch (err: any) {
@@ -33,6 +40,7 @@ const Login: React.FC = () => {
   return (
     <form onSubmit={handleSubmit}>
       <h2>Login</h2>
+      <label>Email</label>
       <input
         name="email"
         type="email"
@@ -40,6 +48,7 @@ const Login: React.FC = () => {
         value={form.email}
         onChange={handleChange}
       />
+      <label>Password</label>
       <input
         name="password"
         type="password"

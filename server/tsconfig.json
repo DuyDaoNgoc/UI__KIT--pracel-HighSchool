@@ -9,7 +9,7 @@
     "isolatedModules": true,
     "baseUrl": "./src",
     "paths": {},
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./server/types", "./node_modules/@types"]
   },
   "include": ["src", "src/types", "server.ts"],
   "exclude": ["node_modules", "dist"]

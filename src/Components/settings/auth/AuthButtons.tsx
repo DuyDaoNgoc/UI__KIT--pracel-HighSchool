@@ -1,56 +1,88 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
-import { FaBars as HamburgerIcon } from "react-icons/fa"; // dùng icon trong react-icons
 
 export default function AuthButtons() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // menu items (viết cứng ở đây, sau có thể tách ra file config)
-  const menuItems = {
-    hotels: "Khách sạn",
-    airlines: "Hãng bay",
-    vacation: "Kỳ nghỉ",
-    find_more: "Xem thêm",
-  };
-
   if (user) {
     return (
-      <div className="creater__user">
+      <div className="creater__user" style={{ position: "relative" }}>
         <span>
-          <b>{user.username}</b> ({user.role})
+          {" "}
+          <b>{user.username}</b> ({user.role}){" "}
         </span>
-
-        {/* hamburger */}
-        <div className="hamburger" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-          <HamburgerIcon />
+        <div
+          className="avatar"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            overflow: "hidden",
+            cursor: "pointer",
+            border: "2px solid #ccc",
+          }}
+        >
+          <img
+            src={user.avatar || "https://via.placeholder.com/40"}
+            alt="avatar"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         </div>
 
-        {/* MOBILE MENU */}
+        {/* Dropdown menu */}
         {isMenuOpen && (
-          <div className="mobile-menu">
-            <ul>
-              <li>
-                <a href="/">{menuItems.hotels}</a>
+          <div
+            className="dropdown-menu"
+            style={{
+              position: "absolute",
+              top: "50px",
+              right: 0,
+              background: "#fff",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+              borderRadius: "8px",
+              padding: "10px",
+              minWidth: "180px",
+              zIndex: 999,
+            }}
+          >
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              <li
+                style={{ padding: "8px", cursor: "pointer" }}
+                onClick={() => navigate("/profile")}
+              >
+                Thông tin cá nhân
               </li>
-              <li>
-                <a href="/airlines">{menuItems.airlines}</a>
+              <li
+                style={{ padding: "8px", cursor: "pointer" }}
+                onClick={() => navigate("/schedule")}
+              >
+                Lịch học
               </li>
-              <li>
-                <a href="/vacation">{menuItems.vacation}</a>
+              <li
+                style={{ padding: "8px", cursor: "pointer" }}
+                onClick={() => navigate("/tuition")}
+              >
+                Học phí
               </li>
-              <li>
-                <a href="/find-more">{menuItems.find_more}</a>
+              <li
+                style={{
+                  padding: "8px",
+                  cursor: "pointer",
+                  color: "red",
+                  borderTop: "1px solid #eee",
+                  marginTop: "5px",
+                }}
+                onClick={logout}
+              >
+                Đăng xuất
               </li>
             </ul>
           </div>
         )}
-
-        <button className="creater__user--btn" onClick={logout}>
-          Đăng xuất
-        </button>
       </div>
     );
   }

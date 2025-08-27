@@ -28,7 +28,11 @@ export async function registerUser(req: Request, res: Response) {
     const userRole: IUser["role"] =
       role === "teacher" ? "teacher" : role === "admin" ? "admin" : "student";
 
-    // createUser đã trả về SafeUser (không có password)
+    // ✅ avatar chắc chắn là string
+    const avatar: string = (req as any).file?.filename
+      ? `/uploads/${(req as any).file.filename}`
+      : "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+
     const safeUser = await createUser({
       username,
       email,
@@ -39,6 +43,8 @@ export async function registerUser(req: Request, res: Response) {
       schoolYear,
       phone,
       address,
+      avatar, // luôn là string
+      createdAt: new Date(),
     });
 
     return res

@@ -6,9 +6,10 @@ import { connectDB, ensureIndexes } from "./configs/db";
 import bcrypt from "bcryptjs";
 import { IUser } from "./types/user";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
+import path from "path";
 
 dotenv.config();
-
+import { User } from "./models/user";
 // 👉 Khai báo mở rộng type cho Express.Request
 declare global {
   namespace Express {
@@ -33,6 +34,8 @@ app.use("/api/auth", authRoutes);
 app.get("/api/protected", verifyToken, (req, res) => {
   res.json({ message: "✅ Access granted", user: req.user });
 });
+// upload file avatar
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Route chỉ cho admin
 app.get("/api/admin", verifyToken, checkRole(["admin"]), (req, res) => {
