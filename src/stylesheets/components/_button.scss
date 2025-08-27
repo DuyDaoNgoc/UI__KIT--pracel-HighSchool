@@ -171,4 +171,9 @@
 
 .mobile-auth {
   margin-top: 20px;
+  @include mobile {
+    display: block;
+    z-index: 100;
+    color: white;
+  }
 }

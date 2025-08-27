@@ -1,83 +1,58 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import avatar from "../../../../public/assets/imgs/avatar/avatar.jpg";
+
+interface User {
+  username: string;
+  role: string;
+  avatar?: string;
+}
 
 export default function AuthButtons() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth() as {
+    user: User | null;
+    logout: () => void;
+  };
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (user) {
     return (
-      <div className="creater__user" style={{ position: "relative" }}>
-        <span>
-          {" "}
-          <b>{user.username}</b> ({user.role}){" "}
+      <div className="creater__user text__content--size-18 ">
+        <span className="creater__user--color">
+          <b>{user.username}</b> ({user.role})
         </span>
-        <div
-          className="avatar"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            overflow: "hidden",
-            cursor: "pointer",
-            border: "2px solid #ccc",
-          }}
-        >
+        <div className="avatar" onClick={() => setIsMenuOpen(!isMenuOpen)}>
           <img
-            src={user.avatar || "https://via.placeholder.com/40"}
+            src={user.avatar || avatar}
             alt="avatar"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            className="avatar-image"
           />
         </div>
 
-        {/* Dropdown menu */}
         {isMenuOpen && (
-          <div
-            className="dropdown-menu"
-            style={{
-              position: "absolute",
-              top: "50px",
-              right: 0,
-              background: "#fff",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-              borderRadius: "8px",
-              padding: "10px",
-              minWidth: "180px",
-              zIndex: 999,
-            }}
-          >
-            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          <div className="dropdown-menu">
+            <ul className="dropdown-menu--list">
               <li
-                style={{ padding: "8px", cursor: "pointer" }}
+                className="dropdown-menu--list-item"
                 onClick={() => navigate("/profile")}
               >
                 Thông tin cá nhân
               </li>
               <li
-                style={{ padding: "8px", cursor: "pointer" }}
+                className="dropdown-menu--list-item"
                 onClick={() => navigate("/schedule")}
               >
                 Lịch học
               </li>
               <li
-                style={{ padding: "8px", cursor: "pointer" }}
+                className="dropdown-menu--list-item"
                 onClick={() => navigate("/tuition")}
               >
                 Học phí
               </li>
-              <li
-                style={{
-                  padding: "8px",
-                  cursor: "pointer",
-                  color: "red",
-                  borderTop: "1px solid #eee",
-                  marginTop: "5px",
-                }}
-                onClick={logout}
-              >
+              <li className="dropdown-menu--list-logout" onClick={logout}>
                 Đăng xuất
               </li>
             </ul>
@@ -90,13 +65,16 @@ export default function AuthButtons() {
   return (
     <div className="creater__user">
       <button
-        className="creater__user--btn"
+        className="creater__user--btn  text__content--size-18 "
+        onClick={() => navigate("/login")}
+      >
+        Đăng nhập
+      </button>
+      <button
+        className="creater__user--btn  text__content--size-18"
         onClick={() => navigate("/register")}
       >
         Đăng ký
-      </button>
-      <button className="creater__user--btn" onClick={() => navigate("/login")}>
-        Đăng nhập
       </button>
     </div>
   );

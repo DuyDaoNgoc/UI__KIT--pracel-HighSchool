@@ -3,8 +3,12 @@ import HeaderImg from "../../public/assets/imgs/background/background.png";
 import HamburgerIcon from "../icons/Hamburger";
 import VideoFrame from "../Components/settings/VideoFrame";
 import AuthButtons from "../Components/settings/auth/AuthButtons";
-
-type HeaderItem = {
+import NavDesktop from "./header/NavDesktop";
+import MobileMenu from "./header/MobileMenu";
+import FacebookIcon from "../icons/Facebook";
+import Twitter from "../icons/Twitter";
+import Instagram from "../icons/Instagram";
+export type HeaderItem = {
   hotels: string;
   airlines: string;
   vacation: string;
@@ -39,6 +43,7 @@ export default function Header({ list }: HeaderProps) {
 
           {/* HEADER */}
           <header className="header">
+            {/* Logo */}
             <div>
               <h1 className="logo">
                 <a href="#">H.</a>
@@ -46,33 +51,15 @@ export default function Header({ list }: HeaderProps) {
             </div>
 
             {/* NAV DESKTOP */}
-            <nav className="nav-desktop">
-              <ul className="main__menu">
-                <li className="li">
-                  <a className="items__icons--size" href="/">
-                    {item.hotels}
-                  </a>
-                </li>
-                <li className="li">
-                  <a className="items__icons--size" href="/airlines">
-                    {item.airlines}
-                  </a>
-                </li>
-                <li className="li">
-                  <a className="items__icons--size" href="/vacation">
-                    {item.vacation}
-                  </a>
-                </li>
-                <li className="li">
-                  <a className="items__icons--size" href="/find-more">
-                    {item.find_more}
-                  </a>
-                </li>
-              </ul>
-            </nav>
+            <NavDesktop item={item} />
 
+            <div className="icon--flex-mobile items__icons--size ">
+              <FacebookIcon />
+              <Instagram />
+              <Twitter />
+            </div>
             {/* AUTH BUTTONS - desktop */}
-            <div className="creater__user">
+            <div className="creater__user  creater__user--desktop">
               <AuthButtons />
             </div>
 
@@ -86,27 +73,7 @@ export default function Header({ list }: HeaderProps) {
           </header>
 
           {/* MOBILE MENU */}
-          {isMenuOpen && (
-            <div className="mobile-menu">
-              <ul>
-                <li>
-                  <a href="/">{item.hotels}</a>
-                </li>
-                <li>
-                  <a href="/airlines">{item.airlines}</a>
-                </li>
-                <li>
-                  <a href="/vacation">{item.vacation}</a>
-                </li>
-                <li>
-                  <a href="/find-more">{item.find_more}</a>
-                </li>
-              </ul>
-              <div className="mobile-auth">
-                <AuthButtons />
-              </div>
-            </div>
-          )}
+          {isMenuOpen && <MobileMenu item={item} />}
 
           {/* VIDEO FRAME */}
           <VideoFrame

@@ -21,7 +21,7 @@ import Register from "./pages/auth/Register";
 
 // Import AuthProvider + AuthButtons
 import { AuthProvider } from "./context/AuthContext";
-import AuthButtons from "./Components/settings/auth/AuthButtons"; // ✅ sửa lại path cho chuẩn (chữ thường)
+import AuthButtons from "./Components/settings/auth/AuthButtons";
 
 const Airlines = () => <h2>Airlines Page</h2>;
 const Vacation = () => <h2>Vacation Page</h2>;
