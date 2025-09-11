@@ -45,17 +45,17 @@ export default function Home() {
       <Features
         list={[
           {
-            title: "Features",
-            subtitle: "WE’RE TAKING IT TO THE NEXT LEVEL",
-            subtile_phone: "RESPONSIVE LAYOUT",
+            title: "Trường Học",
+            subtitle: "KIẾN TẠO TƯƠNG LAI HỌC SINH",
+            subtile_phone: "ĐỘI NGŨ GIÁO VIÊN TẬN TÂM",
             content_phone:
-              "The past few years have seen a dramatic change in the public perception of cosmetic surgery.",
-            subtile_diamon: "PIXEL PERFECT",
+              "Giáo viên giàu kinh nghiệm, nhiệt huyết và luôn đồng hành cùng học sinh.",
+            subtile_diamon: "CHƯƠNG TRÌNH HỌC HIỆN ĐẠI",
             content_diamon:
-              "About 64% of all on-line teens say that do things online that they wouldn’t want their parents to know about.",
-            subtitle_layer: "ORGANIZED LAYERS",
+              "Nội dung giảng dạy được cập nhật, bám sát thực tiễn và tiêu chuẩn quốc tế.",
+            subtitle_layer: "HOẠT ĐỘNG NGOẠI KHÓA PHONG PHÚ",
             content_layer:
-              "Are you one of the thousands of Iphone owners who has no idea that they can get free games for their Iphone?",
+              "Các hoạt động đa dạng giúp học sinh phát triển kỹ năng mềm và sáng tạo.",
             mac: mac,
           },
         ]}

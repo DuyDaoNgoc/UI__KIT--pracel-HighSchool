@@ -1,33 +1,55 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import { SafeUser } from "../../server/types/user";
+// src/context/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useState } from "react";
+import type { User } from "../types/auth";
 
-interface AuthContextType {
-  user: SafeUser | null;
+type AuthContextValue = {
+  user: User | null;
   token: string | null;
-  login: (user: SafeUser, token: string) => void;
+  login: (user: User, token: string) => void;
   logout: () => void;
-}
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  token: null,
+  login: () => {},
+  logout: () => {},
+});
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<SafeUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const login = (user: SafeUser, token: string) => {
-    setUser(user);
-    setToken(token);
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+  useEffect(() => {
+    const rawUser = localStorage.getItem("user");
+    const rawToken = localStorage.getItem("token");
+    if (rawUser && rawToken) {
+      try {
+        const parsed: User = JSON.parse(rawUser);
+        setUser(parsed);
+        setToken(rawToken);
+      } catch {
+        // corrupted -> clear
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
+    }
+  }, []);
+
+  const login = (u: User, t: string) => {
+    setUser(u);
+    setToken(t);
+    localStorage.setItem("user", JSON.stringify(u));
+    localStorage.setItem("token", t);
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
   };
 
   return (
@@ -37,8 +59,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}
+export const useAuth = () => useContext(AuthContext);

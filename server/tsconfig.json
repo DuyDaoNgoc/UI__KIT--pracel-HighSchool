@@ -7,10 +7,9 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "baseUrl": "./src",
-    "paths": {},
-    "typeRoots": ["./server/types", "./node_modules/@types"]
+    "baseUrl": "./",
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
-  "include": ["src", "src/types", "server.ts"],
+  "include": ["*.ts", "utils/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -9,7 +9,10 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "baseUrl": "./src",
-    "paths": {},
+    "paths": {
+      "@server/*": ["../server/*"],
+      "@/*": ["*"]
+    },
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src", "src/types"],

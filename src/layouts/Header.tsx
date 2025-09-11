@@ -27,10 +27,10 @@ export default function Header({ list }: HeaderProps) {
       ? list
       : [
           {
-            hotels: "Hotels",
-            airlines: "Airlines",
-            vacation: "Vacation",
-            find_more: "Find More",
+            hotels: "Trang chủ",
+            airlines: "Giới thiệu",
+            vacation: "Đội ngũ",
+            find_more: "Tuyển sinh",
           },
         ];
 
@@ -77,7 +77,11 @@ export default function Header({ list }: HeaderProps) {
 
           {/* VIDEO FRAME */}
           <VideoFrame
-            list={[{ title: "See The Unmatched Beauty Of The Great Lakes" }]}
+            list={[
+              {
+                title: "Trải nghiệm môi trường học tập toàn diện",
+              },
+            ]}
           />
         </section>
       ))}

@@ -10,6 +10,9 @@ import Documentation from "../pages/Contents/Documentation";
 import Help from "../pages/Contents/Help";
 import Privacy from "../pages/Contents/Privacy";
 
+// ✅ import thêm các page mới
+import Profile from "../pages/Profile/Profile";
+
 const AppRouter: React.FC = () => {
   return (
     <Router>
@@ -21,6 +24,9 @@ const AppRouter: React.FC = () => {
         <Route path="/documentation" element={<Documentation />} />
         <Route path="/help" element={<Help />} />
         <Route path="/privacy" element={<Privacy />} />
+
+        {/* ✅ thêm các route cho user */}
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>
   );

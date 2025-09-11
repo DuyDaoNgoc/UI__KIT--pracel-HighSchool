@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "predev": "npm run clean",
-    "client": "parcel index.html --dist-dir dist --public-url / --port 5000 --open --host UI-kit.com",
+    "client": "parcel index.html --dist-dir dist --public-url / --port 5000 --host 0.0.0.0",
     "server": "cd server && ts-node-dev index.ts",
     "dev": "concurrently \"npm run client\" \"npm run server\"",
     "build": "parcel build index.html --dist-dir dist --public-url https://UI-kit.com/",
@@ -13,6 +13,9 @@
   "alias": {
     "assets": "./public/assets"
   },
+  "proxy": {
+    "/api": "http://UI-kit.com:5000"
+  },
   "dependencies": {
     "aos": "^2.3.4",
     "axios": "^1.11.0",
@@ -21,6 +24,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.542.0",
     "mongodb": "^6.18.0",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
@@ -51,6 +55,8 @@
     "posthtml-include": "^2.0.1",
     "rimraf": "^6.0.1",
     "sass": "^1.90.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.2"
   },
   "posthtml": {

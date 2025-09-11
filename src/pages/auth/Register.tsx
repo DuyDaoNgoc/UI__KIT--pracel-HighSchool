@@ -14,6 +14,7 @@ const Register: React.FC = () => {
     schoolYear: "",
     phone: "",
     address: "",
+    children: [] as string[], // nếu là phụ huynh
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -23,6 +24,13 @@ const Register: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setForm((s) => ({ ...s, [name]: value }));
+  };
+
+  // riêng cho children (nhập nhiều con cách nhau bằng dấu phẩy)
+  const handleChildrenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const children = value.split(",").map((c) => c.trim());
+    setForm((s) => ({ ...s, children }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,6 +75,7 @@ const Register: React.FC = () => {
       <select name="role" value={form.role} onChange={handleChange}>
         <option value="student">Student</option>
         <option value="teacher">Teacher</option>
+        <option value="parent">Parent</option>
       </select>
 
       <input name="dob" type="date" value={form.dob} onChange={handleChange} />
@@ -94,6 +103,14 @@ const Register: React.FC = () => {
         value={form.address}
         onChange={handleChange}
       />
+
+      {form.role === "parent" && (
+        <input
+          name="children"
+          placeholder="Children IDs (comma separated)"
+          onChange={handleChildrenChange}
+        />
+      )}
 
       <button type="submit" disabled={loading}>
         {loading ? "..." : "Register"}

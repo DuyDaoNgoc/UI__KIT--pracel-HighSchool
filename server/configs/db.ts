@@ -1,5 +1,6 @@
 // server/configs/db.ts
 import { MongoClient, ServerApiVersion, Db } from "mongodb";
+import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -14,27 +15,36 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-  // fix lỗi ssl trên windows khi dùng Atlas hoặc local
-  ssl: uri.startsWith("mongodb+srv"), // Atlas thì true, local thì false
+  ssl: uri.startsWith("mongodb+srv"),
   tlsAllowInvalidCertificates: true,
 });
 
-let db: Db;
+let db: Db | undefined;
 
 export async function connectDB(): Promise<Db> {
   if (!db) {
     try {
+      // connect native driver
       await client.connect();
       db = client.db(process.env.MONGO_DB_NAME || "Duy04");
       console.log(
-        `✅ MongoDB connected → ${process.env.MONGO_DB_NAME || "Duy04"}`
+        `✅ MongoClient connected → ${process.env.MONGO_DB_NAME || "Duy04"}`
       );
+
+      // connect mongoose (so your mongoose models work)
+      if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(uri, {
+          dbName: process.env.MONGO_DB_NAME || "Duy04",
+          // mongoose v8 defaults are ok; you can set options if needed
+        });
+        console.log("✅ Mongoose connected");
+      }
     } catch (err) {
       console.error("❌ MongoDB connection failed:", err);
       process.exit(1);
     }
   }
-  return db;
+  return db!;
 }
 
 export async function ensureIndexes() {

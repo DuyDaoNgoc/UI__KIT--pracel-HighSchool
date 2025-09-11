@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { http } from "../../lib/http";
-import { LoginResponse, User } from "../../types/auth";
+import { LoginResponse } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -8,7 +8,7 @@ const Login: React.FC = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // context đòi SafeUser
+  const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
@@ -21,13 +21,9 @@ const Login: React.FC = () => {
       const res = await http.post<LoginResponse>("/auth/login", form);
       const { user, token } = res.data;
 
-      // ✅ ép FE User thành SafeUser (Date object)
-      const safeUser = {
-        ...user,
-        createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
-      };
+      // ✅ dùng luôn user, không convert createdAt
+      login(user, token);
 
-      login(safeUser, token);
       alert("Login successful!");
       navigate("/");
     } catch (err: any) {

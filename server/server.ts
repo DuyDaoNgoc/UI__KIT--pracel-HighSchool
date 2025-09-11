@@ -1,22 +1,27 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./Routers/auth";
-import { connectDB, ensureIndexes } from "./configs/db";
-import bcrypt from "bcryptjs";
-import { IUser } from "./types/user";
-import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import path from "path";
+import os from "os";
+
+import authRoutes from "./Routers/auth";
+import newsRoutes from "./Routers/news";
+import gradesRoutes from "./Routers/grades";
+import adminRoutes from "./Routers/admin";
+import teacherRoutes from "./Routers/teacherAuth";
+
+import { connectDB, ensureIndexes } from "./configs/db";
+import { verifyToken, checkRole } from "./middleware/authMiddleware";
+import { checkGradesLock } from "./middleware/checkLock";
 
 dotenv.config();
-import { User } from "./models/user";
-// 👉 Khai báo mở rộng type cho Express.Request
+
 declare global {
   namespace Express {
     interface Request {
       user?: {
         id: string;
-        role: "student" | "teacher" | "admin";
+        role: "student" | "teacher" | "admin" | "parent";
         email: string;
       };
     }
@@ -24,58 +29,78 @@ declare global {
 }
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// ================== API Routes ==================
 app.use("/api/auth", authRoutes);
+app.use("/api/news", newsRoutes);
 
-// ✅ Route test bảo vệ bởi token
-app.get("/api/protected", verifyToken, (req, res) => {
+// 👉 Tất cả API nhập điểm/giáo viên sẽ check lock từ MongoDB
+app.use("/api/grades", checkGradesLock, gradesRoutes);
+app.use("/api/teachers", checkGradesLock, teacherRoutes);
+
+// Admin route (không check lock, admin được phép mở/đóng)
+app.use("/api/admin", adminRoutes);
+
+app.get("/api/protected", verifyToken, (req: Request, res: Response) => {
   res.json({ message: "✅ Access granted", user: req.user });
 });
-// upload file avatar
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ✅ Route chỉ cho admin
-app.get("/api/admin", verifyToken, checkRole(["admin"]), (req, res) => {
-  res.json({ message: "✅ Admin access", user: req.user });
+app.get(
+  "/api/admin/test",
+  verifyToken,
+  checkRole(["admin"]),
+  (req: Request, res: Response) => {
+    res.json({ message: "✅ Admin access", user: req.user });
+  }
+);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/videos", express.static(path.join(__dirname, "uploads/videos")));
+
+// ================== Serve Frontend Build ==================
+app.use(express.static(path.join(__dirname, "../dist")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../dist/index.html"));
 });
 
-// ✅ Seed admin user (upsert tránh lỗi duplicate key)
-async function seedAdmin() {
-  const db = await connectDB();
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+// ================== Start Server ==================
+const PORT = Number(process.env.PORT) || 8000;
+const HOST = "0.0.0.0"; // cho phép kết nối LAN
 
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
-
-  const users = db.collection<IUser>("users");
-
-  const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-
-  await users.updateOne(
-    { username: "admin" }, // 🔑 filter theo username
-    {
-      $set: {
-        username: "admin",
-        email: ADMIN_EMAIL,
-        password: hash,
-        role: "admin",
-        createdAt: new Date(),
-      },
-    },
-    { upsert: true }
-  );
-
-  console.log("✅ Admin ensured:", ADMIN_EMAIL);
+function getLocalIP() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]!) {
+      if (net.family === "IPv4" && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return "localhost";
 }
 
-const PORT = Number(process.env.PORT) || 8000;
-
 (async () => {
-  await connectDB();
-  await ensureIndexes();
-  await seedAdmin();
-  app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
+  try {
+    await connectDB();
+    await ensureIndexes();
+
+    app.listen(PORT, HOST, () => {
+      const localIP = getLocalIP();
+
+      console.log("🚀 Backend + Frontend running at:");
+      console.log(`   → Local:  http://UI-KIT.com:${PORT}`);
+      console.log(`   → LAN:    http://${localIP}:${PORT}`);
+      console.log(`📰 News API:      http://${localIP}:${PORT}/api/news`);
+      console.log(`🔑 Auth API:      http://${localIP}:${PORT}/api/auth`);
+      console.log(`📊 Grades API:    http://${localIP}:${PORT}/api/grades`);
+      console.log(`🛠️ Admin API:     http://${localIP}:${PORT}/api/admin`);
+      console.log(`👨‍🏫 Teacher API:  http://${localIP}:${PORT}/api/teachers`);
+    });
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
+    process.exit(1);
+  }
 })();

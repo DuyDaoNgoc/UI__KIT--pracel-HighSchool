@@ -62,11 +62,49 @@
   max-width: 1200px;
 }
 .mac {
-  width: 802px;
-  height: 464px;
-  @include mobile {
-    width: 290px;
-    height: 168.32px;
-    margin-top: 37px;
+  position: relative;
+  & img {
+    width: 802px;
+    height: 464px;
+    position: relative;
+    z-index: 1;
+    @include mobile {
+      width: 290px;
+      height: 168.32px;
+      margin-top: 37px;
+    }
+  }
+
+  &::before {
+    content: "";
+    z-index: 9999;
+    background-image: url("../../public/assets/imgs/project/highschool.jpg");
+    background-position: center;
+    background-size: cover;
+    width: 609px;
+    height: 381px;
+    display: block;
+    position: absolute;
+    top: 7%;
+    left: 12%;
+    animation: fadeInUp 1s ease forwards;
+    @include mobile {
+      width: 400px;
+      width: 218px;
+      height: 134px;
+      top: 24%;
+      left: 13%;
+    }
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

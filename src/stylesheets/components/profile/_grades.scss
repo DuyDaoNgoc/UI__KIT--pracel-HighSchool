@@ -1,0 +1,25 @@
+/* src/pages/Profile/grades.css */
+.locked-status {
+  color: #c00;
+  font-weight: 700;
+}
+
+.unlocked-status {
+  color: #0a7;
+  font-weight: 700;
+}
+
+.grade-request-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+
+.grade-request-btn.disabled,
+.grade-request-btn[disabled] {
+  background: #f5f5f5;
+  cursor: not-allowed;
+  color: #888;
+}

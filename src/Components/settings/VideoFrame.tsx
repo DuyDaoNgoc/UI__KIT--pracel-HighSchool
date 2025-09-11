@@ -1,6 +1,6 @@
 import React from "react";
 import videohc from "../../../public/assets/videos/videoframe.mp4";
-import { useVideoPlayer } from "../../../server/data/hook/useVideoPlayer";
+import { useVideoPlayer } from "./hook/useVideoPlayer";
 
 const VideoFrame = ({
   list,

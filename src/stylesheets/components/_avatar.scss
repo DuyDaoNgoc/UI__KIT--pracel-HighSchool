@@ -52,6 +52,15 @@
     color: white;
   }
 }
+.border-register {
+  background: $light-yellow;
+  padding: 15px;
+  border-radius: 10px;
+  &:hover {
+    background: white;
+    color: $light-yellow;
+  }
+}
 .dropdown-menu {
   position: absolute;
   top: 50px;

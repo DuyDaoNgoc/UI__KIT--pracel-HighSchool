@@ -2,12 +2,16 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { connectDB } from "../configs/db";
-import { verifyToken, checkRole } from "../middleware/authMiddleware";
+import {
+  verifyToken,
+  checkRole,
+  AuthRequest,
+} from "../middleware/authMiddleware";
 
 const router = Router();
 
-// Register
-router.post("/register", async (req: Request, res: Response) => {
+// ----- Register User -----
+router.post("/register", async (req: AuthRequest, res: Response) => {
   try {
     const {
       username,
@@ -22,7 +26,9 @@ router.post("/register", async (req: Request, res: Response) => {
     } = req.body;
 
     if (!username || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields" });
     }
 
     const db = await connectDB();
@@ -30,12 +36,14 @@ router.post("/register", async (req: Request, res: Response) => {
 
     const existingUser = await users.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await users.insertOne({
+    const newUser = {
       username,
       email,
       password: hashedPassword,
@@ -46,35 +54,47 @@ router.post("/register", async (req: Request, res: Response) => {
       phone,
       address,
       createdAt: new Date(),
-    });
+    };
 
-    res.status(201).json({ message: "User registered successfully" });
+    await users.insertOne(newUser);
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      user: { email, role: newUser.role },
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Register error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err });
   }
 });
 
-// Login
-router.post("/login", async (req: Request, res: Response) => {
+// ----- Login -----
+router.post("/login", async (req: AuthRequest, res: Response) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Missing email or password" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing email or password" });
     }
 
-    // 1. Check admin từ .env
+    // ----- Check admin from .env -----
     if (
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
       const token = jwt.sign(
-        { email, role: "admin" },
+        { id: "admin", email, role: "admin" },
         process.env.JWT_SECRET as string,
-        { expiresIn: "1h" }
+        { expiresIn: "1d" }
       );
 
       return res.json({
+        success: true,
         token,
         user: {
           id: "admin",
@@ -85,52 +105,60 @@ router.post("/login", async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Nếu không phải admin → check trong DB
+    // ----- Check regular users in DB -----
     const db = await connectDB();
     const users = db.collection("users");
-
     const user = await users.findOne({ email });
+
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid email or password" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid email or password" });
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id.toString(), email: user.email, role: user.role },
       process.env.JWT_SECRET as string,
-      { expiresIn: "1h" }
+      { expiresIn: "1d" }
     );
 
     res.json({
+      success: true,
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         username: user.username,
         role: user.role,
         email: user.email,
       },
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Login error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err });
   }
 });
 
-// ✅ Protected route (test token)
-router.get("/me", verifyToken, (req: Request, res: Response) => {
-  res.json({ user: req.user });
+// ----- Test token (protected route) -----
+router.get("/me", verifyToken, (req: AuthRequest, res: Response) => {
+  res.json({ success: true, user: req.user });
 });
 
-// ✅ Admin-only route
+// ----- Admin-only test route -----
 router.get(
   "/admin",
   verifyToken,
   checkRole(["admin"]),
-  (req: Request, res: Response) => {
-    res.json({ message: "Welcome Admin!" });
+  (req: AuthRequest, res: Response) => {
+    res.json({ success: true, message: "Welcome Admin!", user: req.user });
   }
 );
 

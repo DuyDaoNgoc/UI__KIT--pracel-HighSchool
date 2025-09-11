@@ -11,6 +11,11 @@ import Home from "./pages/Home";
 import Header from "./layouts/Header";
 import Footer from "./layouts/Footer";
 import { footerData } from "../server/data/footerData";
+// profile
+import Profile from "./pages/Profile/Profile";
+import ParentProfile from "./pages/Profile/ParentProfile";
+import TeacherProfile from "./pages/Profile/TeacherProfile";
+import AdminProfile from "./pages/Profile/admin/AdminProfile";
 
 import AOS from "aos";
 import "aos/dist/aos.css";
@@ -50,11 +55,17 @@ function Layout() {
             <Header />
           ) : (
             <nav className="sub-header">
-              <div className="sub-header__links">
-                <Link to="/">Hotels</Link> |{" "}
-                <Link to="/airlines">Airlines</Link> |{" "}
-                <Link to="/vacation">Vacation</Link> |{" "}
-                <Link to="/find-more">Find More</Link>
+              {/* Logo */}
+              <div>
+                <h1 className="logo">
+                  <a href="#">H.</a>
+                </h1>
+              </div>
+              <div className="sub-header__links text__content--size-18">
+                <Link to="/">Trang chủ</Link>{" "}
+                <Link to="/airlines">Giới thiệu</Link>{" "}
+                <Link to="/vacation">Đội ngũ</Link>{" "}
+                <Link to="/find-more">Tuyển sinh</Link>
               </div>
 
               {/* 👇 Nút đăng nhập / đăng ký / đăng xuất */}
@@ -74,6 +85,10 @@ function Layout() {
         <Route path="/find-more" element={<FindMore />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/parent" element={<ParentProfile />} />
+        <Route path="/profile/teacher" element={<TeacherProfile />} />
+        <Route path="/profile/admin" element={<AdminProfile />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
 
