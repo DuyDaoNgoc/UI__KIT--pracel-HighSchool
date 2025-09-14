@@ -19,12 +19,17 @@ export interface AuthPayload extends JwtPayload {
   }[];
 }
 
+// Dùng generic để Express Request nhận user
 export interface AuthRequest extends Request {
   user?: AuthPayload;
 }
 
 // ----- Verify JWT -----
-export const verifyToken: RequestHandler = (req, res, next) => {
+export const verifyToken: RequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided." });
@@ -37,31 +42,14 @@ export const verifyToken: RequestHandler = (req, res, next) => {
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as JwtPayload;
+    ) as AuthPayload;
 
-    // Kiểm tra các trường bắt buộc
-    if (
-      !decoded ||
-      typeof decoded.id !== "string" ||
-      !decoded.role ||
-      !decoded.email
-    ) {
+    if (!decoded.id || !decoded.role || !decoded.email) {
       return res.status(403).json({ message: "Invalid token payload" });
     }
 
-    // Tạo object chắc chắn kiểu AuthPayload
-    const user: AuthPayload = {
-      id: decoded.id,
-      role: decoded.role as UserRole,
-      email: decoded.email,
-    };
-
-    if ("children" in decoded) {
-      user.children = decoded.children as AuthPayload["children"];
-    }
-
-    // Gán vào req
-    (req as AuthRequest).user = user;
+    // Gán trực tiếp vào req.user
+    (req as AuthRequest).user = decoded;
 
     next();
   } catch (err) {

@@ -7,27 +7,33 @@ import { useAuth } from "../../context/AuthContext";
 const Login: React.FC = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage("");
+
     try {
       const res = await http.post<LoginResponse>("/auth/login", form);
-      const { user, token } = res.data;
+      const { success, user, token, message } = res.data;
 
-      // ✅ dùng luôn user, không convert createdAt
-      login(user, token);
-
-      alert("Login successful!");
-      navigate("/");
+      if (success) {
+        login(user, token);
+        navigate("/"); // ✅ chuyển sang trang chủ
+      } else {
+        setMessage(message || "❌ Unexpected response from server");
+      }
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Login error");
+      const errorMessage =
+        err?.response?.data?.message || "❌ Cannot connect to server";
+      setMessage(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -43,6 +49,7 @@ const Login: React.FC = () => {
         placeholder="Email"
         value={form.email}
         onChange={handleChange}
+        required
       />
       <label>Password</label>
       <input
@@ -51,10 +58,13 @@ const Login: React.FC = () => {
         placeholder="Password"
         value={form.password}
         onChange={handleChange}
+        required
       />
       <button type="submit" disabled={loading}>
         {loading ? "..." : "Login"}
       </button>
+
+      {message && <p style={{ color: "red", marginTop: "8px" }}>{message}</p>}
     </form>
   );
 };

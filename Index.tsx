@@ -1,12 +1,8 @@
-import { AppRegistry } from "react-native-web";
+import React from "react";
+import ReactDOM from "react-dom/client";
 import App from "./src/App";
 
-// Import SCSS entry point
 import "./src/stylesheets/main.scss";
 
-// Register RNW app
-AppRegistry.registerComponent("App", () => App);
-
-// Mount vào div#root trong index.html
-const rootTag = document.getElementById("root");
-AppRegistry.runApplication("App", { rootTag });
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+root.render(<App />);

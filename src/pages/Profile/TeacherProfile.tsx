@@ -3,52 +3,72 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import axiosInstance from "../../api/axiosConfig";
 import type { JSX } from "react";
-import type { ILockResp } from "../../types/lock";
+import type { User } from "../../types/auth"; // FE User type
 
+// ----- Types -----
+export type IGrade = { subject: string; score: number };
 
-type IGrade = { subject: string; score: number };
-interface IStudent {
+export interface IStudent {
   _id: string;
   username: string;
   class?: string;
   schoolYear?: string;
   grades?: IGrade[];
-  // optional: teacherId, etc.
+  // plus any other optional fields
+  [k: string]: any;
 }
-interface IDailyReport {
+
+export interface IDailyReport {
   date: string;
   summary: string;
   updatesRequested: number;
   notes?: string;
 }
 
+// Small FE user shape (we rely on src/types/auth.User, but allow flexible access)
+type FEUser = User & { [k: string]: any };
+
+// ----- Component -----
 export default function TeacherProfile(): JSX.Element {
-  const { user: teacher, logout } = useAuth() as {
-    user: { _id: string; username: string; email: string } | null;
-    token?: string | null;
+  // useAuth returns { user, token, login, logout } per your AuthContext
+  const {
+    user: ctxUser,
+    token: ctxToken,
+    logout,
+  } = useAuth() as {
+    user: User | null;
+    token: string | null;
     login?: (u: any, t: string) => void;
     logout?: () => void;
   };
+
+  // local teacher state (fallback to localStorage if context not ready)
+  const [teacher, setTeacher] = useState<FEUser | null>(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (!raw) return (ctxUser as FEUser) ?? null;
+      const parsed = JSON.parse(raw) as FEUser;
+      return (ctxUser as FEUser) ?? parsed ?? null;
+    } catch {
+      return (ctxUser as FEUser) ?? null;
+    }
+  });
 
   // ---------- UI state ----------
   const [activeTab, setActiveTab] = useState<
     "info" | "students" | "reports" | "settings"
   >("students");
 
-  // students
   const [students, setStudents] = useState<IStudent[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
 
-  // filters
   const [filterYear, setFilterYear] = useState<string>("all");
   const [filterClass, setFilterClass] = useState<string>("all");
 
-  // grades lock status
   const [gradesLocked, setGradesLocked] = useState<boolean | null>(null);
   const [loadingLock, setLoadingLock] = useState(false);
 
-  // reports
   const [reports, setReports] = useState<IDailyReport[]>([]);
   const [reportDate, setReportDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10)
@@ -56,10 +76,9 @@ export default function TeacherProfile(): JSX.Element {
   const [loadingReports, setLoadingReports] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
 
-  // actions
   const [sendingRequest, setSendingRequest] = useState(false);
 
-  // derived lists for filters
+  // Derived lists for filters
   const years = useMemo(() => {
     const s = new Set<string>();
     students.forEach((st) => st.schoolYear && s.add(st.schoolYear));
@@ -72,62 +91,86 @@ export default function TeacherProfile(): JSX.Element {
     return ["all", ...Array.from(s).sort()];
   }, [students]);
 
-  // ---------- Effects ----------
+  // ---------- Setup axios Authorization header (TS-safe) ----------
   useEffect(() => {
-    if (!teacher) return;
-    // initial load
+    const token = ctxToken ?? localStorage.getItem("token");
+    // axiosInstance.defaults.headers.* typing in TS can be narrow,
+    // so cast to any when manipulating 'common' headers.
+    const hdrs = axiosInstance.defaults.headers as any;
+    if (token) {
+      hdrs.common = hdrs.common || {};
+      hdrs.common["Authorization"] = `Bearer ${token}`;
+    } else {
+      if (hdrs?.common) {
+        delete hdrs.common["Authorization"];
+      }
+    }
+  }, [ctxToken]);
+
+  // Sync teacher state when context changes
+  useEffect(() => {
+    if (ctxUser) {
+      setTeacher(ctxUser as FEUser);
+      try {
+        localStorage.setItem("user", JSON.stringify(ctxUser));
+      } catch {
+        /* ignore storage error */
+      }
+    } else {
+      // keep fallback from localStorage if present
+      try {
+        const raw = localStorage.getItem("user");
+        if (raw) setTeacher(JSON.parse(raw) as FEUser);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [ctxUser]);
+
+  // Debug (useful when testing)
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.debug("Auth context user:", ctxUser, "token:", ctxToken);
+    // eslint-disable-next-line no-console
+    console.debug("Teacher local state:", teacher);
+  }, [ctxUser, ctxToken, teacher]);
+
+  // ---------- Effects: load data when teacher present ----------
+  useEffect(() => {
+    const role = (teacher?.role ?? "").toString().toLowerCase().trim();
+    if (!teacher || (role !== "teacher" && role !== "admin")) {
+      return;
+    }
     fetchLockStatus();
     fetchStudents();
-
-    // poll trạng thái khóa điểm mỗi 30s để giáo viên cập nhật khi admin thay đổi
-    const iv = setInterval(() => {
-      fetchLockStatus().catch(() => {
-        /* swallow: errors handled inside */
-      });
-    }, 30000);
-
-    return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacher]);
 
   // ---------- API calls ----------
   async function fetchLockStatus() {
     setLoadingLock(true);
-    setGradesLocked(null);
     try {
-      // cố gắng gọi endpoint admin trước (nếu backend expose cho admin)
-      // nếu bị 403/401 thì thử fallback endpoint không cần admin
+      // try admin endpoint first, fallback to teacher
       let res = null as any;
       try {
-        res = await axiosInstance.get<ILockResp>("/api/admin/grades/status");
-      } catch (err: any) {
-        const status = err?.response?.status;
-        // nếu 403 (forbidden) hoặc 401 (unauthorized) thử endpoint non-admin
-        if (status === 403 || status === 401) {
-          try {
-            res = await axiosInstance.get<ILockResp>("/api/grades/status");
-          } catch (err2: any) {
-            // nếu vẫn lỗi thì ném ra để vào outer catch xử lý
-            throw err2;
-          }
-        } else {
-          // lỗi khác -> ném lên outer
-          throw err;
-        }
+        res = await axiosInstance.get<{ locked: boolean }>(
+          "/api/admin/grades/status"
+        );
+      } catch {
+        res = await axiosInstance.get<{ locked: boolean }>(
+          "/api/grades/status"
+        );
       }
-
       setGradesLocked(Boolean(res?.data?.locked));
     } catch (err: any) {
-      // handle auth error
       if (err?.response?.status === 401) {
-        // token invalid / expired
         logout?.();
         setGradesLocked(null);
         setLoadingLock(false);
         return;
       }
+      // eslint-disable-next-line no-console
       console.warn("fetchLockStatus error:", err?.response || err);
-      // nếu không lấy được, để null để FE hiển thị "Không rõ"
       setGradesLocked(null);
     } finally {
       setLoadingLock(false);
@@ -139,10 +182,8 @@ export default function TeacherProfile(): JSX.Element {
     setLoadingStudents(true);
     setStudentsError(null);
     try {
-      // backend endpoint should return only students for this teacher
       const res = await axiosInstance.get<IStudent[]>("/api/teachers/students");
       const data = Array.isArray(res.data) ? res.data : [];
-      // normalize missing fields
       const normalized = data.map((s) => ({
         ...s,
         schoolYear: s.schoolYear ?? "Unknown",
@@ -157,6 +198,7 @@ export default function TeacherProfile(): JSX.Element {
         setLoadingStudents(false);
         return;
       }
+      // eslint-disable-next-line no-console
       console.error("❌ Lỗi lấy dữ liệu học sinh:", err?.response || err);
       setStudents([]);
       setStudentsError(
@@ -183,6 +225,7 @@ export default function TeacherProfile(): JSX.Element {
         setLoadingReports(false);
         return;
       }
+      // eslint-disable-next-line no-console
       console.error("fetchReports error:", err?.response || err);
       setReports([]);
       setReportsError(err?.response?.data?.message || "Không thể tải báo cáo");
@@ -191,7 +234,6 @@ export default function TeacherProfile(): JSX.Element {
     }
   }
 
-  // send grade update *request* (teacher requests admin to change grade)
   async function requestUpdateGrade(
     studentId: string,
     subject: string,
@@ -221,6 +263,7 @@ export default function TeacherProfile(): JSX.Element {
         setSendingRequest(false);
         return;
       }
+      // eslint-disable-next-line no-console
       console.error("❌ Lỗi gửi yêu cầu:", err?.response || err);
       alert(err?.response?.data?.message || "Gửi yêu cầu thất bại");
     } finally {
@@ -238,10 +281,9 @@ export default function TeacherProfile(): JSX.Element {
   }, [students, filterYear, filterClass]);
 
   function shortId(id: string) {
-    return id.slice(0, 6);
+    return id?.slice?.(0, 6) ?? id;
   }
 
-  // Small row component
   function StudentRow({ s }: { s: IStudent }) {
     const latest =
       s.grades && s.grades.length
@@ -290,9 +332,13 @@ export default function TeacherProfile(): JSX.Element {
                 requestUpdateGrade(s._id, subject, score);
               }}
               disabled={sendingRequest || gradesLocked === true}
-              className={`grade-request-btn ${
-                sendingRequest || gradesLocked ? "disabled" : ""
-              }`}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                background: gradesLocked ? "#f5f5f5" : "#fff",
+                cursor: gradesLocked ? "not-allowed" : "pointer",
+              }}
               title={
                 gradesLocked
                   ? "Điểm đã bị khóa — không thể gửi yêu cầu"
@@ -308,10 +354,21 @@ export default function TeacherProfile(): JSX.Element {
   }
 
   // ---------- Render ----------
-  if (!teacher) {
+  const roleNorm = (teacher?.role ?? "").toString().toLowerCase().trim();
+  if (!teacher || (roleNorm !== "teacher" && roleNorm !== "admin")) {
     return (
       <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
         <p>Vui lòng đăng nhập để truy cập trang giáo viên.</p>
+        <details style={{ marginTop: 8, color: "#666" }}>
+          <summary>Debug info</summary>
+          <div style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>
+            Context user: {JSON.stringify(ctxUser, null, 2)}
+            {"\n"}
+            Local user: {JSON.stringify(teacher, null, 2)}
+            {"\n"}
+            Token: {String(ctxToken ?? localStorage.getItem("token") ?? "")}
+          </div>
+        </details>
       </div>
     );
   }
@@ -325,8 +382,6 @@ export default function TeacherProfile(): JSX.Element {
         fontFamily: "Inter, system-ui, Arial",
       }}
     >
-      {/* NOTE: intentionally no global header/footer rendered here */}
-
       <header
         style={{
           display: "flex",
@@ -347,8 +402,6 @@ export default function TeacherProfile(): JSX.Element {
             <strong style={{ color: gradesLocked ? "#c00" : "#0a7" }}>
               {loadingLock
                 ? "Đang kiểm tra trạng thái..."
-                : gradesLocked === null
-                ? "Không rõ"
                 : gradesLocked
                 ? "⚠️ Điểm đang bị KHÓA"
                 : "✅ Điểm mở"}

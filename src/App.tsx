@@ -41,7 +41,16 @@ function Layout() {
     AOS.refresh();
   }, []);
 
-  const hiddenLayoutRoutes = ["/login", "/register", "/admin"];
+  const hiddenLayoutRoutes = [
+    "/login",
+    "/register",
+    "/admin",
+    "/profile",
+    "/profile/teacher",
+    "/profile/parent",
+    "/profile/admin",
+  ];
+
   const isHidden = hiddenLayoutRoutes.some((route) =>
     location.pathname.startsWith(route)
   );
@@ -55,7 +64,6 @@ function Layout() {
             <Header />
           ) : (
             <nav className="sub-header">
-              {/* Logo */}
               <div>
                 <h1 className="logo">
                   <a href="#">H.</a>
@@ -68,7 +76,6 @@ function Layout() {
                 <Link to="/find-more">Tuyển sinh</Link>
               </div>
 
-              {/* 👇 Nút đăng nhập / đăng ký / đăng xuất */}
               <div className="sub-header__auth">
                 <AuthButtons />
               </div>

@@ -2,16 +2,86 @@ import { Router, Request, Response } from "express";
 import { verifyToken, requireAdmin } from "../middleware/authMiddleware";
 import { connectDB } from "../configs/db";
 import { ObjectId } from "mongodb";
+import { createStudent } from "../controllers/createStudent";
 
 const router = Router();
 
 // ===== Interface =====
 interface IGradesLock {
-  _id: string; // dùng string cho key đặc biệt
+  _id: string;
   locked: boolean;
 }
 
-// ===== Quản lý khóa điểm (lưu MongoDB) =====
+// ===== Quản lý học sinh =====
+// Tạo học sinh
+router.post("/students/create", verifyToken, requireAdmin, createStudent);
+
+// Lấy danh sách học sinh
+router.get(
+  "/students",
+  verifyToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const db = await connectDB();
+      const students = await db.collection("students").find().toArray();
+      res.json(students);
+    } catch (err) {
+      console.error("❌ GET /students error:", err);
+      res
+        .status(500)
+        .json({ message: "Lỗi lấy danh sách học sinh", error: err });
+    }
+  }
+);
+
+// ✅ Xoá học sinh
+router.delete(
+  "/students/:id",
+  verifyToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const db = await connectDB();
+      const students = db.collection("students");
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({ message: "❌ Thiếu ID học sinh để xoá" });
+      }
+
+      // Hỗ trợ cả _id (ObjectId) lẫn studentId (string)
+      let filter;
+      if (ObjectId.isValid(id)) {
+        filter = { _id: new ObjectId(id) };
+      } else {
+        filter = { studentId: id };
+      }
+
+      const result = await students.deleteOne(filter);
+      if (result.deletedCount === 0) {
+        return res
+          .status(404)
+          .json({ message: "❌ Không tìm thấy học sinh để xoá" });
+      }
+
+      const allStudents = await students
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return res.json({
+        message: "✅ Xoá học sinh thành công",
+        students: allStudents,
+      });
+    } catch (err) {
+      console.error("❌ DELETE /students/:id error:", err);
+      res.status(500).json({ message: "Lỗi xoá học sinh", error: err });
+    }
+  }
+);
+
+// ===== Quản lý khóa điểm =====
 router.get(
   "/grades/status",
   verifyToken,
@@ -49,13 +119,11 @@ router.post(
     try {
       const db = await connectDB();
       const settings = db.collection<IGradesLock>("settings");
-
       await settings.updateOne(
         { _id: "gradesLockStatus" },
         { $set: { locked: true } },
         { upsert: true }
       );
-
       res.json({ message: "✅ Grades locked", locked: true });
     } catch (err) {
       console.error("❌ POST /grades/lock error:", err);
@@ -72,13 +140,11 @@ router.post(
     try {
       const db = await connectDB();
       const settings = db.collection<IGradesLock>("settings");
-
       await settings.updateOne(
         { _id: "gradesLockStatus" },
         { $set: { locked: false } },
         { upsert: true }
       );
-
       res.json({ message: "✅ Grades unlocked", locked: false });
     } catch (err) {
       console.error("❌ POST /grades/unlock error:", err);

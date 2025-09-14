@@ -1,0 +1,103 @@
+.teacher-page {
+  padding: 20px;
+  max-width: 980px;
+  margin: 0 auto;
+  font-family: Inter, system-ui, Arial;
+}
+
+.teacher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.teacher-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.teacher-subinfo {
+  color: #666;
+  margin-top: 6px;
+}
+
+.teacher-status {
+  text-align: right;
+}
+
+.teacher-status .locked {
+  color: #c00;
+}
+
+.teacher-status .unlocked {
+  color: #0a7;
+}
+
+.teacher-actions button {
+  margin-left: 8px;
+}
+
+.student-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.student-name {
+  font-weight: 600;
+}
+
+.student-id {
+  color: #888;
+  font-weight: 400;
+}
+
+.student-info {
+  font-size: 13px;
+  color: #666;
+}
+
+.student-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-score {
+  text-align: right;
+}
+
+.score-value {
+  font-weight: 700;
+}
+
+.score-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.grade-request-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+td,
+th {
+  border: 1px solid black;
+}
+
+.profile__form {
+  margin-bottom: 18px;
+  border-spacing: revert-layer;
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+.profile__table {
+  text-align: center;
+}

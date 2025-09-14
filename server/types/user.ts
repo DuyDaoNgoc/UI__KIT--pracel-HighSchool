@@ -1,23 +1,29 @@
+// server/types/user.ts
 import { ObjectId } from "mongodb";
 
 export type Role = "student" | "teacher" | "admin" | "parent";
 
+// ===== Interface cơ bản cho User =====
 export interface IUser {
-  _id?: ObjectId;
+  _id?: ObjectId | string; // DB có ObjectId, FE có string
+  studentId?: string;
+  teacherId?: string | null;
+  parentId?: string | null;
   customId?: string;
   username: string;
-  email: string;
-  password: string;
+  email?: string; // optional
+  password?: string; // optional
   role: Role;
-  dob?: Date;
-  class?: string;
+  dob?: Date | string;
+  class?: string; // classLetter
   schoolYear?: string;
+  grade?: string;
   phone?: string;
   address?: string;
+  residence?: string;
   avatar?: string;
   createdAt?: Date;
-  children?: ObjectId[];
-
+  children?: (ObjectId | string)[];
   grades?: { subject: string; score: number }[];
   creditsTotal?: number;
   creditsEarned?: number;
@@ -30,27 +36,31 @@ export interface IUser {
   tuitionTotal?: number;
   tuitionPaid?: number;
   tuitionRemaining?: number;
-
-  teacherId?: ObjectId;
 }
 
-export interface IUserDocument extends IUser {}
+// ===== Interface Mongoose Document =====
+export interface IUserDocument extends IUser {} // kế thừa IUser
 
+// ===== Input khi tạo user =====
 export interface CreateUserInput {
+  studentId?: string;
+  teacherId?: string | null;
+  parentId?: string | null;
   customId?: string;
   username: string;
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
   role?: Role;
-  dob?: Date;
-  class?: string;
+  dob?: Date | string;
+  class?: string; // classLetter
   schoolYear?: string;
+  grade?: string;
   phone?: string;
   address?: string;
+  residence?: string;
   avatar?: string;
   createdAt?: Date;
   children?: string[];
-
   grades?: { subject: string; score: number }[];
   creditsTotal?: number;
   creditsEarned?: number;
@@ -63,31 +73,33 @@ export interface CreateUserInput {
   tuitionTotal?: number;
   tuitionPaid?: number;
   tuitionRemaining?: number;
-
-  teacherId?: string; // client gửi string, server convert sang ObjectId khi lưu
 }
 
-// SafeUser không kế thừa trực tiếp IUser, ép kiểu ObjectId -> string
-export type SafeUser = Omit<
-  IUser,
-  "password" | "children" | "_id" | "teacherId"
-> & {
-  _id: string;
-  children: string[];
-  teacherId?: string;
+// ===== SafeUser trả về FE =====
+export type SafeUser = Omit<IUser, "password" | "_id" | "children"> & {
+  _id: string; // luôn string
+  children: string[]; // luôn là mảng, không null
+  teacherId?: string | null;
+  parentId?: string | null;
 };
 
+// ===== Convert IUser -> SafeUser =====
 export const toSafeUser = (user: IUser & { _id: ObjectId }): SafeUser => ({
   _id: user._id.toString(),
+  studentId: user.studentId,
+  teacherId: user.teacherId ?? null,
+  parentId: user.parentId ?? null,
   customId: user.customId || "",
   username: user.username,
-  email: user.email,
+  email: user.email || "",
   role: user.role,
   dob: user.dob,
   class: user.class,
   schoolYear: user.schoolYear,
+  grade: user.grade,
   phone: user.phone,
   address: user.address,
+  residence: user.residence,
   avatar: user.avatar,
   createdAt: user.createdAt || new Date(),
   children: user.children?.map((c) => c.toString()) || [],
@@ -98,5 +110,4 @@ export const toSafeUser = (user: IUser & { _id: ObjectId }): SafeUser => ({
   tuitionTotal: user.tuitionTotal || 0,
   tuitionPaid: user.tuitionPaid || 0,
   tuitionRemaining: user.tuitionRemaining || 0,
-  teacherId: user.teacherId?.toString(), // ép ObjectId sang string
 });

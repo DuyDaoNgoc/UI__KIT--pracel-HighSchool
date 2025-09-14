@@ -1,73 +1,70 @@
 import { Request, Response } from "express";
-import { createUser, findUserByEmail } from "./userService";
-import { IUser } from "../../types/user";
-import crypto from "crypto"; // 👈 để sinh customId random
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { connectDB } from "../../configs/db";
 
-export async function registerUser(req: Request, res: Response) {
+export const registerUser = async (req: Request, res: Response) => {
   try {
-    const {
-      username,
-      email,
-      password,
-      role,
-      dob,
-      class: className,
-      schoolYear,
-      phone,
-      address,
-      children, // nếu role = parent thì có children (id học sinh)
-    } = req.body;
+    const { studentCode, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
+    // 🔎 Validate input
+    if (!studentCode?.trim() || !email?.trim() || !password?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
     }
 
-    const existingUser = await findUserByEmail(email);
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    // 🔎 Check email tồn tại
+    const existingUser = await users.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
     }
 
-    // ✅ phân loại role
-    const userRole: IUser["role"] =
-      role === "teacher"
-        ? "teacher"
-        : role === "admin"
-        ? "admin"
-        : role === "parent"
-        ? "parent"
-        : "student";
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ sinh customId ngẫu nhiên (11 ký tự hex)
-    const customId = crypto.randomBytes(6).toString("hex");
-
-    // ✅ avatar mặc định hoặc lấy từ file upload
-    const avatar: string = (req as any).file?.filename
-      ? `/uploads/${(req as any).file.filename}`
-      : "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-
-    // ✅ tạo user mới
-    const safeUser = await createUser({
-      customId, // 👈 thay vì id
-      username,
+    const newUser = {
+      customId: crypto.randomBytes(6).toString("hex"),
+      username: studentCode, // dùng studentCode làm username
       email,
-      password,
-      role: userRole,
-      dob: dob ? new Date(dob) : undefined,
-      class: className,
-      schoolYear,
-      phone,
-      address,
-      avatar,
+      password: hashedPassword,
+      role: "student",
       createdAt: new Date(),
-      children:
-        userRole === "parent" && Array.isArray(children) ? children : [],
-    });
+    };
 
-    return res
-      .status(201)
-      .json({ message: "User registered successfully", user: safeUser });
+    const result = await users.insertOne(newUser);
+
+    if (!result.acknowledged) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create user",
+      });
+    }
+
+    // ✅ Trả dữ liệu đầy đủ để FE dễ xử lý
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      user: {
+        id: result.insertedId.toString(),
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        studentCode, // trả thêm cho rõ
+      },
+    });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    console.error("Register error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err instanceof Error ? err.message : err,
+    });
   }
-}
+};

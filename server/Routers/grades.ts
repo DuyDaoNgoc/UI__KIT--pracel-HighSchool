@@ -1,4 +1,3 @@
-// server/Routers/grades.ts
 import { Router, Request, Response } from "express";
 import { ObjectId } from "mongodb";
 import {
@@ -96,7 +95,7 @@ router.post(
 
 // ==============================
 // POST /api/grades/request-update
-// Cho giáo viên gửi yêu cầu cập nhật điểm học sinh
+// Giáo viên gửi yêu cầu cập nhật điểm học sinh
 // ==============================
 router.post(
   "/request-update",
@@ -109,32 +108,74 @@ router.post(
     if (!teacher) return res.status(401).json({ message: "Unauthorized" });
 
     try {
-      const { studentId, grade } = req.body;
-      if (!studentId || grade === undefined) {
-        return res.status(400).json({ message: "Missing studentId or grade" });
+      const { studentId, grade, subject } = req.body;
+      if (!studentId || grade === undefined || !subject) {
+        return res
+          .status(400)
+          .json({ message: "Missing studentId, subject, or grade" });
       }
 
-      const student = await User.findById(studentId);
+      const student = await User.findOne({ studentId });
       if (!student || student.role !== "student") {
         return res.status(404).json({ message: "Student not found" });
       }
 
       // Kiểm tra giáo viên có quyền sửa học sinh này
-      if (!student.teacherId?.equals(teacher._id)) {
+      if (student.teacherId !== teacher._id.toString()) {
         return res
           .status(403)
           .json({ message: "Không được phép sửa học sinh này" });
       }
 
-      // Thêm yêu cầu cập nhật vào grades (hoặc gửi thông báo admin)
+      // Thêm yêu cầu cập nhật vào grades
       student.grades = student.grades || [];
-      student.grades.push({ subject: "Auto-Request", score: grade }); // subject tạm thời
+      student.grades.push({ subject, score: grade });
       await student.save();
 
       res.json({ message: "Yêu cầu cập nhật điểm đã được ghi nhận" });
     } catch (err) {
       console.error("grades/request-update error:", err);
       res.status(500).json({ message: "Failed to request grade update" });
+    }
+  }
+);
+
+// ==============================
+// GET /api/grades/class/:classId
+// Lấy thông tin lớp: danh sách học sinh + giáo viên phụ trách
+// ==============================
+router.get(
+  "/class/:classId",
+  verifyToken,
+  checkRole(["admin", "teacher"]),
+  async (req: Request, res: Response) => {
+    try {
+      const { classId } = req.params;
+
+      // Tìm tất cả học sinh trong lớp
+      const students = await User.find({ class: classId, role: "student" });
+
+      // Tìm giáo viên phụ trách lớp
+      const teacherIds = students.map((s) => s.teacherId).filter(Boolean);
+      const teacher = teacherIds.length
+        ? await User.findOne({ role: "teacher", _id: { $in: teacherIds } })
+        : null;
+
+      res.json({
+        classId,
+        gradeLevel: students[0]?.class || "N/A",
+        students: students.map((s) => ({
+          studentId: s.studentId,
+          username: s.username,
+          grades: s.grades || [],
+        })),
+        teacher: teacher
+          ? { teacherId: teacher._id.toString(), username: teacher.username }
+          : null,
+      });
+    } catch (err) {
+      console.error("grades/class error:", err);
+      res.status(500).json({ message: "Failed to get class info" });
     }
   }
 );

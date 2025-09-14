@@ -1,5 +1,4 @@
-// src/components/AuthButtons.tsx
-
+// src/components/settings/auth/AuthButtons.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
@@ -19,7 +18,6 @@ export default function AuthButtons() {
   };
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // ✅ chọn đường dẫn profile theo role (theo đúng path bạn đưa)
   const handleProfileClick = () => {
     switch (user?.role) {
       case "student":
@@ -32,7 +30,7 @@ export default function AuthButtons() {
         navigate("/profile/teacher"); // TeacherProfile.tsx
         break;
       case "admin":
-        navigate("/profile/admin"); // admin/AdminProfile.tsx
+        navigate("/profile/admin"); // AdminProfile.tsx
         break;
       default:
         navigate("/profile");
@@ -41,7 +39,7 @@ export default function AuthButtons() {
 
   if (user) {
     return (
-      <div className="creater__user text__content--size-18 ">
+      <div className="creater__user text__content--size-18">
         <span className="creater__user--color">
           <b>{user.username}</b> ({user.role})
         </span>
@@ -63,7 +61,7 @@ export default function AuthButtons() {
                 Thông tin cá nhân
               </li>
 
-              {/* ✅ menu riêng cho học sinh */}
+              {/* Menu học sinh */}
               {user.role === "student" && (
                 <>
                   <li
@@ -81,7 +79,7 @@ export default function AuthButtons() {
                 </>
               )}
 
-              {/* ✅ menu riêng cho phụ huynh */}
+              {/* Menu phụ huynh */}
               {user.role === "parent" && (
                 <>
                   <li
@@ -99,7 +97,7 @@ export default function AuthButtons() {
                 </>
               )}
 
-              {/* ✅ menu riêng cho giáo viên */}
+              {/* Menu giáo viên */}
               {user.role === "teacher" && (
                 <>
                   <li
@@ -118,46 +116,13 @@ export default function AuthButtons() {
                     className="dropdown-menu--list-item"
                     onClick={() => navigate("/profile/teacher/scores")}
                   >
-                    Nhập điểm (chỉ khi admin chưa khoá)
+                    Nhập điểm
                   </li>
                 </>
               )}
 
-              {/* ✅ menu riêng cho admin */}
-              {user.role === "admin" && (
-                <>
-                  <li
-                    className="dropdown-menu--list-item"
-                    onClick={() => navigate("/profile/admin/news")}
-                  >
-                    Quản lý tin tức
-                  </li>
-                  <li
-                    className="dropdown-menu--list-item"
-                    onClick={() => navigate("/profile/admin/school")}
-                  >
-                    Quản lý trường / lớp / học sinh
-                  </li>
-                  <li
-                    className="dropdown-menu--list-item"
-                    onClick={() => navigate("/profile/admin/finance")}
-                  >
-                    Quản lý học phí / chi phí
-                  </li>
-                  <li
-                    className="dropdown-menu--list-item"
-                    onClick={() => navigate("/profile/admin/events")}
-                  >
-                    Quản lý sự kiện
-                  </li>
-                  <li
-                    className="dropdown-menu--list-item"
-                    onClick={() => navigate("/profile/admin/lock-scores")}
-                  >
-                    Khoá / Mở nhập điểm
-                  </li>
-                </>
-              )}
+              {/* Menu admin */}
+              {user.role === "admin" && <></>}
 
               <li className="dropdown-menu--list-logout" onClick={logout}>
                 Đăng xuất
@@ -172,13 +137,13 @@ export default function AuthButtons() {
   return (
     <div className="creater__user">
       <button
-        className="creater__user--btn  text__content--size-18 "
+        className="creater__user--btn text__content--size-18"
         onClick={() => navigate("/login")}
       >
         Đăng nhập
       </button>
       <button
-        className="creater__user--btn  text__content--size-18 border-register"
+        className="creater__user--btn text__content--size-18 border-register"
         onClick={() => navigate("/register")}
       >
         Đăng ký
