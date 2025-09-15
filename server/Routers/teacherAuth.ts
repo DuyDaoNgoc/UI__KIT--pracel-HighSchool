@@ -1,12 +1,13 @@
-// server/Routers/teacher.ts
+// server/Routers/teacherAuth.ts
 import { Router, RequestHandler } from "express";
 import {
   verifyToken,
   requireTeacher,
   AuthRequest,
 } from "../middleware/authMiddleware";
-import User from "../models/User"; // Mongoose model
+import User from "../models/User"; // Model người dùng (bao gồm học sinh)
 import { IUserDocument } from "../types/user"; // Interface đúng
+import { registerTeacher } from "../controllers/registerTeacher"; // controller mới
 
 interface IStudentResponse {
   _id: string;
@@ -22,30 +23,37 @@ interface IGradesLock {
 
 const router = Router();
 
+// ===== Đăng ký giáo viên =====
+router.post("/register", async (req, res) => {
+  await registerTeacher(req, res);
+});
+
 // ===== Lấy danh sách học sinh của giáo viên =====
 const getStudents: RequestHandler = async (req, res) => {
   const authReq = req as AuthRequest;
   const teacher = authReq.user;
 
-  if (!teacher || !teacher.teacherId) {
+  if (!teacher || !teacher._id) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
-    // Lấy học sinh dựa trên teacherId (string)
+    // Tìm học sinh theo teacherId
     const students: IUserDocument[] = await User.find({
       role: "student",
-      teacherId: teacher.teacherId, // query bằng string
+      teacherId: teacher._id.toString(),
     }).select("_id username class grades");
 
-    const response: IStudentResponse[] = students.map((s) => ({
-      _id: s._id!.toString(),
-      username: s.username,
-      class: s.class || "?",
-      lastGrade: s.grades?.length
-        ? s.grades[s.grades.length - 1].score
-        : undefined,
-    }));
+    const response: IStudentResponse[] = students
+      .filter((s) => s._id) // loại bỏ trường hợp _id undefined
+      .map((s) => ({
+        _id: s._id!.toString(),
+        username: s.username,
+        class: s.class || "Chưa có lớp",
+        lastGrade: s.grades?.length
+          ? s.grades[s.grades.length - 1].score
+          : undefined,
+      }));
 
     return res.status(200).json(response);
   } catch (err) {
@@ -59,7 +67,9 @@ router.get("/students", verifyToken, requireTeacher, getStudents);
 // ===== Lấy trạng thái khóa điểm =====
 const getGradesLockStatus: RequestHandler = async (_req, res) => {
   try {
-    const db = await import("../configs/db").then((m) => m.connectDB());
+    const { connectDB } = await import("../configs/db"); // không dùng .default
+    const db = await connectDB();
+
     const settings = db.collection<IGradesLock>("settings");
     const lockDoc = await settings.findOne({ _id: "gradesLockStatus" });
 

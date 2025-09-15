@@ -14,7 +14,7 @@ import { footerData } from "../server/data/footerData";
 // profile
 import Profile from "./pages/Profile/Profile";
 import ParentProfile from "./pages/Profile/ParentProfile";
-import TeacherProfile from "./pages/Profile/TeacherProfile";
+import TeacherProfile from "./pages/Profile/teacher/TeacherProfile";
 import AdminProfile from "./pages/Profile/admin/AdminProfile";
 
 import AOS from "aos";

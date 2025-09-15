@@ -75,7 +75,7 @@ const Features: React.FC<FeaturesProps> = ({ list }) => {
               ))}
             </div>
             {/* content img */}
-            <div className="mac">
+            <div className="mac" data-aos="zoom-in-down">
               <img src={items.mac} alt="" />
             </div>
           </div>

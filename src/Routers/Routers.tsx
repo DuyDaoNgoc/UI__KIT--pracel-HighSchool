@@ -11,7 +11,7 @@ import Help from "../pages/Contents/Help";
 import Privacy from "../pages/Contents/Privacy";
 
 import Profile from "../pages/Profile/Profile";
-import TeacherProfile from "../pages/Profile/TeacherProfile";
+import TeacherProfile from "../pages/Profile/teacher/TeacherProfile";
 import ParentProfile from "../pages/Profile/ParentProfile";
 import AdminProfile from "../pages/Profile/admin/AdminProfile";
 

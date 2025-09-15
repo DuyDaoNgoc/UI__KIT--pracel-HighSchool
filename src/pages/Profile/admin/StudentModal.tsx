@@ -2,61 +2,32 @@
 import React from "react";
 import { UserPlus2, Trash2 } from "lucide-react";
 
-interface ICreatedStudent {
-  studentId: string;
-  name: string;
-  dob?: string;
-  address?: string;
-  residence?: string;
-  phone?: string;
-  grade?: string;
-  classLetter?: string;
-  schoolYear?: string;
-  major?: string;
-  classCode?: string;
-  createdAt?: string;
-}
-
 interface Props {
-  selectedStudent: ICreatedStudent;
+  viewing: boolean;
+  selectedStudent: any | null;
   closeView: () => void;
-  assignTeacher: (id: string) => void;
-  deleteStudent: (id: string) => void;
+  assignTeacher: (studentId: string) => void;
+  deleteStudent: (studentId: string) => void;
   generateClassCode: (grade?: string, cls?: string, major?: string) => string;
 }
 
 export default function StudentModal({
+  viewing,
   selectedStudent,
   closeView,
   assignTeacher,
   deleteStudent,
   generateClassCode,
 }: Props) {
+  if (!viewing || !selectedStudent) return null;
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.4)",
-        zIndex: 1000,
-      }}
-      onClick={closeView}
-    >
+    <div className="profile-modal" onClick={closeView}>
       <div
-        style={{
-          background: "#fff",
-          padding: 20,
-          borderRadius: 8,
-          minWidth: 320,
-          maxWidth: "90%",
-        }}
+        className="profile-modal__content"
         onClick={(e) => e.stopPropagation()}
       >
         <h3>Chi tiết học sinh</h3>
-        <table style={{ width: "100%", marginBottom: 12 }}>
+        <table className="modal-table">
           <tbody>
             {Object.entries({
               "Mã HS": selectedStudent.studentId,
@@ -81,23 +52,34 @@ export default function StudentModal({
               "Ngày tạo": selectedStudent.createdAt
                 ? new Date(selectedStudent.createdAt).toLocaleString()
                 : "N/A",
-            }).map(([k, v]) => (
-              <tr key={k}>
-                <td style={{ fontWeight: 700 }}>{k}</td>
-                <td>{v}</td>
+            }).map(([label, value]) => (
+              <tr key={label}>
+                <td className="modal-label">{label}</td>
+                <td>{value}</td>
               </tr>
             ))}
           </tbody>
         </table>
-
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={() => assignTeacher(selectedStudent.studentId)}>
+        <div className="profile-modal__actions">
+          <button
+            onClick={() =>
+              selectedStudent && assignTeacher(selectedStudent.studentId)
+            }
+            className="button action-btn"
+          >
             <UserPlus2 size={14} /> Gán giáo viên
           </button>
-          <button onClick={() => deleteStudent(selectedStudent.studentId)}>
+          <button
+            onClick={() =>
+              selectedStudent && deleteStudent(selectedStudent.studentId)
+            }
+            className="button action-btn"
+          >
             <Trash2 size={14} /> Xóa
           </button>
-          <button onClick={closeView}>Đóng</button>
+          <button onClick={closeView} className="button">
+            Đóng
+          </button>
         </div>
       </div>
     </div>

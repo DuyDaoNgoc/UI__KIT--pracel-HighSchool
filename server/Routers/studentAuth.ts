@@ -1,4 +1,4 @@
-// server/Routers/students.ts
+// server/Routers/studentAuth.ts
 import { Router, Request, Response } from "express";
 import User from "../models/User"; // chỉ import model
 import { IUser } from "../types/user"; // import interface
@@ -8,6 +8,10 @@ import {
   checkRole,
   AuthRequest,
 } from "../middleware/authMiddleware";
+
+import ClassModel from "../models/Class";
+
+import { generateClassCode } from "../helpers/classCode"; // ✅ helper sinh mã lớp
 
 // Tạo kiểu cho Document Mongoose
 type IUserDocument = IUser & Document;
@@ -36,11 +40,12 @@ router.post(
       grade,
       classLetter,
       schoolYear,
+      major, // ✅ ngành
       studentId: frontendStudentId,
     } = req.body;
 
     // Kiểm tra các trường bắt buộc
-    if (!name || !grade || !classLetter || !schoolYear) {
+    if (!name || !grade || !classLetter || !schoolYear || !major) {
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
     }
 
@@ -52,6 +57,9 @@ router.post(
         studentId = `${grade}${classLetter}${randomPart}`;
       }
 
+      // Sinh classCode = khối + lớp + viết tắt ngành
+      const classCode = generateClassCode(grade, classLetter, major);
+
       // Kiểm tra trùng studentId
       const existing = await User.findOne({ studentId });
       if (existing) {
@@ -60,7 +68,7 @@ router.post(
           .json({ message: "Mã học sinh đã tồn tại, thử lại" });
       }
 
-      // Tạo học sinh mới (chỉ có thông tin cơ bản + studentId, không có email/password)
+      // Tạo học sinh mới
       const student: IUserDocument = new User({
         username: name, // dùng username thay cho name
         dob,
@@ -72,13 +80,30 @@ router.post(
         schoolYear,
         studentId,
         role: "student",
+        major, // ✅ lưu ngành
+        classCode, // ✅ lưu mã lớp
       });
 
       await student.save();
 
+      // ✅ Upsert ClassModel: nếu chưa có thì tạo, có rồi thì thêm student
+      await ClassModel.findOneAndUpdate(
+        { classCode },
+        {
+          $setOnInsert: {
+            grade,
+            classLetter,
+            major,
+          },
+          $addToSet: { studentIds: studentId },
+        },
+        { upsert: true, new: true }
+      );
+
       return res.status(201).json({
         message: "Tạo mã học sinh thành công",
         studentId: student.studentId,
+        classCode,
       });
     } catch (err) {
       console.error("students/create error:", err);

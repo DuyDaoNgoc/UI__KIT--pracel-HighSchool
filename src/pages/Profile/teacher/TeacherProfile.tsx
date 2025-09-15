@@ -1,9 +1,9 @@
 // src/pages/Profile/TeacherProfile.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
-import axiosInstance from "../../api/axiosConfig";
+import { useAuth } from "../../../context/AuthContext";
+import axiosInstance from "../../../api/axiosConfig";
 import type { JSX } from "react";
-import type { User } from "../../types/auth"; // FE User type
+import type { User } from "../../../types/auth"; // FE User type
 
 // ----- Types -----
 export type IGrade = { subject: string; score: number };

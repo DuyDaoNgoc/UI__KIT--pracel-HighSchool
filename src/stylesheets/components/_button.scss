@@ -138,7 +138,7 @@
     display: none;
   }
   @include mobile {
-    display: block;
+    display: block !important;
     cursor: pointer;
   }
   display: none;

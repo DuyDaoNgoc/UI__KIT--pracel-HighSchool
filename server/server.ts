@@ -13,6 +13,7 @@ import teacherRoutes from "./Routers/teacherAuth";
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import { checkGradesLock } from "./middleware/checkLock";
+import classRouter from "./Routers/classes";
 
 dotenv.config();
 
@@ -29,7 +30,7 @@ declare global {
 }
 
 const app = express();
-
+app.use("/api/admin/classes", classRouter);
 app.use(cors());
 app.use(express.json());
 

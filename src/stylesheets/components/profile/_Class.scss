@@ -1,0 +1,32 @@
+/* src/pages/Profile/admin/ClassesTab.css */
+
+.major-block {
+  margin-bottom: 1.5rem;
+}
+
+.class-block {
+  margin-bottom: 0.75rem;
+}
+
+.class-btn {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.class-btn:hover {
+  background-color: #2563eb;
+}
+
+.no-class {
+  color: #6b7280;
+  font-style: italic;
+  padding-left: 0.5rem;
+}
