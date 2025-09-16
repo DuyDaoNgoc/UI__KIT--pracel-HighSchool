@@ -35,7 +35,7 @@ export default function StudentsTab({
 }: StudentsTabProps) {
   return (
     <div className="profile__card">
-      <h2 className="profile__title">👨‍🎓 Quản lý học sinh</h2>
+      <h2 className="profile__title"> Quản lý học sinh</h2>
 
       {/* Form tạo học sinh */}
       <form onSubmit={createStudent} className="student-form">

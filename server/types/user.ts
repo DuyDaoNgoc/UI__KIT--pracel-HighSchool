@@ -36,6 +36,9 @@ export interface IUser {
   tuitionTotal?: number;
   tuitionPaid?: number;
   tuitionRemaining?: number;
+  // ---- thêm hai field này ----
+  loginAttempts?: number;
+  lockUntil?: number;
 }
 
 // ===== Interface Mongoose Document =====
@@ -73,6 +76,8 @@ export interface CreateUserInput {
   tuitionTotal?: number;
   tuitionPaid?: number;
   tuitionRemaining?: number;
+  loginAttempts: { type: Number; default: 0 };
+  lockUntil: { type: Number; default: 0 };
 }
 
 // ===== SafeUser trả về FE =====

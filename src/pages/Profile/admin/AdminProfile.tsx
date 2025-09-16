@@ -23,12 +23,13 @@ import StudentsTab from "./StudentsTab";
 import ClassesTab from "./ClassesTab";
 import StudentModal from "./StudentModal";
 import CreateTeacher from "./CreateTeacher";
+
 interface ILockResp {
   locked: boolean;
 }
 
 const AdminProfile: FC = () => {
-  const { user, token } = useAuth();
+  const { user, token, login } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("news");
 
   // State quản lý
@@ -75,7 +76,7 @@ const AdminProfile: FC = () => {
   const fetchNews = async () => {
     try {
       const res = await axiosInstance.get<INews[]>(
-        "/api/admin/news/pending",
+        "/admin/news/pending", // ❌ bỏ /api ở đây
         authHeaders
       );
       setPendingNews(res.data || []);
@@ -93,7 +94,7 @@ const AdminProfile: FC = () => {
   const fetchLockStatus = async () => {
     try {
       const res = await axiosInstance.get<ILockResp>(
-        "/api/admin/grades/status",
+        "/admin/grades/status", // ❌ bỏ /api
         authHeaders
       );
       setLocked(!!res.data.locked);
@@ -107,10 +108,10 @@ const AdminProfile: FC = () => {
     try {
       if (!token) return alert("Bạn chưa đăng nhập!");
       if (locked) {
-        await axiosInstance.post("/api/admin/grades/unlock", {}, authHeaders);
+        await axiosInstance.post("/admin/grades/unlock", {}, authHeaders);
         setLocked(false);
       } else {
-        await axiosInstance.post("/api/admin/grades/lock", {}, authHeaders);
+        await axiosInstance.post("/admin/grades/lock", {}, authHeaders);
         setLocked(true);
       }
     } catch (err: any) {
@@ -147,7 +148,7 @@ const AdminProfile: FC = () => {
     try {
       if (!token) return;
       const res = await axiosInstance.get<ICreatedStudent[]>(
-        "/api/admin/students",
+        "/admin/students", // ❌ bỏ /api
         authHeaders
       );
       const data = Array.isArray(res.data) ? res.data : [];
@@ -195,7 +196,7 @@ const AdminProfile: FC = () => {
       const payload = { ...studentForm, studentId, classCode };
 
       await axiosInstance.post<ICreatedStudent>(
-        "/api/admin/students/create",
+        "/admin/students/create", // ❌ bỏ /api
         payload,
         authHeaders
       );
@@ -229,10 +230,7 @@ const AdminProfile: FC = () => {
 
     setActionLoading(studentId);
     try {
-      await axiosInstance.delete(
-        `/api/admin/students/${studentId}`,
-        authHeaders
-      );
+      await axiosInstance.delete(`/admin/students/${studentId}`, authHeaders);
       await fetchCreatedStudents();
       if (selectedStudent?.studentId === studentId) {
         setSelectedStudent(null);
@@ -256,7 +254,7 @@ const AdminProfile: FC = () => {
     setActionLoading(studentId);
     try {
       await axiosInstance.post(
-        `/api/admin/students/${studentId}/assign-teacher`,
+        `/admin/students/${studentId}/assign-teacher`,
         { teacherId },
         authHeaders
       );
@@ -282,6 +280,7 @@ const AdminProfile: FC = () => {
 
   // ==== useEffect init ====
   useEffect(() => {
+    if (!token) return;
     fetchNews();
     fetchLockStatus();
     fetchCreatedStudents();

@@ -7,17 +7,6 @@ interface ClassesTabProps {
   students: ICreatedStudent[];
 }
 
-// Hàm lấy chữ cái đầu của mỗi từ, giữ nguyên Unicode
-const getMajorAbbrev = (major: string) => {
-  return major
-    .split(/\s+/)
-    .map((w) => {
-      const match = w.match(/\p{L}/u); // \p{L} = bất cứ ký tự chữ cái Unicode nào
-      return match ? match[0].toUpperCase() : "";
-    })
-    .join("");
-};
-
 export default function ClassesTab({ students }: ClassesTabProps) {
   const [openClassKey, setOpenClassKey] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] =
@@ -35,7 +24,10 @@ export default function ClassesTab({ students }: ClassesTabProps) {
       for (const s of studentList) {
         if (!s.grade || !s.classLetter || !s.major || !s._id) continue;
 
-        const majorAbbrev = getMajorAbbrev(s.major);
+        const majorAbbrev = s.major
+          .split(/\s+/)
+          .map((w: string) => (w ? w[0].toUpperCase() : ""))
+          .join("");
         const classCode =
           s.classCode || `${s.grade}${s.classLetter}${majorAbbrev}`;
 
@@ -75,7 +67,10 @@ export default function ClassesTab({ students }: ClassesTabProps) {
       > = {};
 
       studentsInMajor.forEach((s) => {
-        const majorAbbrev = getMajorAbbrev(major);
+        const majorAbbrev = major
+          .split(/\s+/)
+          .map((w: string) => (w ? w[0].toUpperCase() : ""))
+          .join("");
         const code =
           s.classCode ||
           `${s.grade || "X"}${s.classLetter || "X"}${majorAbbrev}`;

@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 import { connectDB } from "../configs/db";
-import { IUserDocument, toSafeUser } from "../types/user";
+import { toSafeUser } from "../types/user";
 
 // ===================== REGISTER =====================
 export const registerUser = async (req: Request, res: Response) => {
@@ -27,7 +27,6 @@ export const registerUser = async (req: Request, res: Response) => {
     const student = await db
       .collection("students")
       .findOne({ studentId: studentCode });
-
     if (!student)
       return res
         .status(404)
@@ -50,7 +49,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await User.create({
+    const newUser: any = await User.create({
       username: student.name,
       email,
       password: hashedPassword,
@@ -69,13 +68,15 @@ export const registerUser = async (req: Request, res: Response) => {
         student.avatar ||
         "https://cdn-icons-png.flaticon.com/512/149/149071.png",
       children: [],
+      loginAttempts: 0,
+      lockUntil: 0,
       createdAt: new Date(),
     });
 
     return res.status(201).json({
       success: true,
       message: "✅ User registered successfully",
-      user: toSafeUser(newUser as IUserDocument & { _id: any }),
+      user: toSafeUser(newUser),
     });
   } catch (err) {
     console.error("Register error:", err);
@@ -97,21 +98,51 @@ export const loginUser = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, message: "❌ Missing field: password" });
 
-    const user = (await User.findOne({ email })) as IUserDocument & {
-      _id: any;
-    };
+    const user: any = await User.findOne({ email });
     if (!user)
       return res
         .status(401)
         .json({ success: false, message: "❌ Invalid email or password" });
 
-    const isMatch = await bcrypt.compare(password, user.password || "");
-    if (!isMatch)
-      return res
-        .status(401)
-        .json({ success: false, message: "❌ Invalid email or password" });
+    const now = Date.now();
 
-    // ================= JWT VĨNH VIỄN =================
+    // --- Kiểm tra lock ---
+    if (user.lockUntil && user.lockUntil > now) {
+      const secondsLeft = Math.ceil((user.lockUntil - now) / 1000);
+      return res.status(403).json({
+        success: false,
+        message: `Tài khoản bị khóa. Thử lại sau ${secondsLeft} giây`,
+        lockTime: secondsLeft,
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password || "");
+    if (!isMatch) {
+      // --- Tăng loginAttempts và lock nếu cần ---
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+
+      if (user.loginAttempts > 4) {
+        const lockSeconds = Math.pow(2, user.loginAttempts - 4) * 10;
+        user.lockUntil = now + lockSeconds * 1000;
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        { loginAttempts: user.loginAttempts, lockUntil: user.lockUntil }
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "❌ Invalid email or password",
+        attemptsLeft: Math.max(0, 4 - user.loginAttempts),
+        lockTime: user.lockUntil ? Math.ceil((user.lockUntil - now) / 1000) : 0,
+      });
+    }
+
+    // --- Login thành công: reset loginAttempts và lockUntil ---
+    await User.updateOne({ _id: user._id }, { loginAttempts: 0, lockUntil: 0 });
+
+    // --- JWT vĩnh viễn ---
     const token = jwt.sign(
       {
         id: user._id.toString(),
@@ -123,14 +154,13 @@ export const loginUser = async (req: Request, res: Response) => {
         customId: user.customId,
       },
       process.env.JWT_SECRET as string
-      // Không đặt expiresIn => token sẽ vĩnh viễn
     );
 
     return res.json({
       success: true,
       message: "✅ Login successful",
       token,
-      user: toSafeUser(user), // username = tên học sinh
+      user: toSafeUser(user),
     });
   } catch (err) {
     console.error("Login error:", err);

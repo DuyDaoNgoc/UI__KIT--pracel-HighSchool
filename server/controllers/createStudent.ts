@@ -21,6 +21,7 @@ export const createStudent = async (req: Request, res: Response) => {
       studentId,
       name,
       dob,
+      gender,
       address,
       residence,
       phone,
@@ -31,6 +32,7 @@ export const createStudent = async (req: Request, res: Response) => {
       classCode,
     } = req.body;
 
+    // Check các thông tin bắt buộc
     if (!studentId || !name || !dob || !grade || !classLetter || !schoolYear) {
       return res.status(400).json({
         success: false,
@@ -40,6 +42,7 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // Chuyển dob thành Date object
     const parsedDob = new Date(dob);
     if (isNaN(parsedDob.getTime())) {
       return res.status(400).json({
@@ -49,14 +52,16 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // Check unique studentId
     const existingStudent = await students.findOne({ studentId });
     if (existingStudent) {
       return res.status(409).json({
         success: false,
-        message: "Mã học sinh đã tồn tại. Vui lòng kiểm tra lại.",
+        message: `Mã học sinh ${studentId} đã tồn tại. Vui lòng kiểm tra lại.`,
       });
     }
 
+    // Tạo classCode an toàn nếu chưa có
     const safeClassCode =
       classCode ??
       `${grade}${classLetter}${(major || "")
@@ -69,7 +74,8 @@ export const createStudent = async (req: Request, res: Response) => {
       name: String(name),
       username: String(name),
       role: "student",
-      dob: parsedDob, // ✅ Date object
+      dob: parsedDob,
+      gender: String(gender ?? ""),
       address: address ?? "",
       residence: residence ?? "",
       phone: phone ?? "",
@@ -78,15 +84,18 @@ export const createStudent = async (req: Request, res: Response) => {
       schoolYear: String(schoolYear),
       major: major ?? "",
       classCode: String(safeClassCode),
-      teacherId: "", // ✅ string rỗng
-      parentId: "", // ✅ string rỗng
+      teacherId: "",
+      parentId: "",
       avatar: "",
-      createdAt: new Date(), // ✅ Date object
+      createdAt: new Date(),
     };
 
     console.log("🚀 [createStudent] Insert student:", newStudent);
 
+    // Insert student
     const result = await students.insertOne(newStudent);
+
+    // Lấy danh sách tất cả students mới nhất
     const allStudents = await students.find().sort({ createdAt: -1 }).toArray();
 
     return res.status(201).json({
@@ -119,3 +128,5 @@ export const createStudent = async (req: Request, res: Response) => {
     });
   }
 };
+
+export default createStudent;

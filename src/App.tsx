@@ -3,7 +3,6 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link,
   useLocation,
 } from "react-router-dom";
 
@@ -24,9 +23,11 @@ import "aos/dist/aos.css";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
-// Import AuthProvider + AuthButtons
+// Import AuthProvider
 import { AuthProvider } from "./context/AuthContext";
-import AuthButtons from "./Components/settings/auth/AuthButtons";
+
+// SubHeader
+import SubHeader from "./layouts/SubHeader";
 
 const Airlines = () => <h2>Airlines Page</h2>;
 const Vacation = () => <h2>Vacation Page</h2>;
@@ -55,6 +56,13 @@ function Layout() {
     location.pathname.startsWith(route)
   );
 
+  const defaultItem = {
+    hotels: "Trang chủ",
+    airlines: "Giới thiệu",
+    vacation: "Đội ngũ",
+    find_more: "Tuyển sinh",
+  };
+
   return (
     <div id="app">
       {/* HEADER */}
@@ -63,23 +71,7 @@ function Layout() {
           {location.pathname === "/" ? (
             <Header />
           ) : (
-            <nav className="sub-header">
-              <div>
-                <h1 className="logo">
-                  <a href="#">H.</a>
-                </h1>
-              </div>
-              <div className="sub-header__links text__content--size-18">
-                <Link to="/">Trang chủ</Link>{" "}
-                <Link to="/airlines">Giới thiệu</Link>{" "}
-                <Link to="/vacation">Đội ngũ</Link>{" "}
-                <Link to="/find-more">Tuyển sinh</Link>
-              </div>
-
-              <div className="sub-header__auth">
-                <AuthButtons />
-              </div>
-            </nav>
+            <SubHeader item={defaultItem} />
           )}
         </>
       )}

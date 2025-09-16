@@ -140,6 +140,7 @@
   @include mobile {
     display: block !important;
     cursor: pointer;
+    z-index: 99;
   }
   display: none;
 }

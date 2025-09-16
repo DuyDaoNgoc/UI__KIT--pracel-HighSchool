@@ -1,6 +1,32 @@
 /*color*/
 $primary-color: #fff;
 $light-yellow: #ebcb80;
+/* _variables.scss */
+
+/* Colors */
+$color-light: #f9f9f9;
+$color-dark: #1a1a1a;
+$color-primary: #0052cc;
+$color-primary-dark: #003d99;
+$color-error: #e74c3c;
+$color-border: #ccc;
+$color-placeholder: #aaa;
+$color-disabled: #7a9cc6;
+$color-white: #ffffff;
+$color-primary-opacity: rgba(
+  $color-primary,
+  0.4
+); // SCSS convert hex → rgba tự động
+
+/* RGB version cho box-shadow rgba */
+
+/* Fonts */
+$font-primary: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+/* Breakpoints */
+$breakpoint-desktop: 1024px;
+$breakpoint-tablet: 768px;
+$breakpoint-mobile: 480px;
 
 /*font*/
 $primary-font: "Roboto Medium";

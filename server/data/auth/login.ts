@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { findUserByEmail } from "./userService"; // sửa đường dẫn cho đúng
+import { findUserByEmail, updateUserById } from "./userService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -13,7 +13,7 @@ export async function loginUser(req: Request, res: Response) {
     if (!email || !password)
       return res.status(400).json({ message: "Missing email or password" });
 
-    // 1. Check admin trong .env
+    // --- 1. Admin login ---
     if (
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
@@ -38,25 +38,63 @@ export async function loginUser(req: Request, res: Response) {
       });
     }
 
-    // 2. Nếu không phải admin → check trong DB
-    const user = await findUserByEmail(email);
+    // --- 2. User login ---
+    const user: IUser & {
+      _id: any;
+      loginAttempts?: number;
+      lockUntil?: number;
+    } = (await findUserByEmail(email)) as any;
     if (!user || !user.password)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(401).json({ message: "Invalid email or password" });
+    const now = Date.now();
 
-    // token user chuẩn
+    // --- Kiểm tra lock ---
+    if (user.lockUntil && user.lockUntil > now) {
+      const secondsLeft = Math.ceil((user.lockUntil - now) / 1000);
+      return res.status(403).json({
+        message: `Tài khoản bị khóa. Thử lại sau ${secondsLeft} giây`,
+        lockTime: secondsLeft,
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      // --- Login sai ---
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+
+      // Tính thời gian khóa nếu vượt quá 4 lần
+      if (user.loginAttempts > 4) {
+        const lockSeconds = Math.pow(2, user.loginAttempts - 4) * 10; // khóa tăng dần
+        user.lockUntil = now + lockSeconds * 1000;
+      }
+
+      // Cập nhật DB
+      await updateUserById(user._id, {
+        loginAttempts: user.loginAttempts,
+        lockUntil: user.lockUntil,
+      });
+
+      return res.status(401).json({
+        message: "Invalid email or password",
+        attemptsLeft: Math.max(0, 4 - user.loginAttempts),
+        lockTime: user.lockUntil ? Math.ceil((user.lockUntil - now) / 1000) : 0,
+      });
+    }
+
+    // --- Login thành công: reset loginAttempts và lockUntil ---
+    await updateUserById(user._id, { loginAttempts: 0, lockUntil: 0 });
+
+    // --- JWT ---
     const token = jwt.sign(
-      { id: user._id?.toString(), email: user.email, role: user.role },
+      { id: user._id.toString(), email: user.email, role: user.role },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" }
     );
 
-    // safe user
+    // --- Safe user ---
     const safeUser: IUser & { _id: string } = {
-      _id: user._id?.toString() || "",
+      _id: user._id.toString(),
       username: user.username,
       email: user.email,
       role: user.role,

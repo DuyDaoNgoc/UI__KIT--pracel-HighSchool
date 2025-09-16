@@ -16,10 +16,12 @@
   display: none;
   @include mobile {
     justify-content: center;
-    display: flex;
-    width: 168px;
-    gap: 30px;
     align-items: center;
+    gap: 30px;
+    width: 100%;
+    display: flex;
+    position: absolute;
+    left: 0;
   }
 }
 .creater__user {

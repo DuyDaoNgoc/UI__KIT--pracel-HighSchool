@@ -5,7 +5,7 @@
   position: absolute;
   z-index: 2;
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   padding: 24px;
   padding-top: 40px;
   align-items: center;
@@ -25,6 +25,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 
   &__links {
     display: flex;
@@ -133,6 +134,7 @@
   margin: 0;
   font-size: 36px;
   color: #ebcb80;
+  z-index: 99;
 
   & a {
     text-decoration: none;
@@ -169,4 +171,15 @@
 
 .dropdown-menu--list-item {
   color: #4b4b4b;
+}
+
+.btn--sub {
+  background: none;
+  border: none;
+  color: white;
+
+  &:hover {
+    color: $light-yellow;
+    cursor: pointer;
+  }
 }

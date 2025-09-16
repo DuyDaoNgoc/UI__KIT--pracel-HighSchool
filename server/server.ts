@@ -9,11 +9,11 @@ import newsRoutes from "./Routers/news";
 import gradesRoutes from "./Routers/grades";
 import adminRoutes from "./Routers/admin";
 import teacherRoutes from "./Routers/teacherAuth";
+import classRouter from "./Routers/classes";
 
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import { checkGradesLock } from "./middleware/checkLock";
-import classRouter from "./Routers/classes";
 
 dotenv.config();
 
@@ -25,26 +25,32 @@ declare global {
         role: "student" | "teacher" | "admin" | "parent";
         email: string;
       };
+      db?: any; // ✅ thêm db instance vào request
     }
   }
 }
 
 const app = express();
-app.use("/api/admin/classes", classRouter);
-app.use(cors());
+
+// ================== Middleware ==================
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 
 // ================== API Routes ==================
+app.use("/api/admin/classes", classRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/news", newsRoutes);
-
-// 👉 Tất cả API nhập điểm/giáo viên sẽ check lock từ MongoDB
 app.use("/api/grades", checkGradesLock, gradesRoutes);
 app.use("/api/teachers", checkGradesLock, teacherRoutes);
-
-// Admin route (không check lock, admin được phép mở/đóng)
 app.use("/api/admin", adminRoutes);
 
+// ================== Test routes ==================
 app.get("/api/protected", verifyToken, (req: Request, res: Response) => {
   res.json({ message: "✅ Access granted", user: req.user });
 });
@@ -58,26 +64,27 @@ app.get(
   }
 );
 
+// ================== Static Uploads/Videos ==================
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/videos", express.static(path.join(__dirname, "uploads/videos")));
 
 // ================== Serve Frontend Build ==================
-app.use(express.static(path.join(__dirname, "../dist")));
+app.use(express.static(path.join(__dirname, "../dist"))); // static files
+
+// ❗ IMPORTANT: để cuối cùng để API được ưu tiên trước
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
 });
 
 // ================== Start Server ==================
 const PORT = Number(process.env.PORT) || 8000;
-const HOST = "0.0.0.0"; // cho phép kết nối LAN
+const HOST = "0.0.0.0"; // cho phép LAN
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
     for (const net of nets[name]!) {
-      if (net.family === "IPv4" && !net.internal) {
-        return net.address;
-      }
+      if (net.family === "IPv4" && !net.internal) return net.address;
     }
   }
   return "localhost";
@@ -95,7 +102,7 @@ function getLocalIP() {
       console.log(`   → Local:  http://UI-KIT.com:${PORT}`);
       console.log(`   → LAN:    http://${localIP}:${PORT}`);
       console.log(`📰 News API:      http://${localIP}:${PORT}/api/news`);
-      console.log(`🔑 Auth API:      http://${localIP}:${PORT}/api/auth`);
+      console.log(`🔑 Auth API:      http://${localIP}:${PORT}/api/auth/login`);
       console.log(`📊 Grades API:    http://${localIP}:${PORT}/api/grades`);
       console.log(`🛠️ Admin API:     http://${localIP}:${PORT}/api/admin`);
       console.log(`👨‍🏫 Teacher API:  http://${localIP}:${PORT}/api/teachers`);

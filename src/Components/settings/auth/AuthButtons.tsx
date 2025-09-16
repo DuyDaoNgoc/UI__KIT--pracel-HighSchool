@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import avatar from "../../../../public/assets/imgs/avatar/avatar.jpg";
-
+import Logout from "../../settings/logout/logout";
 interface User {
   username: string;
   role: string;
