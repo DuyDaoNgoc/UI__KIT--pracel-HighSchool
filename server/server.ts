@@ -97,7 +97,8 @@ function getLocalIP() {
 
     app.listen(PORT, HOST, () => {
       const localIP = getLocalIP();
-
+      const hostForLocal =
+        process.env.NODE_ENV === "production" ? "UI-KIT.com" : "localhost";
       console.log("🚀 Backend + Frontend running at:");
       console.log(`   → Local:  http://UI-KIT.com:${PORT}`);
       console.log(`   → LAN:    http://${localIP}:${PORT}`);

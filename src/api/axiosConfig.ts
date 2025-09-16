@@ -1,27 +1,41 @@
 // src/api/axiosConfig.ts
 import axios from "axios";
 
-// ================== Config API URL ==================
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
 
-// Lấy IP LAN động, nhưng an toàn với SSR hoặc test env
+// Lấy BaseURL động, an toàn với dev, LAN, production, SSR
 const getBaseURL = () => {
-  // Nếu đang chạy trong browser
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    if (hostname === "localhost") {
-      return `http://192.168.10.30:${BACKEND_PORT}/api`; // IP LAN dev
-    } else {
-      return `http://${hostname}:${BACKEND_PORT}/api`; // Production hoặc LAN khác
+
+    // ===== Dev trên máy: localhost/127.0.0.1
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      // Trả về localhost để dev máy chính gọi
+      return `http://localhost:${BACKEND_PORT}/api`;
     }
+
+    // ===== Mobile / máy khác trong cùng mạng (LAN)
+    // Nếu hostname là IP LAN, trả về IP đó
+    const lanRegex = /^192\.168\.\d+\.\d+$/;
+    if (lanRegex.test(hostname)) {
+      return `http://${hostname}:${BACKEND_PORT}/api`;
+    }
+
+    // ===== Production
+    if (process.env.NODE_ENV === "production") {
+      return `http://UI-kit.com/api`;
+    }
+
+    // ===== LAN khác / staging
+    return `http://${hostname}:${BACKEND_PORT}/api`;
   }
 
-  // Nếu đang chạy trong Node.js (test, SSR)
+  // ===== Node.js / SSR / test env
   if (process.env.REACT_APP_BACKEND_URL) {
     return process.env.REACT_APP_BACKEND_URL;
   }
 
-  // Fallback mặc định
+  // ===== Fallback mặc định
   return `http://localhost:${BACKEND_PORT}/api`;
 };
 
@@ -31,7 +45,7 @@ const API_URL = getBaseURL();
 const http = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
-  timeout: 30000, // timeout 30s, tránh treo request
+  timeout: 30000,
 });
 
 // ================== Interceptor thêm token ==================
@@ -49,7 +63,3 @@ http.interceptors.request.use(
 );
 
 export default http;
-
-// ================== Ví dụ sử dụng ==================
-// http.post("/auth/login", { email, password }) → LAN/localhost/prod đều ok
-// http.get("/news") → LAN/localhost/prod đều ok

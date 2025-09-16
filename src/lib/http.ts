@@ -4,24 +4,32 @@ import axios from "axios";
 // ================== Config API URL ==================
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
 
-// Hàm lấy baseURL an toàn, đồng bộ localhost/LAN/production
+// Lấy BaseURL động, an toàn với dev, LAN, production, SSR
 const getBaseURL = () => {
+  // ===== Browser =====
   if (typeof window !== "undefined") {
-    // Browser environment
     const hostname = window.location.hostname;
-    if (hostname === "localhost") {
-      return `http://localhost:${BACKEND_PORT}/api`; // dev localhost
-    } else {
-      return `http://${hostname}:${BACKEND_PORT}/api`; // LAN hoặc production
+
+    // ===== Dev: localhost / 127.0.0.1 → fetch local backend
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `http://localhost:${BACKEND_PORT}/api`;
     }
+
+    // ===== Production build: dùng hostname hiện tại (UI-kit.com hoặc LAN khác)
+    if (process.env.NODE_ENV === "production") {
+      return `http://UI-kit.com/api`;
+    }
+
+    // ===== Mobile / LAN khác
+    return `http://${hostname}:${BACKEND_PORT}/api`;
   }
 
-  // Node.js environment (test hoặc SSR)
+  // ===== Node.js / SSR / test env =====
   if (process.env.REACT_APP_BACKEND_URL) {
     return process.env.REACT_APP_BACKEND_URL;
   }
 
-  // Fallback
+  // ===== Fallback =====
   return `http://localhost:${BACKEND_PORT}/api`;
 };
 

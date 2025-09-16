@@ -104,9 +104,10 @@ export default function Register() {
       <label className="login-form__label" htmlFor="confirmPassword">
         Confirm Password
       </label>
+
       <input
         id="confirmPassword"
-        type="password"
+        type={showPassword ? "text" : "password"}
         placeholder="Confirm Password"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
