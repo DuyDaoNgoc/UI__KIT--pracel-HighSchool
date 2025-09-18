@@ -1,0 +1,18 @@
+@use "../abstracts/" as *;
+
+.home {
+  display: flex;
+  position: relative;
+  justify-content: center;
+  & a {
+    position: absolute;
+    left: 0;
+    text-decoration: none;
+  }
+}
+
+.hoverIcon {
+  &:hover path {
+    fill: $light-yellow;
+  }
+}

@@ -2,7 +2,8 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import ClassModel from "../models/Class";
-import UserModel from "../models/User"; // model học sinh
+import UserModel from "../models/User";
+import { IUserDocument } from "../types/user";
 
 // ==== Lấy tất cả lớp, có kèm học sinh chi tiết ====
 export const getAllClasses = async (req: Request, res: Response) => {
@@ -10,7 +11,7 @@ export const getAllClasses = async (req: Request, res: Response) => {
     const classes = await ClassModel.find()
       .populate({
         path: "studentIds",
-        select: "studentId name major grade classLetter",
+        select: "studentId username major schoolYear classLetter",
       })
       .lean();
 
@@ -21,12 +22,12 @@ export const getAllClasses = async (req: Request, res: Response) => {
 
       groupedByMajor[major].push({
         classCode: cls.classCode,
-        grade: cls.grade,
+        grade: cls.schoolYear,
         classLetter: cls.classLetter,
         teacherName: cls.teacherName,
         students: cls.studentIds.map((s: any) => ({
           studentId: s.studentId,
-          name: s.name,
+          name: s.username,
         })),
       });
     });
@@ -41,23 +42,25 @@ export const getAllClasses = async (req: Request, res: Response) => {
 // ==== Tạo hoặc lấy lớp (tự động tạo nếu chưa có) ====
 export const createOrGetClass = async (req: Request, res: Response) => {
   try {
-    const { grade, classLetter, major, teacherName } = req.body;
+    const { schoolYear, classLetter, major, teacherName } = req.body;
 
-    if (!major || !grade || !classLetter)
+    if (!major || !schoolYear || !classLetter) {
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+    }
 
+    // viết tắt ngành
     const majorAbbrev = major
       .split(/\s+/)
       .map((w: string) => (w ? w[0].toUpperCase() : ""))
       .join("");
 
-    const classCode = `${grade}${classLetter}${majorAbbrev}`;
+    const classCode = `${schoolYear}${classLetter}${majorAbbrev}`;
 
     let cls = await ClassModel.findOne({ classCode, major });
 
     if (!cls) {
       cls = await ClassModel.create({
-        grade,
+        schoolYear,
         classLetter,
         major,
         classCode,
@@ -68,7 +71,6 @@ export const createOrGetClass = async (req: Request, res: Response) => {
       cls.teacherName = teacherName;
       await cls.save();
 
-      // Đồng bộ teacherId cho tất cả học sinh trong lớp
       if (cls.studentIds.length > 0) {
         await UserModel.updateMany(
           { _id: { $in: cls.studentIds } },
@@ -84,28 +86,37 @@ export const createOrGetClass = async (req: Request, res: Response) => {
   }
 };
 
-// ==== Thêm học sinh vào lớp (tự động tạo lớp nếu chưa có) ====
+// ==== Thêm học sinh vào lớp ====
 export const addStudentToClass = async (req: Request, res: Response) => {
   try {
-    const { studentId, grade, classLetter, major } = req.body;
+    const { studentId } = req.body;
 
-    if (!studentId || !major || !classLetter || !grade)
+    if (!studentId) {
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+    }
 
-    const majorAbbrev = major
-      .split(/\s+/)
-      .map((w: string) => (w ? w[0].toUpperCase() : ""))
-      .join("");
+    const student = await UserModel.findById(studentId).lean<IUserDocument>();
+    if (!student) {
+      return res.status(404).json({ message: "Không tìm thấy học sinh" });
+    }
 
-    const classCode = `${grade}${classLetter}${majorAbbrev}`;
+    // xác định classCode của học sinh
+    let classCode = student.classCode;
+    if (!classCode) {
+      const majorAbbrev = (student.major || "")
+        .split(/\s+/)
+        .map((w: string) => (w ? w[0].toUpperCase() : ""))
+        .join("");
+      classCode = `${student.schoolYear}${student.classLetter}${majorAbbrev}`;
+    }
 
-    let cls = await ClassModel.findOne({ classCode, major });
+    let cls = await ClassModel.findOne({ classCode, major: student.major });
 
     if (!cls) {
       cls = await ClassModel.create({
-        grade,
-        classLetter,
-        major,
+        schoolYear: student.schoolYear,
+        classLetter: student.classLetter,
+        major: student.major,
         classCode,
         teacherName: null,
         studentIds: [],
@@ -114,7 +125,6 @@ export const addStudentToClass = async (req: Request, res: Response) => {
 
     const studentObjectId = new mongoose.Types.ObjectId(studentId);
 
-    // Thêm học sinh nếu chưa có
     if (
       !cls.studentIds.some((id: mongoose.Types.ObjectId) =>
         id.equals(studentObjectId)
@@ -124,7 +134,6 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    // Đồng bộ teacherId nếu lớp có giáo viên
     if (cls.teacherName) {
       await UserModel.updateOne(
         { _id: studentObjectId },
@@ -134,7 +143,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
 
     const populatedCls = await ClassModel.findById(cls._id).populate({
       path: "studentIds",
-      select: "studentId name major grade classLetter",
+      select: "studentId username major schoolYear classLetter",
     });
 
     res.status(200).json(populatedCls);
@@ -150,8 +159,9 @@ export const assignTeacher = async (req: Request, res: Response) => {
     const { classCode } = req.params;
     const { teacherName } = req.body;
 
-    if (!teacherName)
+    if (!teacherName) {
       return res.status(400).json({ message: "teacherName là bắt buộc" });
+    }
 
     const cls = await ClassModel.findOneAndUpdate(
       { classCode },
@@ -159,9 +169,10 @@ export const assignTeacher = async (req: Request, res: Response) => {
       { new: true }
     );
 
-    if (!cls) return res.status(404).json({ message: "Lớp không tồn tại" });
+    if (!cls) {
+      return res.status(404).json({ message: "Lớp không tồn tại" });
+    }
 
-    // Đồng bộ teacherId cho tất cả học sinh trong lớp
     if (cls.studentIds.length > 0) {
       await UserModel.updateMany(
         { _id: { $in: cls.studentIds } },

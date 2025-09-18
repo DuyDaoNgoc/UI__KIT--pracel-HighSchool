@@ -1,8 +1,11 @@
+// server.ts
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import os from "os";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 import authRoutes from "./Routers/auth";
 import newsRoutes from "./Routers/news";
@@ -25,7 +28,7 @@ declare global {
         role: "student" | "teacher" | "admin" | "parent";
         email: string;
       };
-      db?: any; // ✅ thêm db instance vào request
+      db?: any; // thêm db instance vào request
     }
   }
 }
@@ -70,36 +73,51 @@ app.use("/videos", express.static(path.join(__dirname, "uploads/videos")));
 
 // ================== Serve Frontend Build ==================
 app.use(express.static(path.join(__dirname, "../dist"))); // static files
-
-// ❗ IMPORTANT: để cuối cùng để API được ưu tiên trước
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
 });
 
-// ================== Start Server ==================
+// ================== HTTP Server + Socket.IO ==================
 const PORT = Number(process.env.PORT) || 8000;
 const HOST = "0.0.0.0"; // cho phép LAN
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" },
+});
 
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+
+  // Nhận message từ client
+  socket.on("message", (data) => {
+    console.log("Received message:", data);
+    // Gửi lại cho tất cả client
+    io.emit("message", data);
+  });
+
+  socket.on("disconnect", () => console.log("Client disconnected:", socket.id));
+});
+
+// ================== Hàm lấy IP LAN ==================
 function getLocalIP() {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
-    for (const net of nets[name]!) {
+    for (const net of nets[name] || []) {
       if (net.family === "IPv4" && !net.internal) return net.address;
     }
   }
   return "localhost";
 }
 
+// ================== Start Server ==================
 (async () => {
   try {
     await connectDB();
     await ensureIndexes();
 
-    app.listen(PORT, HOST, () => {
+    httpServer.listen(PORT, HOST, () => {
       const localIP = getLocalIP();
-      const hostForLocal =
-        process.env.NODE_ENV === "production" ? "UI-KIT.com" : "localhost";
-      console.log("🚀 Backend + Frontend running at:");
+      console.log("🚀 Backend + Frontend + Socket.IO running at:");
       console.log(`   → Local:  http://UI-KIT.com:${PORT}`);
       console.log(`   → LAN:    http://${localIP}:${PORT}`);
       console.log(`📰 News API:      http://${localIP}:${PORT}/api/news`);

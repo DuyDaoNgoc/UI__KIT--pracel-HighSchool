@@ -35,9 +35,9 @@ router.post(
   checkRole(["admin"]),
   async (req: Request, res: Response) => {
     try {
-      const { grade, classLetter, major, classCode } = req.body;
+      const { schoolYear, classLetter, major, classCode } = req.body;
 
-      if (!grade || !classLetter || !classCode) {
+      if (!schoolYear || !classLetter || !classCode) {
         return res.status(400).json({
           success: false,
           message: "Thiếu thông tin lớp",
@@ -47,7 +47,7 @@ router.post(
       let cls = await ClassModel.findOne({ classCode });
       if (!cls) {
         cls = new ClassModel({
-          grade,
+          schoolYear,
           classLetter,
           major: major ?? "",
           classCode,
@@ -78,25 +78,26 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { classCode } = req.params;
-      const { teacherName, grade, classLetter, major } = req.body;
+      const { teacherName, schoolYear, classLetter, major } = req.body;
 
-      if (!teacherName)
+      if (!teacherName) {
         return res.status(400).json({
           success: false,
           message: "Thiếu tên giáo viên",
         });
+      }
 
       let cls = await ClassModel.findOne({ classCode });
 
       if (!cls) {
-        if (!grade || !classLetter) {
+        if (!schoolYear || !classLetter) {
           return res.status(400).json({
             success: false,
-            message: "Thiếu grade hoặc classLetter để tạo lớp",
+            message: "Thiếu schoolYear hoặc classLetter để tạo lớp",
           });
         }
         cls = new ClassModel({
-          grade,
+          schoolYear,
           classLetter,
           major: major ?? "",
           classCode,
@@ -130,25 +131,26 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { classCode } = req.params;
-      const { studentId, grade, classLetter, major } = req.body;
+      const { studentId, schoolYear, classLetter, major } = req.body;
 
-      if (!studentId)
+      if (!studentId) {
         return res.status(400).json({
           success: false,
           message: "Thiếu studentId",
         });
+      }
 
       let cls = await ClassModel.findOne({ classCode });
 
       if (!cls) {
-        if (!grade || !classLetter) {
+        if (!schoolYear || !classLetter) {
           return res.status(400).json({
             success: false,
-            message: "Thiếu grade hoặc classLetter để tạo lớp",
+            message: "Thiếu schoolYear hoặc classLetter để tạo lớp",
           });
         }
         cls = new ClassModel({
-          grade,
+          schoolYear,
           classLetter,
           major: major ?? "",
           classCode,
@@ -157,7 +159,6 @@ router.post(
         });
         await cls.save();
       } else {
-        // Thêm học sinh, tránh trùng lặp
         cls.studentIds = cls.studentIds || [];
         if (!cls.studentIds.includes(studentId)) {
           cls.studentIds.push(studentId);

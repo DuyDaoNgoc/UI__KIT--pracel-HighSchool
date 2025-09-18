@@ -21,7 +21,13 @@ const getBaseURL = () => {
     }
 
     // ===== Mobile / LAN khác
-    return `http://${hostname}:${BACKEND_PORT}/api`;
+    const lanRegex = /^192\.168\.\d+\.\d+$/;
+    if (lanRegex.test(hostname)) {
+      return `http://${hostname}:${BACKEND_PORT}/api`;
+    }
+
+    // ===== Ngrok / host public / staging khác
+    return `${window.location.origin}/api`;
   }
 
   // ===== Node.js / SSR / test env =====
@@ -29,7 +35,7 @@ const getBaseURL = () => {
     return process.env.REACT_APP_BACKEND_URL;
   }
 
-  // ===== Fallback =====
+  // ===== Fallback mặc định
   return `http://localhost:${BACKEND_PORT}/api`;
 };
 
@@ -59,5 +65,5 @@ http.interceptors.request.use(
 export default http;
 
 // ================== Ví dụ sử dụng ==================
-// http.post("/auth/login", { email, password }) → LAN/localhost/prod đều ok
-// http.get("/news") → LAN/localhost/prod đều ok
+// http.post("/auth/login", { email, password }) → LAN/localhost/prod/Ngrok đều ok
+// http.get("/news") → LAN/localhost/prod/Ngrok đều ok

@@ -1,5 +1,13 @@
 // src/pages/Profile/admin/AdminSidebar.tsx
 import { FileText, Lock, Unlock, UserPlus, Users } from "lucide-react";
+import Logout from "@/Components/settings/logout/logout";
+import { useAuth } from "../../../context/AuthContext";
+import Home from "../../../pages/Home";
+import { Link } from "react-router-dom";
+
+import HomeIcon from "@/icons/HomeIcon";
+import { motion } from "framer-motion";
+import { pageVariants } from "../../../configs/animations/pageVariants";
 
 interface Props {
   activeTab: string;
@@ -12,10 +20,23 @@ export default function AdminSidebar({
   locked,
   setActiveTab,
 }: Props) {
+  const { logout } = useAuth() as { logout: () => void };
   return (
-    <aside className="profile__sidebar">
+    <motion.aside
+      className="profile__sidebar"
+      variants={pageVariants.zoom} // dùng zoom (không có x/y translate)
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      style={{ willChange: "transform, opacity" }} // hint cho trình duyệt để mượt hơn
+    >
       <div className="profile__user">
-        <h3 className="titlecolor">Admin Panel</h3>
+        <div className="home">
+          <Link to="/">
+            <HomeIcon />{" "}
+          </Link>
+          <h3 className="titlecolor">Admin Panel</h3>
+        </div>
         <p>Quản trị viên</p>
       </div>
       <ul className="profile__menu">
@@ -51,6 +72,9 @@ export default function AdminSidebar({
           <UserPlus size={18} /> Tạo giáo viên
         </li>
       </ul>
-    </aside>
+      <li>
+        <Logout />
+      </li>
+    </motion.aside>
   );
 }

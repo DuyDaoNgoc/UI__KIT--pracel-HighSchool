@@ -4,6 +4,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 export interface IClass extends Document {
   grade: string; // vd: 10, 11, 12
   classLetter: string; // vd: A, B, C
+  schoolYear: { type: String; required: true }; // 🎯 thêm field này
   major: string; // ghi tắt ngành, vd: CNTT, CĐT, QTKD
   classCode: string; // mã lớp, vd: 10A1CNTT
   // Thông tin giáo viên chủ nhiệm
@@ -19,6 +20,7 @@ const ClassSchema = new Schema<IClass>(
   {
     grade: { type: String, required: true }, // vd: 10, 11, 12
     classLetter: { type: String, required: true }, // vd: A, B, C
+
     major: { type: String, required: true }, // ghi tắt ngành, vd: CNTT, CĐT, QTKD
     classCode: { type: String, required: true, unique: true }, // mã lớp, vd: 10A1CNTT (đảm bảo unique)
     // Thông tin giáo viên chủ nhiệm

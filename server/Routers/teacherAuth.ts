@@ -7,7 +7,7 @@ import {
 } from "../middleware/authMiddleware";
 import User from "../models/User"; // Model người dùng (bao gồm học sinh)
 import { IUserDocument } from "../types/user"; // Interface đúng
-import { registerTeacher } from "../controllers/registerTeacher"; // controller mới
+import { createTeacher } from "../controllers/registerTeacher"; // controller mới
 
 interface IStudentResponse {
   _id: string;
@@ -25,7 +25,7 @@ const router = Router();
 
 // ===== Đăng ký giáo viên =====
 router.post("/register", async (req, res) => {
-  await registerTeacher(req, res);
+  await createTeacher(req, res);
 });
 
 // ===== Lấy danh sách học sinh của giáo viên =====

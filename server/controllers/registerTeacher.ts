@@ -1,137 +1,83 @@
-// server/controllers/registerTeacher.ts
+// server/controllers/admin/createTeacher.ts
 import { Request, Response } from "express";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { connectDB } from "../configs/db";
 
-export const registerTeacher = async (req: Request, res: Response) => {
+export const createTeacher = async (req: Request, res: Response) => {
   try {
-    const { teacherId, email, password } = req.body;
-
-    if (!teacherId)
-      return res.status(400).json({
-        success: false,
-        field: "teacherId",
-        message: "Teacher ID is required",
-      });
-    if (!email)
-      return res
-        .status(400)
-        .json({ success: false, field: "email", message: "Email is required" });
-    if (!password)
-      return res.status(400).json({
-        success: false,
-        field: "password",
-        message: "Password is required",
-      });
-
     const db = await connectDB();
-    const users = db.collection("users");
     const teachers = db.collection("teachers");
-    const classes = db.collection("classes");
-    const students = db.collection("students");
 
-    // Check email đã tồn tại chưa
-    const existingUser = await users.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({
-        success: false,
-        field: "email",
-        message: "Email already registered",
-      });
-
-    // Tìm giáo viên trong collection teachers
-    const teacher = await teachers.findOne({ teacherId });
-    if (!teacher)
-      return res.status(404).json({
-        success: false,
-        field: "teacherId",
-        message: "Teacher ID not found",
-      });
-
-    // Check teacherId đã có user chưa
-    const existingTeacherUser = await users.findOne({
-      teacherId: teacher.teacherId,
-    });
-    if (existingTeacherUser)
-      return res.status(400).json({
-        success: false,
-        field: "teacherId",
-        message: "This teacher ID is already linked to an account",
-      });
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = {
-      customId: crypto.randomBytes(6).toString("hex"),
-      username: teacher.name || teacher.teacherId,
-      teacherId: teacher.teacherId,
+    const {
+      teacherId,
+      name,
+      dob,
+      phone,
+      major,
+      subject,
+      address,
+      residence,
       email,
-      password: hashedPassword,
+      classAssigned = [], // lớp được phân công
+    } = req.body;
+
+    if (!teacherId || !name || !dob || !phone || !major || !subject) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Thiếu thông tin bắt buộc (teacherId, name, dob, phone, major, subject).",
+      });
+    }
+
+    const parsedDob = new Date(dob);
+    if (isNaN(parsedDob.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Ngày sinh không hợp lệ.",
+      });
+    }
+
+    const existingTeacher = await teachers.findOne({ teacherId });
+    if (existingTeacher) {
+      return res.status(409).json({
+        success: false,
+        message: "Mã giáo viên đã tồn tại.",
+      });
+    }
+
+    const newTeacher = {
+      teacherId: String(teacherId),
+      name: String(name),
+      username: String(name),
       role: "teacher",
-      dob: teacher.dob || null,
-      phone: teacher.phone || null,
-      address: teacher.address || null,
+      dob: parsedDob,
+      phone: String(phone),
+      major: String(major),
+      subject: String(subject),
+      address: address ?? "",
+      residence: residence ?? "",
+      email: email ?? "",
+      classAssigned: Array.isArray(classAssigned) ? classAssigned : [],
+      avatar: "",
       createdAt: new Date(),
     };
 
-    const result = await users.insertOne(newUser);
-
-    // ===== Xử lý lớp ngành =====
-    const major = teacher.major;
-    const classCode = teacher.classCode;
-    const grade = teacher.grade;
-    const classLetter = teacher.classLetter;
-
-    if (major && classCode) {
-      let cls = await classes.findOne({ classCode, major });
-
-      if (!cls) {
-        // Tạo lớp mới nếu chưa tồn tại
-        const insertResult = await classes.insertOne({
-          grade,
-          classLetter,
-          major,
-          classCode,
-          teacherName: teacher.name,
-          studentIds: [],
-        });
-        cls = { _id: insertResult.insertedId };
-      } else {
-        // Cập nhật giáo viên chủ nhiệm nếu đã có lớp
-        await classes.updateOne(
-          { _id: cls._id },
-          { $set: { teacherName: teacher.name } }
-        );
-      }
-
-      // Gán teacherId cho các học sinh cùng lớp
-      await students.updateMany(
-        { grade, classLetter, major },
-        { $set: { teacherId: teacher.teacherId } }
-      );
-    }
+    const result = await teachers.insertOne(newTeacher);
+    const allTeachers = await teachers.find().sort({ createdAt: -1 }).toArray();
 
     return res.status(201).json({
       success: true,
-      message: "Teacher registered successfully",
-      user: {
-        id: result.insertedId,
-        username: newUser.username,
-        teacherId: newUser.teacherId,
-        email: newUser.email,
-        role: newUser.role,
+      message: "Giáo viên đã được tạo thành công.",
+      data: {
+        teacher: { ...newTeacher, _id: result.insertedId },
+        teachers: allTeachers,
       },
     });
-  } catch (err) {
-    console.error("Register teacher error:", err);
+  } catch (error: any) {
+    console.error("❌ [createTeacher] Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
-      error: err instanceof Error ? err.message : err,
+      message: "Không thể tạo giáo viên. Thử lại sau.",
+      errorDetail: error?.message ?? String(error),
     });
   }
 };
-
-export default registerTeacher;

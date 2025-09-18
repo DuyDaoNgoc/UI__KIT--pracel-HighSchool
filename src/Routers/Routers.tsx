@@ -1,31 +1,61 @@
 // src/Routers/Routers.tsx
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 
+// Pages
 import Home from "../pages/Home";
-import Testimonials from "../pages/Contents/Testimonials";
-import Blog from "../pages/Contents/Blog";
-import News from "../pages/Contents/News";
-import Documentation from "../pages/Contents/Documentation";
-import Help from "../pages/Contents/Help";
-import Privacy from "../pages/Contents/Privacy";
+import Testimonials from "../pages/Contents/home/Testimonials";
+import Blog from "../pages/Contents/home/Blog";
+import News from "../pages/Contents/home/News";
+import Documentation from "../pages/Contents/home/Documentation";
+import Help from "../pages/Contents/home/Help";
+import Privacy from "../pages/Contents/home/Privacy";
 
-import Profile from "../pages/Profile/Profile";
+// Profile
+import Profile from "../pages/Profile/Students/Profile";
 import TeacherProfile from "../pages/Profile/teacher/TeacherProfile";
-import ParentProfile from "../pages/Profile/ParentProfile";
+import ParentProfile from "../pages/Profile/Parents/ParentProfile";
 import AdminProfile from "../pages/Profile/admin/AdminProfile";
 
+// Layout
 import Header from "../layouts/Header";
 import Footer from "../layouts/Footer";
 
-type FooterItem = {
-  logo: string;
-  content: string;
-  subtitle: string;
-  subscribe: string;
+// Animation
+import { pageVariants } from "../configs/animations/pageVariants";
+
+// ----------------------
+// PageWrapper: animate riêng cho mỗi page (chỉ dùng zoom/fade)
+// ----------------------
+type PageWrapperProps = {
+  children: React.ReactNode;
+  variant?: "fade" | "zoom";
 };
 
-// Layout mặc định: có Header + Footer
+const PageWrapper: React.FC<PageWrapperProps> = ({
+  children,
+  variant = "zoom",
+}) => (
+  <motion.div
+    variants={pageVariants[variant]}
+    initial="initial"
+    animate="animate"
+    exit="exit"
+    style={{ minHeight: "80vh" }}
+  >
+    {children}
+  </motion.div>
+);
+
+// ----------------------
+// Layout mặc định (Header + Footer tĩnh)
+// ----------------------
 const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
@@ -47,93 +77,160 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({
   </>
 );
 
-// Layout riêng cho Profile: KHÔNG Header + Footer
+// ----------------------
+// Layout Profile (KHÔNG Header/Footer)
+// ----------------------
 const ProfileLayout: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => <main>{children}</main>;
 
-// ProfileRouter để map tất cả /profile/* subpage
-const ProfileRouter: React.FC = () => (
-  <Routes>
-    <Route index element={<Profile />} />
-    <Route path="teacher" element={<TeacherProfile />} />
-    <Route path="parent" element={<ParentProfile />} />
-    <Route path="admin/*" element={<AdminProfile />} />
-  </Routes>
-);
+// ----------------------
+// Router riêng cho /profile/*
+// ----------------------
+const ProfileRouter: React.FC = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
+        <Route
+          index
+          element={
+            <PageWrapper>
+              <Profile />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="teacher"
+          element={
+            <PageWrapper>
+              <TeacherProfile />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="parent"
+          element={
+            <PageWrapper>
+              <ParentProfile />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="admin/*"
+          element={
+            <PageWrapper>
+              <AdminProfile />
+            </PageWrapper>
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+};
 
-const AppRouter: React.FC = () => (
+// ----------------------
+// AppRouter chính
+// ----------------------
+const AppRouter: React.FC = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
+        {/* Default Layout */}
+        <Route
+          path="/"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Home />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/testimonials"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Testimonials />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Blog />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/news"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <News />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/documentation"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Documentation />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Help />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <Privacy />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+
+        {/* Profile routes */}
+        <Route
+          path="/profile/*"
+          element={
+            <ProfileLayout>
+              <ProfileRouter />
+            </ProfileLayout>
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+// ----------------------
+// Router ngoài cùng
+// ----------------------
+const RootRouter: React.FC = () => (
   <Router>
-    <Routes>
-      {/* Routes mặc định có Header + Footer */}
-      <Route
-        path="/"
-        element={
-          <DefaultLayout>
-            <Home />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/testimonials"
-        element={
-          <DefaultLayout>
-            <Testimonials />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/blog"
-        element={
-          <DefaultLayout>
-            <Blog />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/news"
-        element={
-          <DefaultLayout>
-            <News />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/documentation"
-        element={
-          <DefaultLayout>
-            <Documentation />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/help"
-        element={
-          <DefaultLayout>
-            <Help />
-          </DefaultLayout>
-        }
-      />
-      <Route
-        path="/privacy"
-        element={
-          <DefaultLayout>
-            <Privacy />
-          </DefaultLayout>
-        }
-      />
-
-      {/* Tất cả /profile/* dùng ProfileLayout (không Header/Footer) */}
-      <Route
-        path="/profile/*"
-        element={
-          <ProfileLayout>
-            <ProfileRouter />
-          </ProfileLayout>
-        }
-      />
-    </Routes>
+    <AppRouter />
   </Router>
 );
 
-export default AppRouter;
+export default RootRouter;

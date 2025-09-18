@@ -3,37 +3,59 @@ import http from "../../lib/http";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Login: React.FC = () => {
+  // form state
   const [form, setForm] = useState({ email: "", password: "" });
+  // loading state
   const [loading, setLoading] = useState(false);
+  // message state
   const [message, setMessage] = useState("");
+  // show/hide password
   const [showPassword, setShowPassword] = useState(false);
+  // lock countdown
   const [lockSecondsLeft, setLockSecondsLeft] = useState(0);
-
+  // router
   const navigate = useNavigate();
+  // auth context
   const { login } = useAuth();
 
   // Countdown khi bị lock
   useEffect(() => {
+    // lockSecondsLeft = 0 thì không cần chạy timer
     if (lockSecondsLeft <= 0) return;
+    // Tạo timer giảm dần lockSecondsLeft
     const timer = setInterval(() => {
+      // Mỗi giây giảm 1
       setLockSecondsLeft((prev) => Math.max(prev - 1, 0));
     }, 1000);
+    // Clear timer khi unmount hoặc lockSecondsLeft thay đổi
     return () => clearInterval(timer);
-  }, [lockSecondsLeft]);
+  }, [lockSecondsLeft]); // Chỉ chạy khi lockSecondsLeft thay đổi
 
+  // Handle input change
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Cập nhật giá trị form tương ứng
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  // Handle form submit
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (e: React.FormEvent) => {
+    // Ngăn chặn reload trang
     e.preventDefault();
+    //
     if (lockSecondsLeft > 0) return; // chặn submit khi đang lock
+    // load state
     setLoading(true);
+    // clear message
     setMessage("");
 
     try {
+      // Gửi request đăng nhập tới backend
       const res = await http.post<any>("/auth/login", form);
+      // Xử lý phản hồi từ backend
       const {
         success,
         token,
@@ -42,12 +64,20 @@ const Login: React.FC = () => {
         attemptsLeft,
         lockTime,
       } = res.data;
-
+      // Nếu đăng nhập thành công và có token, user
       if (success && token && user) {
+        // Lưu token vào localStorage
         localStorage.setItem("token", token);
+        // Cập nhật auth context
         login(user, token);
-        navigate("/");
+        // ✅ Điều hướng theo role
+        if (user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
       } else {
+        // Đăng nhập thất bại, hiển thị thông báo lỗi từ backend
         let errorMsg = msg || "❌ Invalid email or password";
 
         // Hiển thị số lần thử còn lại
@@ -55,20 +85,29 @@ const Login: React.FC = () => {
           errorMsg += ` | Attempts left: ${attemptsLeft}`;
         }
 
-        // Nếu bị khóa
+        // neu bi lock thi hien thi thoi gian lock
         if (lockTime && lockTime > 0) {
+          // Bắt đầu đếm ngược
           setLockSecondsLeft(lockTime);
+          // Hiển thị thời gian bị khóa
           errorMsg += ` | Locked for: ${lockTime}s`;
         }
-
+        // Hiển thị lỗi
         setMessage(errorMsg);
       }
+      //  eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // Lỗi kết nối hoặc lỗi khác
+      // Hiển thị lỗi từ backend hoặc lỗi kết nối
       const errorMessage =
+        //Lỗi từ backend
         err?.response?.data?.message ||
         "❌ Cannot connect to server or invalid credentials";
+      // Hiển thị lỗi
       setMessage(errorMessage);
     } finally {
+      // Luôn tắt loading sau khi xử lý xong
+      // Tắt loading
       setLoading(false);
     }
   };

@@ -1,51 +1,53 @@
+// src/pages/Profile/admin/CreateTeacher.tsx
 import React, { useEffect, useState } from "react";
 import axiosInstance from "../../../api/axiosConfig";
 import { IClass } from "../../../types/class";
 
-interface ITeacher {
-  teacherId?: string;
+interface ITeacherForm {
   name: string;
   dob: string;
   gender: string;
   phone?: string;
   address?: string;
-  major: string;
-  classCode: string;
-  createdAt?: Date;
+  majors: string[];
+  assignedClassCode: string; // lớp chủ nhiệm
+  subjectClasses: string[];
+}
+
+interface ITeacherCreated extends ITeacherForm {
+  _id: string;
 }
 
 export default function CreateTeacher() {
-  const [teacherForm, setTeacherForm] = useState<ITeacher>({
+  const [teacherForm, setTeacherForm] = useState<ITeacherForm>({
     name: "",
     dob: "",
     gender: "male",
     phone: "",
     address: "",
-    major: "",
-    classCode: "",
+    majors: [],
+    assignedClassCode: "",
+    subjectClasses: [],
   });
 
   const [majors, setMajors] = useState<string[]>([]);
   const [classesByMajor, setClassesByMajor] = useState<
     Record<string, IClass[]>
   >({});
-  const [teachers, setTeachers] = useState<ITeacher[]>([]);
+  const [teachers, setTeachers] = useState<ITeacherCreated[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ==== Load tất cả lớp & nhóm ngành ====
+  // load lớp & ngành
   useEffect(() => {
     const fetchClasses = async () => {
       try {
         const res = await axiosInstance.get<IClass[]>("/api/admin/classes");
         const classes = Array.isArray(res.data) ? res.data : [];
-
-        // Lấy danh sách ngành duy nhất
         const uniqueMajors = Array.from(
           new Set(classes.map((c) => c.major).filter(Boolean))
         ) as string[];
         setMajors(uniqueMajors);
 
-        // Nhóm lớp theo ngành
         const grouped: Record<string, IClass[]> = {};
         uniqueMajors.forEach((major) => {
           grouped[major] = classes.filter((c) => c.major === major);
@@ -61,30 +63,49 @@ export default function CreateTeacher() {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    setTeacherForm((prev) => ({
-      ...prev,
-      [name]: value,
-      ...(name === "major" ? { classCode: "" } : {}),
-    }));
+    const { name, value, selectedOptions } = e.target as HTMLSelectElement;
+    if (name === "majors") {
+      const selected = Array.from(selectedOptions).map((o) => o.value);
+      setTeacherForm((prev) => ({
+        ...prev,
+        majors: selected,
+        assignedClassCode: "",
+        subjectClasses: [],
+      }));
+    } else if (name === "subjectClasses") {
+      const selected = Array.from(selectedOptions).map((o) => o.value);
+      setTeacherForm((prev) => ({ ...prev, subjectClasses: selected }));
+    } else {
+      setTeacherForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
-  const filteredClasses = teacherForm.major
-    ? classesByMajor[teacherForm.major] || []
+  const filteredClassesForMain = teacherForm.majors.length
+    ? teacherForm.majors.flatMap((major) => classesByMajor[major] || [])
     : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const {
+      name,
+      dob,
+      gender,
+      majors,
+      assignedClassCode,
+      subjectClasses,
+      phone,
+      address,
+    } = teacherForm;
 
-    const { name, dob, gender, phone, address, major, classCode } = teacherForm;
-    if (!name || !dob || !gender || !major || !classCode)
-      return alert("Vui lòng điền đầy đủ thông tin và chọn lớp phụ trách.");
+    if (!name || !dob || !gender || majors.length === 0 || !assignedClassCode) {
+      return alert("Vui lòng điền đầy đủ thông tin và chọn lớp chủ nhiệm.");
+    }
 
     try {
       setLoading(true);
 
-      // 1️⃣ Tạo giáo viên (chưa có tài khoản, chỉ lưu thông tin)
-      const res = await axiosInstance.post<ITeacher>(
+      // 1️⃣ Tạo teacher
+      const createRes = await axiosInstance.post<{ _id: string }>(
         "/api/admin/teachers/create",
         {
           name,
@@ -92,28 +113,49 @@ export default function CreateTeacher() {
           gender,
           phone,
           address,
-          major,
-          classCode,
+          majors,
+          subjectClasses,
         }
       );
 
-      // 2️⃣ Cập nhật danh sách giáo viên mới
-      setTeachers((prev) => [res.data, ...prev]);
+      const teacherId = createRes.data._id;
 
-      // 3️⃣ Reset form
+      // 2️⃣ Gán teacher vào lớp chủ nhiệm
+      await axiosInstance.post(
+        "/api/admin/teachers/assign",
+        {
+          teacherId,
+          grade: filteredClassesForMain.find(
+            (c) => c.classCode === assignedClassCode
+          )?.grade,
+          classLetter: filteredClassesForMain.find(
+            (c) => c.classCode === assignedClassCode
+          )?.classLetter,
+          schoolYear: filteredClassesForMain.find(
+            (c) => c.classCode === assignedClassCode
+          )?.schoolYear,
+          major: filteredClassesForMain.find(
+            (c) => c.classCode === assignedClassCode
+          )?.major,
+        },
+        { params: { classCode: assignedClassCode } }
+      );
+
+      // 3️⃣ Cập nhật state UI
+      setTeachers((prev) => [{ _id: teacherId, ...teacherForm }, ...prev]);
+
       setTeacherForm({
         name: "",
         dob: "",
         gender: "male",
         phone: "",
         address: "",
-        major: "",
-        classCode: "",
+        majors: [],
+        assignedClassCode: "",
+        subjectClasses: [],
       });
 
-      alert(
-        `✅ Giáo viên ${name} đã được tạo và gán làm chủ nhiệm lớp ${classCode} thành công!`
-      );
+      alert(`✅ Giáo viên ${name} đã được tạo và đồng bộ lớp thành công!`);
     } catch (err) {
       console.error("⚠️ createTeacher error:", err);
       alert("Tạo giáo viên thất bại.");
@@ -124,9 +166,8 @@ export default function CreateTeacher() {
 
   return (
     <div className="profile__card">
-      <h2 className="profile__title">Tạo giáo viên chủ nhiệm</h2>
+      <h2 className="profile__title">Tạo giáo viên</h2>
       <form onSubmit={handleSubmit}>
-        {/* Thông tin cơ bản */}
         {["name", "dob", "phone", "address"].map((field) => (
           <div className="form-group" key={field}>
             <label>
@@ -145,7 +186,6 @@ export default function CreateTeacher() {
           </div>
         ))}
 
-        {/* Giới tính */}
         <div className="form-group">
           <label>Giới tính:</label>
           <select
@@ -159,16 +199,15 @@ export default function CreateTeacher() {
           </select>
         </div>
 
-        {/* Ngành */}
         <div className="form-group">
           <label>Ngành phụ trách:</label>
           <select
-            name="major"
-            value={teacherForm.major}
+            name="majors"
+            multiple
+            value={teacherForm.majors}
             onChange={handleChange}
             required
           >
-            <option value="">-- Chọn ngành --</option>
             {majors.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -177,19 +216,40 @@ export default function CreateTeacher() {
           </select>
         </div>
 
-        {/* Lớp */}
         <div className="form-group">
-          <label>Chọn lớp phụ trách:</label>
+          <label>Lớp chủ nhiệm:</label>
           <select
-            name="classCode"
-            value={teacherForm.classCode}
+            name="assignedClassCode"
+            value={teacherForm.assignedClassCode}
             onChange={handleChange}
             required
-            disabled={!teacherForm.major || filteredClasses.length === 0}
+            disabled={filteredClassesForMain.length === 0}
           >
-            <option value="">-- Chọn lớp --</option>
-            {filteredClasses.map((cls) => (
+            <option value="">-- Chọn lớp chủ nhiệm --</option>
+            {filteredClassesForMain.map((cls) => (
               <option key={cls.classCode} value={cls.classCode}>
+                {cls.grade}
+                {cls.classLetter} -{" "}
+                {cls.teacherName ? `GV: ${cls.teacherName}` : "Chưa gán"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Lớp phụ trách bộ môn:</label>
+          <select
+            name="subjectClasses"
+            multiple
+            value={teacherForm.subjectClasses}
+            onChange={handleChange}
+          >
+            {filteredClassesForMain.map((cls) => (
+              <option
+                key={cls.classCode}
+                value={cls.classCode}
+                disabled={cls.classCode === teacherForm.assignedClassCode}
+              >
                 {cls.grade}
                 {cls.classLetter} -{" "}
                 {cls.teacherName ? `GV: ${cls.teacherName}` : "Chưa gán"}
@@ -202,35 +262,6 @@ export default function CreateTeacher() {
           {loading ? "Đang tạo..." : "Tạo giáo viên"}
         </button>
       </form>
-
-      {/* Danh sách giáo viên vừa tạo */}
-      {teachers.length > 0 && (
-        <div className="mt-4">
-          <h3>Danh sách giáo viên chủ nhiệm</h3>
-          <table className="profile__table mt-2">
-            <thead>
-              <tr>
-                <th>Tên GV</th>
-                <th>Ngày sinh</th>
-                <th>Giới tính</th>
-                <th>Ngành</th>
-                <th>Lớp chủ nhiệm</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.map((t, idx) => (
-                <tr key={idx}>
-                  <td>{t.name}</td>
-                  <td>{t.dob}</td>
-                  <td>{t.gender}</td>
-                  <td>{t.major}</td>
-                  <td>{t.classCode}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

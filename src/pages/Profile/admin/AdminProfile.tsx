@@ -3,7 +3,8 @@ import React, { useEffect, useState, FC } from "react";
 import axiosInstance from "../../../api/axiosConfig";
 import { INews } from "../../../types/news";
 import { ICreatedStudent } from "../../../types/student";
-
+import Logout from "../../../Components/settings/logout/logout";
+import NotFound from "../../../error/404"; // ✅ Trang lỗi
 import {
   Lock,
   Unlock,
@@ -29,8 +30,13 @@ interface ILockResp {
 }
 
 const AdminProfile: FC = () => {
-  const { user, token, login } = useAuth();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("news");
+
+  // Nếu chưa login hoặc không phải admin → render NotFound
+  if (!token || user?.role !== "admin") {
+    return <NotFound />;
+  }
 
   // State quản lý
   const [pendingNews, setPendingNews] = useState<INews[]>([]);
@@ -76,7 +82,7 @@ const AdminProfile: FC = () => {
   const fetchNews = async () => {
     try {
       const res = await axiosInstance.get<INews[]>(
-        "/admin/news/pending", // ❌ bỏ /api ở đây
+        "/admin/news/pending",
         authHeaders
       );
       setPendingNews(res.data || []);
@@ -94,7 +100,7 @@ const AdminProfile: FC = () => {
   const fetchLockStatus = async () => {
     try {
       const res = await axiosInstance.get<ILockResp>(
-        "/admin/grades/status", // ❌ bỏ /api
+        "/admin/grades/status",
         authHeaders
       );
       setLocked(!!res.data.locked);
@@ -106,7 +112,6 @@ const AdminProfile: FC = () => {
   // ==== Toggle khóa/mở khóa ====
   const toggleLock = async () => {
     try {
-      if (!token) return alert("Bạn chưa đăng nhập!");
       if (locked) {
         await axiosInstance.post("/admin/grades/unlock", {}, authHeaders);
         setLocked(false);
@@ -146,9 +151,8 @@ const AdminProfile: FC = () => {
   // ==== Fetch students ====
   const fetchCreatedStudents = async () => {
     try {
-      if (!token) return;
       const res = await axiosInstance.get<ICreatedStudent[]>(
-        "/admin/students", // ❌ bỏ /api
+        "/admin/students",
         authHeaders
       );
       const data = Array.isArray(res.data) ? res.data : [];
@@ -170,8 +174,6 @@ const AdminProfile: FC = () => {
   // ==== Create student ====
   const createStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return alert("Bạn chưa đăng nhập!");
-    if (user?.role !== "admin") return alert("Bạn không có quyền!");
 
     if (
       !studentForm.name ||
@@ -196,7 +198,7 @@ const AdminProfile: FC = () => {
       const payload = { ...studentForm, studentId, classCode };
 
       await axiosInstance.post<ICreatedStudent>(
-        "/admin/students/create", // ❌ bỏ /api
+        "/admin/students/create",
         payload,
         authHeaders
       );
@@ -225,7 +227,6 @@ const AdminProfile: FC = () => {
 
   // ==== Delete student ====
   const deleteStudent = async (studentId: string) => {
-    if (!token) return alert("Bạn chưa đăng nhập!");
     if (!confirm(`Xác nhận xóa học sinh ${studentId}?`)) return;
 
     setActionLoading(studentId);
@@ -247,7 +248,6 @@ const AdminProfile: FC = () => {
 
   // ==== Assign teacher ====
   const assignTeacher = async (studentId: string) => {
-    if (!token) return alert("Bạn chưa đăng nhập!");
     const teacherId = prompt("Nhập teacherId:");
     if (!teacherId) return;
 
@@ -280,13 +280,12 @@ const AdminProfile: FC = () => {
 
   // ==== useEffect init ====
   useEffect(() => {
-    if (!token) return;
     fetchNews();
     fetchLockStatus();
     fetchCreatedStudents();
     const iv = setInterval(() => fetchLockStatus(), 30000);
     return () => clearInterval(iv);
-  }, [token]);
+  }, []);
 
   // ==== Render ====
   return (
@@ -319,7 +318,6 @@ const AdminProfile: FC = () => {
           />
         )}
         {activeTab === "classes" && <ClassesTab students={createdStudents} />}
-
         {activeTab === "create-teacher" && <CreateTeacher />}
       </main>
 

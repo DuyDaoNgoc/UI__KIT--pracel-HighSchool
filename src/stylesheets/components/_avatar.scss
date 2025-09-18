@@ -99,3 +99,14 @@
     }
   }
 }
+
+.radius__flex {
+  display: flex;
+  text-transform: none;
+  justify-content: start;
+  align-items: center;
+
+  &:hover {
+    border-radius: 10px;
+  }
+}

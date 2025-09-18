@@ -23,19 +23,25 @@ export default function Register() {
     }
 
     try {
+      // Gửi request đăng ký tới backend (đường dẫn giống login)
       const res = await http.post<RegisterResponse>("/auth/register", {
         studentCode,
         email,
         password,
       });
-
+      // Xử lý phản hồi từ backend
       if (res.data.success) {
+        // Đăng ký thành công
         setMessage("✅ Đăng ký thành công! Chuyển đến trang đăng nhập...");
+        //  Chuyển hướng đến trang đăng nhập sau 1.2 giây
         setTimeout(() => navigate("/login"), 1200);
       } else {
+        // Đăng ký thất bại, hiển thị thông báo lỗi từ backend
         setMessage(res.data.message || "❌ Đăng ký thất bại!");
       }
+      //  eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // Lỗi kết nối hoặc lỗi khác
       setMessage(err.response?.data?.message || "❌ Lỗi kết nối server");
     }
   };

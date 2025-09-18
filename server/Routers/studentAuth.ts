@@ -75,6 +75,7 @@ router.post(
         address,
         residence,
         phone,
+        teacherId: "",
         grade,
         class: classLetter,
         schoolYear,
@@ -82,6 +83,7 @@ router.post(
         role: "student",
         major, // ✅ lưu ngành
         classCode, // ✅ lưu mã lớp
+        createdAt: new Date(),
       });
 
       await student.save();
