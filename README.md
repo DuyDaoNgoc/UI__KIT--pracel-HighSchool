@@ -1,10 +1,157 @@
 # UI__KIT--pracel-HighSchool
-#cách lấy folder về máy
-<ol>
-  <li>
-    Truy cập github và  copy về 
-  </li>
-  <li>
-   vào folder bất kì sau đó mở terminal hoặc gitbash để mở bảng và  dùng lệnh |git clone <đường dẫn đã copy> | để clone về
-  </li>
-</ol>
+
+Dự án giao diện web **UI-KIT-pracel** (Parcel + React + Express + MongoDB).
+Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nhanh trên máy local và cách build production.
+
+---
+
+## 📑 Mục lục
+
+* [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+* [Clone & cài đặt nhanh](#clone--cài-đặt-nhanh)
+* [Biến môi trường (.env)](#biến-môi-trường-env)
+* [Scripts (lệnh thường dùng)](#scripts-lệnh-thường-dùng)
+* [Chạy dự án (2 terminal)](#chạy-dự-án-2-terminal)
+* [Build production](#build-production)
+* [Cấu trúc thư mục mẫu](#cấu-trúc-thư-mục-mẫu)
+* [Các dependency chính](#các-dependency-chính)
+* [Tunnel (Cloudflare) — tuỳ chọn test ngoài mạng local](#tunnel-cloudflare--tuỳ-chọn-test-ngoài-mạng-local)
+* [Troubleshooting & tips](#troubleshooting--tips)
+* [Góp ý / đóng góp](#góp-ý--đóng-góp)
+* [License](#license)
+
+---
+
+## 💻 Yêu cầu hệ thống
+
+* Node.js v18+ (khuyến nghị)
+* npm v9+
+* Git
+* MongoDB (local) hoặc MongoDB Atlas (connection string dùng trong `.env`)
+* (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
+
+---
+
+## 🚀 Clone & cài đặt nhanh
+
+```bash
+# 1. Clone repo từ GitHub
+git clone <đường_dẫn_repo>
+
+# 2. Vào thư mục dự án
+cd UI-KIT-pracel
+
+# 3. (Tuỳ chọn) Mở VS Code
+code .
+
+# 4. Cài dependencies cho phần client (gốc)
+npm install
+
+> Sau bước trên, bạn đã cài xong dependencies cho client và server.
+
+---
+## 🔑 Biến môi trường (.env)
+
+MONGO_URI=mongodb+srv://pracelJS:duypro0478@duy04.wdkexkx.mongodb.net/?retryWrites=true&w=majority&appName=Duy04
+PORT=8000
+// c:\Users\Admin\Documents\UI-KIT-pracel\.env
+JWT_SECRET=supersecret
+ADMIN_EMAIL=kinbingo18@gmail.com
+ADMIN_PASSWORD=duypro0478
+
+
+
+Những lệnh chính bạn sẽ dùng (theo `package.json` mẫu của repo):
+
+* `npm run client` — khởi động frontend bằng Parcel (theo cấu hình script).
+* `npm run server` — khởi động backend (script có thể `cd server && ts-node-dev index.ts` hoặc tương tự).
+* `npm run build` — build frontend production (output `dist/`).
+* `npm run clean` — xóa cache / dist (ví dụ dùng `rimraf`).
+* `npm run tunnel` / `npm run tunnel:run` — helper cho Cloudflare tunnel (nếu repo có cấu hình).
+
+> 
+
+## ▶️ Chạy dự án (2 terminal)
+
+**Mở 2 terminal riêng** để chạy client và server — không chạy cả hai trên cùng một port.
+
+### Terminal 1 — Frontend (Parcel)
+
+```bash
+# Từ thư mục gốc UI-KIT-pracel
+npm run client
+```
+
+* Parcel sẽ khởi chạy frontend theo cấu hình trong `package.json` (script `client`).
+* Theo cấu hình repo, client mặc định được cấu hình chạy trên `http://localhost:5000` 
+(bạn phải tự ghi http://localhost:5000 lên trang web nhé)
+### Terminal 2 — Backend (Express / TypeScript)
+cd server
+npm run server
+```
+
+* Server sẽ lắng nghe port theo biến `PORT` trong `.env` (ví dụ `5001`).
+* Nếu cần gọi API từ client tới server, hãy cấu hình proxy hoặc gọi thẳng tới `http://localhost:5001/api` (hoặc endpoint server của bạn).
+
+---
+
+## 🏗 Build production
+
+```bash
+npm run build
+```
+
+* Parcel sẽ build frontend vào thư mục `dist/`.
+* Deploy `dist/` cùng backend lên môi trường hosting hoặc VPS.
+
+---
+
+## 📂 Cấu trúc thư mục mẫu
+
+```
+UI-KIT-pracel/
+├─ public/            # static assets
+├─               # build output
+src/               # frontend source (React)
+├─ 
+├─ dist/
+server/            # backend (Express + TS hoặc JS)
+│  ├─ controllers/
+   ├─ dist/
+│  ├─ models/
+│  ├─ routes/
+│  └─ index.ts
+├─ package.json
+└─ README.md
+```
+
+---
+
+## 📦 Các dependency chính (tóm tắt)
+
+**Frontend:** react, react-dom, react-router-dom, parcel, aos, framer-motion, sass, axios, lucide-react, react-icons
+
+**Backend:** express, mongoose, mongodb, multer, cors, compression, helmet, jsonwebtoken, bcrypt
+
+**Dev:** typescript, ts-node-dev, concurrently (nếu bạn muốn chạy nhiều script cùng lúc), rimraf
+
+---
+
+## 🌐 Tunnel (Cloudflare) — tuỳ chọn
+
+Nếu bạn muốn expose server ra internet cho demo nhanh:
+
+```bash
+# ví dụ command (cần cài cloudflared và cấu hình)
+npm run tunnel
+# hoặc
+npm run tunnel:run
+```
+
+khi dùng cloudflared thì phải bật thêm cái 
+cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
+khi bật lên thì chạy lệnh:
+  C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000
+(nếu đã build vào Variables mới xài đc)
+
+
