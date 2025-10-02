@@ -1,39 +1,33 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-// Interface
 export interface IClass extends Document {
-  grade: string; // vd: 10, 11, 12
-  classLetter: string; // vd: A, B, C
-  schoolYear: { type: String; required: true }; // 🎯 thêm field này
-  major: string; // ghi tắt ngành, vd: CNTT, CĐT, QTKD
-  classCode: string; // mã lớp, vd: 10A1CNTT
-  // Thông tin giáo viên chủ nhiệm
-  teacherName?: string; // Tên giáo viên
-  teacherId?: string; // ID giáo viên, đồng bộ với User.teacherId
-  studentIds: Types.ObjectId[];
-  createdAt: Date; // ngày tạo
-  updatedAt: Date; // ngày cập nhật
+  grade: string;
+  classLetter: string;
+  schoolYear: string;
+  major: string;
+  classCode: string;
+  teacherId?: Types.ObjectId | null; // 🔗 ref Teacher
+  teacherName: string;
+  studentIds: Types.ObjectId[]; // 🔗 ref User
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Schema
 const ClassSchema = new Schema<IClass>(
   {
-    grade: { type: String, required: true }, // vd: 10, 11, 12
-    classLetter: { type: String, required: true }, // vd: A, B, C
-
-    major: { type: String, required: true }, // ghi tắt ngành, vd: CNTT, CĐT, QTKD
-    classCode: { type: String, required: true, unique: true }, // mã lớp, vd: 10A1CNTT (đảm bảo unique)
-    // Thông tin giáo viên chủ nhiệm
-    teacherName: { type: String, default: null }, // Tên giáo viên
-    teacherId: { type: String, default: null }, // để đồng bộ với User.teacherId
-    studentIds: [{ type: Schema.Types.ObjectId, ref: "User" }], // danh sách ID học sinh
+    grade: { type: String, required: true },
+    classLetter: { type: String, required: true },
+    schoolYear: { type: String, required: true },
+    major: { type: String, required: true },
+    classCode: { type: String, required: true }, // ❌ bỏ unique: true để tránh conflict
+    teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
+    studentIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    teacherName: { type: String, default: "" },
   },
   { timestamps: true }
 );
 
-// Index cho classCode + major để đảm bảo uniqueness
-ClassSchema.index({ classCode: 1, major: 1 }, { unique: true }); // đảm bảo không trùng lặp
+// ✅ Index compound (classCode + major) mới là unique
+ClassSchema.index({ classCode: 1, major: 1 }, { unique: true });
 
-// Model
-// eslint-disable-next-line import/no-mutable-exports
 export default mongoose.model<IClass>("Class", ClassSchema);

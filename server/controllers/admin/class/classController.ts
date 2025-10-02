@@ -1,11 +1,35 @@
 // src/controllers/classController.ts
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import ClassModel from "../models/Class";
-import UserModel from "../models/User";
-import { IUserDocument } from "../types/user";
+import ClassModel from "../../../models/Class";
+import UserModel from "../../../models/User";
 
-// ==== Lấy tất cả lớp, có kèm học sinh chi tiết ====
+import { IUserDocument } from "../../../types/user";
+import TeacherModel from "../../../models/teacherModel";
+
+// ==== Kiểu dữ liệu cho Class sau khi populate ====
+interface IClassWithPopulate {
+  classCode: string;
+  schoolYear: string;
+  classLetter: string;
+  major: string;
+  studentIds: {
+    _id: mongoose.Types.ObjectId;
+    studentId: string;
+    username: string;
+    major: string;
+    schoolYear: string;
+    classLetter: string;
+  }[];
+  teacherId: null | {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    subject?: string;
+    majors?: string[];
+  };
+}
+
+// ==== Lấy tất cả lớp, có kèm học sinh + giáo viên chi tiết ====
 export const getAllClasses = async (req: Request, res: Response) => {
   try {
     const classes = await ClassModel.find()
@@ -13,7 +37,11 @@ export const getAllClasses = async (req: Request, res: Response) => {
         path: "studentIds",
         select: "studentId username major schoolYear classLetter",
       })
-      .lean();
+      .populate({
+        path: "teacherId",
+        select: "name subject majors",
+      })
+      .lean<IClassWithPopulate[]>(); // ✅ ép kiểu
 
     const groupedByMajor: Record<string, any[]> = {};
     classes.forEach((cls) => {
@@ -24,8 +52,14 @@ export const getAllClasses = async (req: Request, res: Response) => {
         classCode: cls.classCode,
         grade: cls.schoolYear,
         classLetter: cls.classLetter,
-        teacherName: cls.teacherName,
-        students: cls.studentIds.map((s: any) => ({
+        teacher: cls.teacherId
+          ? {
+              id: cls.teacherId._id,
+              name: cls.teacherId.name,
+              subject: cls.teacherId.subject,
+            }
+          : null,
+        students: cls.studentIds.map((s) => ({
           studentId: s.studentId,
           name: s.username,
         })),
@@ -39,21 +73,19 @@ export const getAllClasses = async (req: Request, res: Response) => {
   }
 };
 
-// ==== Tạo hoặc lấy lớp (tự động tạo nếu chưa có) ====
+// ==== Tạo hoặc lấy lớp ====
 export const createOrGetClass = async (req: Request, res: Response) => {
   try {
-    const { schoolYear, classLetter, major, teacherName } = req.body;
+    const { schoolYear, classLetter, major, teacherId } = req.body;
 
     if (!major || !schoolYear || !classLetter) {
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
     }
 
-    // viết tắt ngành
     const majorAbbrev = major
       .split(/\s+/)
       .map((w: string) => (w ? w[0].toUpperCase() : ""))
       .join("");
-
     const classCode = `${schoolYear}${classLetter}${majorAbbrev}`;
 
     let cls = await ClassModel.findOne({ classCode, major });
@@ -64,17 +96,17 @@ export const createOrGetClass = async (req: Request, res: Response) => {
         classLetter,
         major,
         classCode,
-        teacherName: teacherName || null,
+        teacherId: teacherId ? new mongoose.Types.ObjectId(teacherId) : null,
         studentIds: [],
       });
-    } else if (teacherName && cls.teacherName !== teacherName) {
-      cls.teacherName = teacherName;
+    } else if (teacherId && !cls.teacherId?.equals(teacherId)) {
+      cls.teacherId = new mongoose.Types.ObjectId(teacherId);
       await cls.save();
 
       if (cls.studentIds.length > 0) {
         await UserModel.updateMany(
           { _id: { $in: cls.studentIds } },
-          { $set: { teacherId: teacherName } }
+          { $set: { teacherId: cls.teacherId } }
         );
       }
     }
@@ -100,7 +132,6 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Không tìm thấy học sinh" });
     }
 
-    // xác định classCode của học sinh
     let classCode = student.classCode;
     if (!classCode) {
       const majorAbbrev = (student.major || "")
@@ -111,14 +142,13 @@ export const addStudentToClass = async (req: Request, res: Response) => {
     }
 
     let cls = await ClassModel.findOne({ classCode, major: student.major });
-
     if (!cls) {
       cls = await ClassModel.create({
         schoolYear: student.schoolYear,
         classLetter: student.classLetter,
         major: student.major,
         classCode,
-        teacherName: null,
+        teacherId: null,
         studentIds: [],
       });
     }
@@ -134,17 +164,22 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    if (cls.teacherName) {
+    if (cls.teacherId) {
       await UserModel.updateOne(
         { _id: studentObjectId },
-        { $set: { teacherId: cls.teacherName } }
+        { $set: { teacherId: cls.teacherId } }
       );
     }
 
-    const populatedCls = await ClassModel.findById(cls._id).populate({
-      path: "studentIds",
-      select: "studentId username major schoolYear classLetter",
-    });
+    const populatedCls = await ClassModel.findById(cls._id)
+      .populate({
+        path: "studentIds",
+        select: "studentId username major schoolYear classLetter",
+      })
+      .populate({
+        path: "teacherId",
+        select: "name subject majors",
+      });
 
     res.status(200).json(populatedCls);
   } catch (err) {
@@ -157,26 +192,37 @@ export const addStudentToClass = async (req: Request, res: Response) => {
 export const assignTeacher = async (req: Request, res: Response) => {
   try {
     const { classCode } = req.params;
-    const { teacherName } = req.body;
+    const { teacherId } = req.body;
 
-    if (!teacherName) {
-      return res.status(400).json({ message: "teacherName là bắt buộc" });
+    if (!teacherId) {
+      return res.status(400).json({ message: "teacherId là bắt buộc" });
     }
 
-    const cls = await ClassModel.findOneAndUpdate(
-      { classCode },
-      { teacherName },
-      { new: true }
-    );
+    const teacherObjectId = new mongoose.Types.ObjectId(teacherId);
+    const teacher = await TeacherModel.findById(teacherObjectId);
+    if (!teacher) {
+      return res.status(404).json({ message: "Không tìm thấy giáo viên" });
+    }
 
+    let cls = await ClassModel.findOne({ classCode });
     if (!cls) {
-      return res.status(404).json({ message: "Lớp không tồn tại" });
+      cls = await ClassModel.create({
+        schoolYear: "",
+        classLetter: "",
+        major: "",
+        classCode,
+        teacherId: teacherObjectId,
+        studentIds: [],
+      });
+    } else {
+      cls.teacherId = teacherObjectId;
+      await cls.save();
     }
 
     if (cls.studentIds.length > 0) {
       await UserModel.updateMany(
         { _id: { $in: cls.studentIds } },
-        { $set: { teacherId: teacherName } }
+        { $set: { teacherId: teacherObjectId } }
       );
     }
 

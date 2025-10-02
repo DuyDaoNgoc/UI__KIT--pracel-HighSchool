@@ -8,7 +8,11 @@
     "dev": "concurrently \"npm run client\" \"npm run server\"",
     "build": "parcel build index.html --dist-dir dist --public-url https://UI-kit.com/",
     "clean": "rimraf .parcel-cache dist",
-    "fix:svg": "node fix-svg-attrs.js"
+    "fix:svg": "node fix-svg-attrs.js",
+    "/* cloudflared helper scripts (ADDED) */": "/* keep these for quick tunnel control */",
+    "tunnel": "C:\\cloudflared\\cloudflared.exe tunnel --url http://localhost:8000",
+    "tunnel:run": "C:\\cloudflared\\cloudflared.exe tunnel --config C:\\Users\\Admin\\Documents\\UI-KIT-pracel\\.cloudflared\\config.yml run my-app",
+    "dev:cloud": "concurrently \"npm run client\" \"npm run server\" \"npm run tunnel:run\""
   },
   "alias": {
     "assets": "./public/assets"
@@ -21,9 +25,11 @@
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "framer-motion": "^12.23.13",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.542.0",
     "mongodb": "^6.18.0",
@@ -54,15 +60,20 @@
     "buffer": "^6.0.3",
     "concurrently": "^9.2.0",
     "cross-env": "^10.0.0",
+    "events": "^3.3.0",
+    "https-browserify": "^1.0.0",
     "nodemon": "^3.1.10",
     "parcel": "^2.15.4",
     "posthtml-doctype": "^1.1.1",
     "posthtml-include": "^2.0.1",
+    "process": "^0.11.10",
     "rimraf": "^6.0.1",
     "sass": "^1.90.0",
+    "stream-http": "^3.2.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "url": "^0.11.4"
   },
   "posthtml": {
     "plugins": {}

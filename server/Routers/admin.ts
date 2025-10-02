@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { verifyToken, requireAdmin } from "../middleware/authMiddleware";
 import { connectDB } from "../configs/db";
 import { ObjectId } from "mongodb";
-import { createStudent } from "../controllers/createStudent";
+import { createStudent } from "../controllers/admin/student/createStudent";
 
 const router = Router();
 

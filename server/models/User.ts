@@ -8,6 +8,7 @@ const UserSchema = new Schema<IUserDocument>(
     studentId: {
       type: String,
       unique: true,
+      sparse: true, // ✅ cho phép nhiều null
       required: function (this: IUserDocument) {
         return this.role === "student";
       },
@@ -15,6 +16,7 @@ const UserSchema = new Schema<IUserDocument>(
     teacherId: {
       type: String,
       unique: true,
+      sparse: true, // ✅ fix duplicate key khi null
       required: function (this: IUserDocument) {
         return this.role === "teacher";
       },
@@ -22,6 +24,7 @@ const UserSchema = new Schema<IUserDocument>(
     parentId: {
       type: String,
       unique: true,
+      sparse: true,
       required: function (this: IUserDocument) {
         return this.role === "parent";
       },

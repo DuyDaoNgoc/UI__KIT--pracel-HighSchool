@@ -1,6 +1,6 @@
 // server/controllers/admin/createStudent.ts
 import { Request, Response } from "express";
-import { connectDB } from "../configs/db";
+import { connectDB } from "../../../configs/db";
 
 export const createStudent = async (req: Request, res: Response) => {
   try {

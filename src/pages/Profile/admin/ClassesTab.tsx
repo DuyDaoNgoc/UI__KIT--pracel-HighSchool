@@ -7,6 +7,12 @@ interface ClassesTabProps {
   students: ICreatedStudent[];
 }
 
+interface ClassData {
+  students: ICreatedStudent[];
+  teacherName?: string;
+  classCode: string;
+}
+
 export default function ClassesTab({ students }: ClassesTabProps) {
   const [openClassKey, setOpenClassKey] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] =
@@ -24,13 +30,6 @@ export default function ClassesTab({ students }: ClassesTabProps) {
       for (const s of studentList) {
         if (!s.grade || !s.classLetter || !s.major || !s._id) continue;
 
-        const majorAbbrev = s.major
-          .split(/\s+/)
-          .map((w: string) => (w ? w[0].toUpperCase() : ""))
-          .join("");
-        const classCode =
-          s.classCode || `${s.grade}${s.classLetter}${majorAbbrev}`;
-
         try {
           await axiosInstance.post("/api/admin/classes/add-student", {
             studentId: s._id,
@@ -47,47 +46,34 @@ export default function ClassesTab({ students }: ClassesTabProps) {
     if (studentList.length > 0) syncStudentsToClasses();
   }, [studentList]);
 
-  // ===== Gom nhóm học sinh theo ngành =====
-  const groupedByMajor = studentList.reduce<Record<string, ICreatedStudent[]>>(
-    (acc, s) => {
-      const major = s.major || "Chưa có ngành";
-      if (!acc[major]) acc[major] = [];
-      acc[major].push(s);
-      return acc;
-    },
-    {}
-  );
+  // ===== Gom nhóm theo ngành → trong ngành theo khối (grade) → trong khối theo lớp =====
+  const groupedByMajor = studentList.reduce<
+    Record<string, Record<string, Record<string, ClassData>>>
+  >((acc, s) => {
+    const major = s.major || "Chưa có ngành";
+    const grade = s.grade?.toString() || "Chưa rõ khối";
 
-  // ===== Gom theo lớp trong mỗi ngành =====
-  const classesByMajor = Object.entries(groupedByMajor).map(
-    ([major, studentsInMajor]) => {
-      const groupedByClass: Record<
-        string,
-        { students: ICreatedStudent[]; teacherName?: string; classCode: string }
-      > = {};
+    if (!acc[major]) acc[major] = {};
+    if (!acc[major][grade]) acc[major][grade] = {};
 
-      studentsInMajor.forEach((s) => {
-        const majorAbbrev = major
-          .split(/\s+/)
-          .map((w: string) => (w ? w[0].toUpperCase() : ""))
-          .join("");
-        const code =
-          s.classCode ||
-          `${s.grade || "X"}${s.classLetter || "X"}${majorAbbrev}`;
+    const majorAbbrev = major
+      .split(/\s+/)
+      .map((w: string) => (w ? w[0].toUpperCase() : ""))
+      .join("");
+    const code =
+      s.classCode || `${s.grade || "X"}${s.classLetter || "X"}${majorAbbrev}`;
 
-        if (!groupedByClass[code]) {
-          groupedByClass[code] = {
-            students: [],
-            teacherName: s.teacherName,
-            classCode: code,
-          };
-        }
-        groupedByClass[code].students.push(s);
-      });
-
-      return { major, classes: groupedByClass };
+    if (!acc[major][grade][code]) {
+      acc[major][grade][code] = {
+        students: [],
+        teacherName: s.teacherName,
+        classCode: code,
+      };
     }
-  );
+    acc[major][grade][code].students.push(s);
+
+    return acc;
+  }, {});
 
   const toggleClass = (key: string) => {
     setOpenClassKey(openClassKey === key ? null : key);
@@ -107,76 +93,79 @@ export default function ClassesTab({ students }: ClassesTabProps) {
       {studentList.length === 0 ? (
         <p className="no-class">Chưa có lớp nào.</p>
       ) : (
-        classesByMajor.map(({ major, classes }) => (
+        Object.entries(groupedByMajor).map(([major, grades]) => (
           <div key={major} className="major-block">
             <h3 className="profile__subtitle">Ngành {major}</h3>
 
-            {Object.entries(classes).length === 0 ? (
-              <p className="no-class">Chưa có lớp nào trong ngành này.</p>
-            ) : (
-              Object.entries(classes).map(([classKey, clsData]) => {
-                const {
-                  students: studentsInClass,
-                  teacherName,
-                  classCode,
-                } = clsData;
-                const isOpen = openClassKey === classKey;
+            {Object.entries(grades).map(([grade, classes]) => (
+              <div key={grade} className="grade-block">
+                <h4 className="profile__subtitle2">Khóa {grade}</h4>
 
-                return (
-                  <div key={classKey} className="class-block">
-                    <button
-                      onClick={() => toggleClass(classKey)}
-                      className="class-btn"
-                    >
-                      {classCode} ({studentsInClass.length} HS) - GV:{" "}
-                      {teacherName || "Chưa gán"}
-                    </button>
+                {Object.entries(classes).map(([classKey, clsData]) => {
+                  const {
+                    students: studentsInClass,
+                    teacherName,
+                    classCode,
+                  } = clsData;
+                  const isOpen = openClassKey === classKey;
 
-                    {isOpen && (
-                      <table className="profile__table mt-2">
-                        <thead>
-                          <tr>
-                            <th>Mã HS</th>
-                            <th>Tên</th>
-                            <th>Ngày sinh</th>
-                            <th>Địa chỉ</th>
-                            <th>Hộ khẩu</th>
-                            <th>GV phụ trách</th>
-                            <th>Hành động</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {studentsInClass.map((s) => (
-                            <tr key={s.studentId}>
-                              <td>{s.studentId}</td>
-                              <td>{s.name}</td>
-                              <td>{formatDate(s.dob)}</td>
-                              <td>{s.address || "-"}</td>
-                              <td>{s.residence || "-"}</td>
-                              <td>{teacherName || "Chưa gán"}</td>
-                              <td>
-                                <button
-                                  className="view-btn"
-                                  onClick={() =>
-                                    setSelectedStudent(
-                                      selectedStudent?.studentId === s.studentId
-                                        ? null
-                                        : s
-                                    )
-                                  }
-                                >
-                                  Xem
-                                </button>
-                              </td>
+                  return (
+                    <div key={classKey} className="class-block">
+                      <button
+                        onClick={() => toggleClass(classKey)}
+                        className="class-btn"
+                      >
+                        {classCode} ({studentsInClass.length} HS) - GV:{" "}
+                        {teacherName || "Chưa gán"}
+                      </button>
+
+                      {isOpen && (
+                        <table className="profile__table mt-2">
+                          <thead>
+                            <tr>
+                              <th>Mã HS</th>
+                              <th>Tên</th>
+                              <th>Ngày sinh</th>
+                              <th>Địa chỉ</th>
+                              <th>Hộ khẩu</th>
+                              <th>GV phụ trách</th>
+                              <th>Hành động</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                );
-              })
-            )}
+                          </thead>
+                          <tbody>
+                            {studentsInClass.map((s: ICreatedStudent) => (
+                              <tr key={s.studentId}>
+                                <td>{s.studentId}</td>
+                                <td>{s.name}</td>
+                                <td>{formatDate(s.dob)}</td>
+                                <td>{s.address || "-"}</td>
+                                <td>{s.residence || "-"}</td>
+                                <td>{teacherName || "Chưa gán"}</td>
+                                <td>
+                                  <button
+                                    className="view-btn"
+                                    onClick={() =>
+                                      setSelectedStudent(
+                                        selectedStudent?.studentId ===
+                                          s.studentId
+                                          ? null
+                                          : s
+                                      )
+                                    }
+                                  >
+                                    Xem
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         ))
       )}

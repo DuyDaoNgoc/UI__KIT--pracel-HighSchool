@@ -7,7 +7,7 @@ import {
 } from "../middleware/authMiddleware";
 import User from "../models/User"; // Model người dùng (bao gồm học sinh)
 import { IUserDocument } from "../types/user"; // Interface đúng
-import { createTeacher } from "../controllers/registerTeacher"; // controller mới
+import { createTeacher } from "../controllers/admin/teacher/registerTeacher"; // controller mới
 
 interface IStudentResponse {
   _id: string;

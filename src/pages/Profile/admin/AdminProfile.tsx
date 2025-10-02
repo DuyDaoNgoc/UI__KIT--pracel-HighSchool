@@ -5,16 +5,6 @@ import { INews } from "../../../types/news";
 import { ICreatedStudent } from "../../../types/student";
 import Logout from "../../../Components/settings/logout/logout";
 import NotFound from "../../../error/404"; // ✅ Trang lỗi
-import {
-  Lock,
-  Unlock,
-  FileText,
-  UserPlus,
-  Users,
-  Eye,
-  Trash2,
-  UserPlus2,
-} from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 
 import AdminSidebar from "./AdminSidebar";
@@ -31,14 +21,9 @@ interface ILockResp {
 
 const AdminProfile: FC = () => {
   const { user, token } = useAuth();
+
+  // ==== State quản lý ====
   const [activeTab, setActiveTab] = useState<string>("news");
-
-  // Nếu chưa login hoặc không phải admin → render NotFound
-  if (!token || user?.role !== "admin") {
-    return <NotFound />;
-  }
-
-  // State quản lý
   const [pendingNews, setPendingNews] = useState<INews[]>([]);
   const [locked, setLocked] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -56,13 +41,9 @@ const AdminProfile: FC = () => {
   });
   const [creating, setCreating] = useState<boolean>(false);
   const [createdStudents, setCreatedStudents] = useState<ICreatedStudent[]>([]);
-
-  // Modal
   const [viewing, setViewing] = useState<boolean>(false);
   const [selectedStudent, setSelectedStudent] =
     useState<ICreatedStudent | null>(null);
-
-  // Loading cho các action (xóa / gán teacher)
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const authHeaders = token
@@ -85,14 +66,12 @@ const AdminProfile: FC = () => {
         "/admin/news/pending",
         authHeaders
       );
-      setPendingNews(res.data || []);
+      setPendingNews(Array.isArray(res.data) ? res.data : []);
       setErrorMsg("");
     } catch (err: any) {
       console.warn("⚠️ fetchNews error:", err);
       setPendingNews([]);
-      setErrorMsg(
-        err?.response?.data?.message || "Không thể lấy tin tức chờ duyệt"
-      );
+      setErrorMsg("Không thể lấy tin tức chờ duyệt");
     }
   };
 
@@ -103,8 +82,8 @@ const AdminProfile: FC = () => {
         "/admin/grades/status",
         authHeaders
       );
-      setLocked(!!res.data.locked);
-    } catch (err: any) {
+      setLocked(!!res.data?.locked);
+    } catch (err) {
       console.warn("⚠️ fetchLockStatus error:", err);
     }
   };
@@ -119,7 +98,7 @@ const AdminProfile: FC = () => {
         await axiosInstance.post("/admin/grades/lock", {}, authHeaders);
         setLocked(true);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.warn("⚠️ toggleLock error:", err);
       alert("Không thể thay đổi trạng thái khóa điểm!");
     }
@@ -158,8 +137,8 @@ const AdminProfile: FC = () => {
       const data = Array.isArray(res.data) ? res.data : [];
       setCreatedStudents(
         data.sort((a, b) => {
-          if (!a.createdAt) return 1;
-          if (!b.createdAt) return -1;
+          if (!a?.createdAt) return 1;
+          if (!b?.createdAt) return -1;
           return (
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -227,7 +206,7 @@ const AdminProfile: FC = () => {
 
   // ==== Delete student ====
   const deleteStudent = async (studentId: string) => {
-    if (!confirm(`Xác nhận xóa học sinh ${studentId}?`)) return;
+    if (!studentId || !confirm(`Xác nhận xóa học sinh ${studentId}?`)) return;
 
     setActionLoading(studentId);
     try {
@@ -270,6 +249,7 @@ const AdminProfile: FC = () => {
 
   // ==== Modal helpers ====
   const openView = (s: ICreatedStudent) => {
+    if (!s) return;
     setSelectedStudent(s);
     setViewing(true);
   };
@@ -288,6 +268,10 @@ const AdminProfile: FC = () => {
   }, []);
 
   // ==== Render ====
+  if (!token || user?.role !== "admin") {
+    return <NotFound />;
+  }
+
   return (
     <div className="profile">
       <AdminSidebar
@@ -317,18 +301,22 @@ const AdminProfile: FC = () => {
             deleteStudent={deleteStudent}
           />
         )}
-        {activeTab === "classes" && <ClassesTab students={createdStudents} />}
+        {activeTab === "classes" && (
+          <ClassesTab students={createdStudents || []} />
+        )}
         {activeTab === "create-teacher" && <CreateTeacher />}
       </main>
 
-      <StudentModal
-        viewing={viewing}
-        selectedStudent={selectedStudent}
-        closeView={closeView}
-        assignTeacher={assignTeacher}
-        deleteStudent={deleteStudent}
-        generateClassCode={generateClassCode}
-      />
+      {viewing && selectedStudent && (
+        <StudentModal
+          viewing={viewing}
+          selectedStudent={selectedStudent}
+          closeView={closeView}
+          assignTeacher={assignTeacher}
+          deleteStudent={deleteStudent}
+          generateClassCode={generateClassCode}
+        />
+      )}
     </div>
   );
 };

@@ -1,20 +1,23 @@
 import mongoose, { Document, Schema } from "mongoose";
 
+// Interface Mongoose + TS
 export interface IStudent extends Document {
   name: string;
   dob?: Date;
   address?: string;
   residence?: string;
   phone?: string;
-  grade: string; // Khối (ví dụ: 1, 2, 3)
-  classLetter: string; // Lớp (ví dụ: A, B)
-  major: string; // Ngành (ví dụ: CNTT, DS, TĐH)
+  grade: string; // Khối
+  classLetter: string; // Lớp
+  major: string; // Ngành
   schoolYear: string; // Niên khóa
-  studentId: string; // Mã học sinh (bắt buộc, backend generate nếu thiếu)
+  studentId: string; // Mã học sinh
+  classCode?: string; // 💡 thêm để truy cập classCode
   createdAt?: Date;
   updatedAt?: Date;
 }
 
+// Schema
 const StudentSchema: Schema<IStudent> = new Schema(
   {
     name: { type: String, required: true },
@@ -26,11 +29,33 @@ const StudentSchema: Schema<IStudent> = new Schema(
     classLetter: { type: String, required: true },
     major: { type: String, required: true },
     schoolYear: { type: String, required: true },
-    studentId: { type: String, required: true, unique: true }, // luôn có, unique
+    studentId: { type: String, required: true, unique: true },
+    classCode: { type: String }, // 💡 thêm field
   },
   { timestamps: true }
 );
 
+// 📌 Middleware: tự sinh studentId nếu chưa có
+StudentSchema.pre<IStudent>("save", async function (next) {
+  if (!this.studentId) {
+    const lastStudent = await Student.findOne(
+      {},
+      {},
+      { sort: { studentId: -1 } }
+    );
+
+    let newId = "HS00001"; // default
+    if (lastStudent?.studentId) {
+      const num = parseInt(lastStudent.studentId.replace("HS", ""), 10) + 1;
+      newId = "HS" + num.toString().padStart(5, "0");
+    }
+
+    this.studentId = newId;
+  }
+  next();
+});
+
+// Model
 const Student = mongoose.model<IStudent>("Student", StudentSchema);
 
 export default Student;

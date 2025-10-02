@@ -1,6 +1,6 @@
 // server/controllers/adminController.ts
 import { Request, Response } from "express";
-import { connectDB } from "../configs/db";
+import { connectDB } from "../../configs/db";
 
 interface IAppSetting {
   key: string;

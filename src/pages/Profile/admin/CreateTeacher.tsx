@@ -1,267 +1,325 @@
-// src/pages/Profile/admin/CreateTeacher.tsx
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../api/axiosConfig";
-import { IClass } from "../../../types/class";
 
-interface ITeacherForm {
+interface ITeacher {
+  _id: string;
+  teacherId?: string;
   name: string;
-  dob: string;
-  gender: string;
+  dob?: string;
+  gender: "male" | "female" | "other";
   phone?: string;
   address?: string;
-  majors: string[];
-  assignedClassCode: string; // lớp chủ nhiệm
-  subjectClasses: string[];
+  degree?: string;
+  educationLevel?: string;
+  majors?: string[];
+  certificates?: string[];
+  research?: string;
 }
 
-interface ITeacherCreated extends ITeacherForm {
-  _id: string;
+// 👇 Form type: majors & certificates là string để bind input
+interface ITeacherForm {
+  teacherId: string;
+  name: string;
+  dob: string;
+  gender: "male" | "female" | "other";
+  phone: string;
+  address: string;
+  degree: string;
+  educationLevel: string;
+  majors: string;
+  certificates: string;
+  research: string;
 }
 
-export default function CreateTeacher() {
-  const [teacherForm, setTeacherForm] = useState<ITeacherForm>({
+export default function CreateTeacherWithTable() {
+  const [form, setForm] = useState<ITeacherForm>({
+    teacherId: "",
     name: "",
     dob: "",
     gender: "male",
     phone: "",
     address: "",
-    majors: [],
-    assignedClassCode: "",
-    subjectClasses: [],
+    degree: "",
+    educationLevel: "",
+    majors: "",
+    certificates: "",
+    research: "",
   });
 
-  const [majors, setMajors] = useState<string[]>([]);
-  const [classesByMajor, setClassesByMajor] = useState<
-    Record<string, IClass[]>
-  >({});
-  const [teachers, setTeachers] = useState<ITeacherCreated[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [teachers, setTeachers] = useState<ITeacher[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // load lớp & ngành
+  // ✅ Sửa ở đây: backend trả về mảng trực tiếp
+  const fetchTeachers = async () => {
+    try {
+      const res = await axiosInstance.get<ITeacher[]>("/teachers");
+      const data = res.data || [];
+
+      const normalized = data.map((t) => ({
+        ...t,
+        dob: t.dob ? t.dob.split("T")[0] : "",
+        majors: t.majors || [],
+        certificates: t.certificates || [],
+      }));
+      setTeachers(normalized);
+    } catch (err) {
+      console.error("❌ Lỗi lấy danh sách giáo viên:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        const res = await axiosInstance.get<IClass[]>("/api/admin/classes");
-        const classes = Array.isArray(res.data) ? res.data : [];
-        const uniqueMajors = Array.from(
-          new Set(classes.map((c) => c.major).filter(Boolean))
-        ) as string[];
-        setMajors(uniqueMajors);
-
-        const grouped: Record<string, IClass[]> = {};
-        uniqueMajors.forEach((major) => {
-          grouped[major] = classes.filter((c) => c.major === major);
-        });
-        setClassesByMajor(grouped);
-      } catch (err) {
-        console.error("⚠️ fetchClasses error:", err);
-      }
-    };
-    fetchClasses();
+    fetchTeachers();
   }, []);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
-    const { name, value, selectedOptions } = e.target as HTMLSelectElement;
-    if (name === "majors") {
-      const selected = Array.from(selectedOptions).map((o) => o.value);
-      setTeacherForm((prev) => ({
-        ...prev,
-        majors: selected,
-        assignedClassCode: "",
-        subjectClasses: [],
-      }));
-    } else if (name === "subjectClasses") {
-      const selected = Array.from(selectedOptions).map((o) => o.value);
-      setTeacherForm((prev) => ({ ...prev, subjectClasses: selected }));
-    } else {
-      setTeacherForm((prev) => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const filteredClassesForMain = teacherForm.majors.length
-    ? teacherForm.majors.flatMap((major) => classesByMajor[major] || [])
-    : [];
+  const resetForm = () => {
+    setForm({
+      teacherId: "",
+      name: "",
+      dob: "",
+      gender: "male",
+      phone: "",
+      address: "",
+      degree: "",
+      educationLevel: "",
+      majors: "",
+      certificates: "",
+      research: "",
+    });
+    setEditingId(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const {
-      name,
-      dob,
-      gender,
-      majors,
-      assignedClassCode,
-      subjectClasses,
-      phone,
-      address,
-    } = teacherForm;
 
-    if (!name || !dob || !gender || majors.length === 0 || !assignedClassCode) {
-      return alert("Vui lòng điền đầy đủ thông tin và chọn lớp chủ nhiệm.");
-    }
+    // Chuyển majors, certificates từ string -> string[]
+    const payload: Omit<ITeacher, "_id"> = {
+      teacherId: form.teacherId || undefined,
+      name: form.name,
+      dob: form.dob || undefined,
+      gender: form.gender,
+      phone: form.phone || undefined,
+      address: form.address || undefined,
+      degree: form.degree || undefined,
+      educationLevel: form.educationLevel || undefined,
+      majors: form.majors ? form.majors.split(",").map((m) => m.trim()) : [],
+      certificates: form.certificates
+        ? form.certificates.split(",").map((c) => c.trim())
+        : [],
+      research: form.research || undefined,
+    };
 
     try {
-      setLoading(true);
-
-      // 1️⃣ Tạo teacher
-      const createRes = await axiosInstance.post<{ _id: string }>(
-        "/api/admin/teachers/create",
-        {
-          name,
-          dob,
-          gender,
-          phone,
-          address,
-          majors,
-          subjectClasses,
-        }
-      );
-
-      const teacherId = createRes.data._id;
-
-      // 2️⃣ Gán teacher vào lớp chủ nhiệm
-      await axiosInstance.post(
-        "/api/admin/teachers/assign",
-        {
-          teacherId,
-          grade: filteredClassesForMain.find(
-            (c) => c.classCode === assignedClassCode
-          )?.grade,
-          classLetter: filteredClassesForMain.find(
-            (c) => c.classCode === assignedClassCode
-          )?.classLetter,
-          schoolYear: filteredClassesForMain.find(
-            (c) => c.classCode === assignedClassCode
-          )?.schoolYear,
-          major: filteredClassesForMain.find(
-            (c) => c.classCode === assignedClassCode
-          )?.major,
-        },
-        { params: { classCode: assignedClassCode } }
-      );
-
-      // 3️⃣ Cập nhật state UI
-      setTeachers((prev) => [{ _id: teacherId, ...teacherForm }, ...prev]);
-
-      setTeacherForm({
-        name: "",
-        dob: "",
-        gender: "male",
-        phone: "",
-        address: "",
-        majors: [],
-        assignedClassCode: "",
-        subjectClasses: [],
-      });
-
-      alert(`✅ Giáo viên ${name} đã được tạo và đồng bộ lớp thành công!`);
-    } catch (err) {
-      console.error("⚠️ createTeacher error:", err);
-      alert("Tạo giáo viên thất bại.");
-    } finally {
-      setLoading(false);
+      if (editingId) {
+        await axiosInstance.put(`/teachers/${editingId}`, payload);
+        alert("✅ Cập nhật giáo viên thành công!");
+      } else {
+        await axiosInstance.post("/teachers", payload);
+        alert("✅ Thêm giáo viên thành công!");
+      }
+      resetForm();
+      fetchTeachers();
+    } catch (error) {
+      console.error("❌ Lỗi khi gửi dữ liệu:", error);
+      alert("❌ Lỗi khi gửi dữ liệu. Xem console để biết chi tiết.");
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Bạn có chắc muốn xoá giáo viên này?")) return;
+    try {
+      await axiosInstance.delete(`/teachers/${id}`);
+      alert("✅ Xoá giáo viên thành công!");
+      fetchTeachers();
+    } catch (err) {
+      console.error("❌ Lỗi xoá giáo viên:", err);
+      alert("❌ Lỗi khi xoá giáo viên.");
+    }
+  };
+
+  const handleEdit = (teacher: ITeacher) => {
+    setEditingId(teacher._id);
+    setForm({
+      teacherId: teacher.teacherId || "",
+      name: teacher.name,
+      dob: teacher.dob || "",
+      gender: teacher.gender,
+      phone: teacher.phone || "",
+      address: teacher.address || "",
+      degree: teacher.degree || "",
+      educationLevel: teacher.educationLevel || "",
+      majors: teacher.majors?.join(", ") || "",
+      certificates: teacher.certificates?.join(", ") || "",
+      research: teacher.research || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <div className="profile__card">
-      <h2 className="profile__title">Tạo giáo viên</h2>
-      <form onSubmit={handleSubmit}>
-        {["name", "dob", "phone", "address"].map((field) => (
-          <div className="form-group" key={field}>
-            <label>
-              {field === "dob"
-                ? "Ngày sinh"
-                : field.charAt(0).toUpperCase() + field.slice(1)}
-              :
-            </label>
-            <input
-              type={field === "dob" ? "date" : "text"}
-              name={field}
-              value={(teacherForm as any)[field]}
-              onChange={handleChange}
-              required={field === "name" || field === "dob"}
-            />
-          </div>
-        ))}
+    <div className="teacher">
+      <h2 className="teacher__title">
+        {editingId ? "Cập nhật giáo viên" : "Tạo giáo viên mới"}
+      </h2>
 
-        <div className="form-group">
-          <label>Giới tính:</label>
-          <select
-            name="gender"
-            value={teacherForm.gender}
-            onChange={handleChange}
-          >
-            <option value="male">Nam</option>
-            <option value="female">Nữ</option>
-            <option value="other">Khác</option>
-          </select>
+      <form className="teacher-form" onSubmit={handleSubmit}>
+        {form.teacherId && (
+          <input
+            className="teacher-form__input"
+            name="teacherId"
+            value={form.teacherId}
+            readOnly
+            disabled
+          />
+        )}
+        <input
+          className="teacher-form__input"
+          name="name"
+          placeholder="Tên"
+          value={form.name}
+          onChange={handleChange}
+          required
+        />
+        <input
+          className="teacher-form__input"
+          type="date"
+          name="dob"
+          value={form.dob}
+          onChange={handleChange}
+          required
+        />
+        <select
+          className="teacher-form__select"
+          name="gender"
+          value={form.gender}
+          onChange={handleChange}
+        >
+          <option value="male">Nam</option>
+          <option value="female">Nữ</option>
+          <option value="other">Khác</option>
+        </select>
+        <input
+          className="teacher-form__input"
+          name="phone"
+          placeholder="Số điện thoại"
+          value={form.phone}
+          onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="address"
+          placeholder="Địa chỉ"
+          value={form.address}
+          onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="degree"
+          placeholder="Bằng cấp"
+          value={form.degree}
+          onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="educationLevel"
+          placeholder="Trình độ học vấn"
+          value={form.educationLevel}
+          onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="majors"
+          placeholder="Chuyên ngành (cách nhau dấu ,)"
+          value={form.majors}
+          onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="certificates"
+          placeholder="Chứng chỉ (cách nhau dấu ,)"
+          value={form.certificates}
+          onChange={handleChange}
+        />
+        <textarea
+          className="teacher-form__textarea"
+          name="research"
+          placeholder="Nghiên cứu / Kinh nghiệm"
+          value={form.research}
+          onChange={handleChange}
+        />
+        <div className="teacher-form__actions">
+          <button className="teacher-form__button" type="submit">
+            {editingId ? "Cập nhật" : "Tạo giáo viên"}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              className="teacher-form__button teacher-form__button--cancel"
+              onClick={resetForm}
+            >
+              Huỷ
+            </button>
+          )}
         </div>
-
-        <div className="form-group">
-          <label>Ngành phụ trách:</label>
-          <select
-            name="majors"
-            multiple
-            value={teacherForm.majors}
-            onChange={handleChange}
-            required
-          >
-            {majors.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>Lớp chủ nhiệm:</label>
-          <select
-            name="assignedClassCode"
-            value={teacherForm.assignedClassCode}
-            onChange={handleChange}
-            required
-            disabled={filteredClassesForMain.length === 0}
-          >
-            <option value="">-- Chọn lớp chủ nhiệm --</option>
-            {filteredClassesForMain.map((cls) => (
-              <option key={cls.classCode} value={cls.classCode}>
-                {cls.grade}
-                {cls.classLetter} -{" "}
-                {cls.teacherName ? `GV: ${cls.teacherName}` : "Chưa gán"}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>Lớp phụ trách bộ môn:</label>
-          <select
-            name="subjectClasses"
-            multiple
-            value={teacherForm.subjectClasses}
-            onChange={handleChange}
-          >
-            {filteredClassesForMain.map((cls) => (
-              <option
-                key={cls.classCode}
-                value={cls.classCode}
-                disabled={cls.classCode === teacherForm.assignedClassCode}
-              >
-                {cls.grade}
-                {cls.classLetter} -{" "}
-                {cls.teacherName ? `GV: ${cls.teacherName}` : "Chưa gán"}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Đang tạo..." : "Tạo giáo viên"}
-        </button>
       </form>
+
+      <h2 className="teacher__title">Danh sách giáo viên</h2>
+      <table className="teacher-table">
+        <thead className="teacher-table__head">
+          <tr>
+            <th className="teacher-table__cell">Mã GV</th>
+            <th className="teacher-table__cell">Tên</th>
+            <th className="teacher-table__cell">Ngày sinh</th>
+            <th className="teacher-table__cell">Giới tính</th>
+            <th className="teacher-table__cell">Bằng cấp</th>
+            <th className="teacher-table__cell">Trình độ</th>
+            <th className="teacher-table__cell">Chuyên ngành</th>
+            <th className="teacher-table__cell">Chứng chỉ</th>
+            <th className="teacher-table__cell">Nghiên cứu / Kinh nghiệm</th>
+            <th className="teacher-table__cell">Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teachers.map((t) => (
+            <tr key={t._id} className="teacher-table__row">
+              <td className="teacher-table__cell">{t.teacherId || "---"}</td>
+              <td className="teacher-table__cell">{t.name}</td>
+              <td className="teacher-table__cell">{t.dob}</td>
+              <td className="teacher-table__cell">{t.gender}</td>
+              <td className="teacher-table__cell">{t.degree}</td>
+              <td className="teacher-table__cell">{t.educationLevel}</td>
+              <td className="teacher-table__cell">
+                {t.majors?.join(", ") || ""}
+              </td>
+              <td className="teacher-table__cell">
+                {t.certificates?.join(", ") || ""}
+              </td>
+              <td className="teacher-table__cell">{t.research}</td>
+              <td className="teacher-table__cell">
+                <button
+                  className="teacher-table__button teacher-table__button--edit"
+                  onClick={() => handleEdit(t)}
+                >
+                  Sửa
+                </button>
+                <button
+                  className="teacher-table__button teacher-table__button--delete"
+                  onClick={() => handleDelete(t._id)}
+                >
+                  Xoá
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

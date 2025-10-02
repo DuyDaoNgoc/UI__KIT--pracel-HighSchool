@@ -18,13 +18,13 @@ export async function createUser(input: CreateUserInput): Promise<SafeUser> {
 
   const newUser: Omit<IUser, "_id"> = {
     studentId: input.studentId ?? "",
-    teacherId: input.teacherId ?? null,
+    teacherId: input.teacherId ?? "", // ✅ lưu teacherId nếu có
     parentId: input.parentId ?? null,
     customId: input.customId ?? "",
     username: input.username,
     email: input.email,
     password: hashedPassword,
-    role: input.role ?? "student",
+    role: input.role ?? (input.teacherId ? "teacher" : "student"), // role tự động teacher nếu teacherId
     dob: input.dob ?? "",
     class: input.class ?? "",
     schoolYear: input.schoolYear ?? "",
@@ -50,7 +50,7 @@ export async function createUser(input: CreateUserInput): Promise<SafeUser> {
 
   const userWithId: IUser & { _id: ObjectId } = {
     ...newUser,
-    _id: result.insertedId as ObjectId, // ép kiểu ObjectId rõ ràng
+    _id: result.insertedId as ObjectId,
   };
   return toSafeUser(userWithId);
 }

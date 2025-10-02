@@ -1,6 +1,6 @@
 // server/controllers/admin/deleteStudent.ts
 import { Request, Response } from "express";
-import { connectDB } from "../configs/db";
+import { connectDB } from "../../../configs/db";
 import { ObjectId } from "mongodb";
 
 export const deleteStudent = async (req: Request, res: Response) => {

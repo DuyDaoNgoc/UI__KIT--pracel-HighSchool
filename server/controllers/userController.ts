@@ -8,12 +8,13 @@ import { toSafeUser } from "../types/user";
 // ===================== REGISTER =====================
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { studentCode, email, password } = req.body;
+    const { studentCode, teacherCode, email, password } = req.body;
 
-    if (!studentCode)
-      return res
-        .status(400)
-        .json({ success: false, message: "❌ Missing field: studentCode" });
+    if (!studentCode && !teacherCode)
+      return res.status(400).json({
+        success: false,
+        message: "❌ Missing field: studentCode or teacherCode",
+      });
     if (!email)
       return res
         .status(400)
@@ -24,13 +25,33 @@ export const registerUser = async (req: Request, res: Response) => {
         .json({ success: false, message: "❌ Missing field: password" });
 
     const db = await connectDB();
-    const student = await db
-      .collection("students")
-      .findOne({ studentId: studentCode });
-    if (!student)
-      return res
-        .status(404)
-        .json({ success: false, message: "❌ Student code not found" });
+
+    let targetUserData: any = null;
+    let role: "student" | "teacher" = "student";
+
+    // --- Tìm học sinh nếu studentCode ---
+    if (studentCode) {
+      targetUserData = await db
+        .collection("students")
+        .findOne({ studentId: studentCode });
+      role = "student";
+      if (!targetUserData)
+        return res
+          .status(404)
+          .json({ success: false, message: "❌ Student code not found" });
+    }
+
+    // --- Tìm giáo viên nếu teacherCode ---
+    if (teacherCode) {
+      targetUserData = await db
+        .collection("teachers")
+        .findOne({ teacherId: teacherCode });
+      role = "teacher";
+      if (!targetUserData)
+        return res
+          .status(404)
+          .json({ success: false, message: "❌ Teacher code not found" });
+    }
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail)
@@ -38,34 +59,37 @@ export const registerUser = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, message: "❌ Email already registered" });
 
-    const existingStudent = await User.findOne({
-      studentId: student.studentId,
+    const existingUser = await User.findOne({
+      $or: [
+        { studentId: targetUserData?.studentId || null },
+        { teacherId: targetUserData?.teacherId || null },
+      ],
     });
-    if (existingStudent)
+    if (existingUser)
       return res.status(400).json({
         success: false,
-        message: "❌ Student code has already been used to create an account",
+        message: "❌ This account has already been created",
       });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser: any = await User.create({
-      username: student.name,
+      username: targetUserData.name || targetUserData.teacherId || "Unknown",
       email,
       password: hashedPassword,
-      role: "student",
-      studentId: student.studentId,
-      teacherId: student.teacherId || "",
-      parentId: student.parentId || "",
-      class: student.classLetter || "",
-      schoolYear: student.schoolYear || "",
-      dob: student.dob || new Date("2000-01-01"),
-      grade: student.grade || "",
-      phone: student.phone || "",
-      address: student.address || "",
-      residence: student.residence || "",
+      role,
+      studentId: targetUserData.studentId || "",
+      teacherId: targetUserData.teacherId || "",
+      parentId: targetUserData.parentId || "",
+      class: targetUserData.classLetter || "",
+      schoolYear: targetUserData.schoolYear || "",
+      dob: targetUserData.dob || new Date("2000-01-01"),
+      grade: targetUserData.grade || "",
+      phone: targetUserData.phone || "",
+      address: targetUserData.address || "",
+      residence: targetUserData.residence || "",
       avatar:
-        student.avatar ||
+        targetUserData.avatar ||
         "https://cdn-icons-png.flaticon.com/512/149/149071.png",
       children: [],
       loginAttempts: 0,

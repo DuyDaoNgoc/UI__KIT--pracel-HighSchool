@@ -36,6 +36,7 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
         projection: {
           _id: 1,
           studentId: 1,
+          teacherId: 1, // thêm teacherId
           username: 1,
           email: 1,
           role: 1,
@@ -63,11 +64,24 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
       }
     }
 
+    // Nếu là giáo viên, ưu tiên lấy tên thật từ teachers
+    if (user.role === "teacher" && user.teacherId) {
+      const teachers = db.collection("teachers");
+      const teacher = await teachers.findOne(
+        { teacherId: user.teacherId },
+        { projection: { name: 1 } }
+      );
+      if (teacher?.name) {
+        finalUsername = teacher.name;
+      }
+    }
+
     return res.json({
       success: true,
       user: {
         id: user._id,
         studentId: user.studentId || null,
+        teacherId: user.teacherId || null,
         username: finalUsername,
         email: user.email,
         role: user.role,

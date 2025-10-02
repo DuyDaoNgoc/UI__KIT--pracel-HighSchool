@@ -4,44 +4,40 @@ import http from "../../lib/http"; // dùng cùng login
 import { RegisterResponse } from "../../types/auth";
 
 export default function Register() {
-  const [studentCode, setStudentCode] = useState("");
+  const [accountType, setAccountType] = useState<"student" | "teacher">(
+    "student"
+  );
+  const [code, setCode] = useState(""); // studentCode hoặc teacherCode
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); // Field nhập lại mật khẩu
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Toggle show/hide password
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage("");
 
-    // Kiểm tra mật khẩu nhập lại
     if (password !== confirmPassword) {
       setMessage("❌ Mật khẩu và nhập lại mật khẩu không khớp!");
       return;
     }
 
     try {
-      // Gửi request đăng ký tới backend (đường dẫn giống login)
-      const res = await http.post<RegisterResponse>("/auth/register", {
-        studentCode,
-        email,
-        password,
-      });
-      // Xử lý phản hồi từ backend
+      const payload: any = { email, password };
+      if (accountType === "student") payload.studentCode = code;
+      else payload.teacherCode = code;
+
+      const res = await http.post<RegisterResponse>("/auth/register", payload);
+
       if (res.data.success) {
-        // Đăng ký thành công
         setMessage("✅ Đăng ký thành công! Chuyển đến trang đăng nhập...");
-        //  Chuyển hướng đến trang đăng nhập sau 1.2 giây
         setTimeout(() => navigate("/login"), 1200);
       } else {
-        // Đăng ký thất bại, hiển thị thông báo lỗi từ backend
         setMessage(res.data.message || "❌ Đăng ký thất bại!");
       }
-      //  eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      // Lỗi kết nối hoặc lỗi khác
       setMessage(err.response?.data?.message || "❌ Lỗi kết nối server");
     }
   };
@@ -50,15 +46,32 @@ export default function Register() {
     <form className="login-form" onSubmit={handleRegister}>
       <h2 className="login-form__h2">Register</h2>
 
-      <label className="login-form__label" htmlFor="studentCode">
-        Student Code
+      <label className="login-form__label" htmlFor="accountType">
+        Account Type
+      </label>
+      <select
+        id="accountType"
+        value={accountType}
+        onChange={(e) =>
+          setAccountType(e.target.value as "student" | "teacher")
+        }
+        className="login-form__input"
+      >
+        <option value="student">Student</option>
+        <option value="teacher">Teacher</option>
+      </select>
+
+      <label className="login-form__label" htmlFor="code">
+        {accountType === "student" ? "Student Code" : "Teacher Code"}
       </label>
       <input
-        id="studentCode"
+        id="code"
         type="text"
-        placeholder="Student Code"
-        value={studentCode}
-        onChange={(e) => setStudentCode(e.target.value)}
+        placeholder={
+          accountType === "student" ? "Student Code" : "Teacher Code"
+        }
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
         required
         className="login-form__input"
       />
@@ -82,7 +95,7 @@ export default function Register() {
       <div style={{ position: "relative" }}>
         <input
           id="password"
-          type={showPassword ? "text" : "password"} // <-- Toggle show/hide mật khẩu
+          type={showPassword ? "text" : "password"}
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -103,14 +116,13 @@ export default function Register() {
             fontSize: "0.9rem",
           }}
         >
-          {showPassword ? "Hide" : "Show"} {/* Nhãn nút toggle */}
+          {showPassword ? "Hide" : "Show"}
         </button>
       </div>
 
       <label className="login-form__label" htmlFor="confirmPassword">
         Confirm Password
       </label>
-
       <input
         id="confirmPassword"
         type={showPassword ? "text" : "password"}
