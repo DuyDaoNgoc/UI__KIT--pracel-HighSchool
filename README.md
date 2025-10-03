@@ -61,7 +61,7 @@ ADMIN_PASSWORD=duypro0478
 
 
 
-Những lệnh chính bạn sẽ dùng (theo `package.json` mẫu của repo):
+Những lệnh chính bạn sẽ dùng (theo `package.json`  của repo):
 
 * `npm run client` — khởi động frontend bằng Parcel (theo cấu hình script).
 * `npm run server` — khởi động backend (script có thể `cd server && ts-node-dev index.ts` hoặc tương tự).
@@ -150,8 +150,8 @@ npm run tunnel:run
 
 khi dùng cloudflared thì phải bật thêm cái 
 cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
-khi bật lên thì chạy lệnh:
-  C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000
+khi bật lên thì chạy lệnh: </br>
+<b>  C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
 (nếu đã build vào Variables mới xài đc)
 
 
