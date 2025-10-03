@@ -4,7 +4,7 @@ Dự án giao diện web **UI-KIT-pracel** (Parcel + React + Express + MongoDB).
 Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nhanh trên máy local và cách build production.
 
 ---
-![Uploading image.png…]()
+<img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/ed36cd42-ec04-46b9-a2d9-1ffe8dfd7c07" />
 
 ## 📑 Mục lục
 
