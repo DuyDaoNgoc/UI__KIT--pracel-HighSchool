@@ -106,7 +106,7 @@ npm run build
 
 ---
 
-## 📂 Cấu trúc thư mục mẫu
+## 📂 Cấu trúc thư mục 
 
 ```
 UI-KIT-pracel/
