@@ -152,6 +152,7 @@ khi dùng cloudflared thì phải bật thêm cái
 cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
 khi bật lên thì chạy lệnh: </br>
 <b>  C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
+</br>
 (nếu đã build vào Variables mới xài đc)
 
 
