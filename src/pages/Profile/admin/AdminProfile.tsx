@@ -14,6 +14,7 @@ import StudentsTab from "./StudentsTab";
 import ClassesTab from "./ClassesTab";
 import StudentModal from "./StudentModal";
 import CreateTeacher from "./CreateTeacher";
+import UserManagement from "./UserManagement";
 
 interface ILockResp {
   locked: boolean;
@@ -305,6 +306,8 @@ const AdminProfile: FC = () => {
           <ClassesTab students={createdStudents || []} />
         )}
         {activeTab === "create-teacher" && <CreateTeacher />}
+
+        {activeTab === "users" && <UserManagement />}
       </main>
 
       {viewing && selectedStudent && (

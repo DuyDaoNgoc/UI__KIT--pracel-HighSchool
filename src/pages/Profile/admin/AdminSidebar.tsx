@@ -71,7 +71,15 @@ export default function AdminSidebar({
         >
           <UserPlus size={18} /> Tạo giáo viên
         </li>
+        {/* ✅ Thêm tab quản lý người dùng */}
+        <li
+          onClick={() => setActiveTab("users")}
+          className={activeTab === "users" ? "active" : ""}
+        >
+          <Users size={18} /> Quản lý người dùng
+        </li>
       </ul>
+
       <li>
         <Logout />
       </li>

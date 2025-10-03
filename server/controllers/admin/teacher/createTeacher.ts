@@ -7,14 +7,14 @@ import TeacherModel, {
 // Auto sinh teacherId GVxxxxx
 const generateTeacherId = async (): Promise<string> => {
   const lastTeacher = await TeacherModel.findOne({}, { teacherId: 1 })
-    .sort({ teacherId: -1 })
+    .sort({ teacherId: -1 }) // dùng -1 để lấy cuối cùng
     .lean();
   if (!lastTeacher?.teacherId) return "GV00001";
   const lastNumber = parseInt(lastTeacher.teacherId.replace("GV", ""), 10);
   return "GV" + String(lastNumber + 1).padStart(5, "0");
 };
 
-// Chuẩn hóa array từ string hoặc array
+// Chuẩn hóa array
 const normalizeArray = (val: any): string[] => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -58,7 +58,7 @@ export const createTeacher = async (req: Request, res: Response) => {
 
     const finalTeacherId = teacherId?.trim() || (await generateTeacherId());
 
-    // Kiểm tra trùng teacherId / email
+    // Check trùng teacherId / email
     const query: any = { $or: [{ teacherId: finalTeacherId }] };
     if (email) query.$or.push({ email: email.trim().toLowerCase() });
     if (await TeacherModel.findOne(query)) {
@@ -68,10 +68,9 @@ export const createTeacher = async (req: Request, res: Response) => {
       });
     }
 
-    // Chuẩn bị assignedClass nếu có
-    let assignedClass: IAssignedClass | undefined = undefined;
-    let finalAssignedClassCode: string = "";
-
+    // Check trùng lớp được assign
+    let assignedClass: IAssignedClass | undefined;
+    let finalAssignedClassCode = "";
     if (assignedClassCode?.trim()) {
       finalAssignedClassCode = assignedClassCode.trim();
       const existingClass = await TeacherModel.findOne({
@@ -92,7 +91,6 @@ export const createTeacher = async (req: Request, res: Response) => {
       };
     }
 
-    // Tạo document, tất cả string luôn có giá trị
     const teacherData: ITeacher = new TeacherModel({
       teacherId: finalTeacherId,
       name: name.trim(),
@@ -109,7 +107,7 @@ export const createTeacher = async (req: Request, res: Response) => {
       research: research || "",
       subject: normalizeArray(subject),
       avatar: avatar || "",
-      assignedClassCode: finalAssignedClassCode,
+      assignedClassCode: finalAssignedClassCode || null,
       assignedClass,
     });
 
@@ -120,32 +118,19 @@ export const createTeacher = async (req: Request, res: Response) => {
       message: "Thêm giáo viên thành công",
       teacher: teacherData,
     });
-  } catch (error: unknown) {
-    const err = error as {
-      code?: number;
-      keyPattern?: any;
-      keyValue?: any;
-      message?: string;
-    };
-
-    // Handle duplicate key assignedClass.classCode
-    if (
-      err.code === 11000 &&
-      err.keyPattern?.["assignedClass.classCode"] &&
-      err.keyValue?.["assignedClass.classCode"]
-    ) {
+  } catch (error: any) {
+    if (error.code === 11000 && error.keyPattern?.["assignedClassCode"]) {
       return res.status(400).json({
         success: false,
-        message:
-          "assignedClass.classCode không hợp lệ hoặc đã tồn tại, bỏ classCode để tạo",
+        message: "Mã lớp đã tồn tại, vui lòng chọn lớp khác",
       });
     }
 
-    console.error("❌ Lỗi tạo giáo viên:", err);
+    console.error("❌ Lỗi tạo giáo viên:", error);
     return res.status(500).json({
       success: false,
       message: "Lỗi server",
-      errorDetail: err?.message ?? String(err),
+      errorDetail: error?.message ?? String(error),
     });
   }
 };

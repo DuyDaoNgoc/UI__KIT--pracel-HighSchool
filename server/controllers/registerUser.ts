@@ -5,11 +5,10 @@ import { connectDB } from "../configs/db";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { studentCode, teacherCode, email, password } = req.body; // 👈 thêm teacherCode
+    const { studentCode, teacherCode, email, password } = req.body;
 
-    // ===== Validate input rõ ràng =====
+    // ===== Validate input =====
     if (!studentCode && !teacherCode) {
-      // 👈 phải có ít nhất 1
       return res.status(400).json({
         success: false,
         field: "code",
@@ -34,9 +33,9 @@ export const registerUser = async (req: Request, res: Response) => {
     const db = await connectDB();
     const users = db.collection("users");
     const students = db.collection("students");
-    const teachers = db.collection("teachers"); // 👈 collection giáo viên
+    const teachers = db.collection("teachers");
 
-    // ===== Check email đã tồn tại chưa =====
+    // ===== Check email đã tồn tại =====
     const existingUser = await users.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -49,7 +48,7 @@ export const registerUser = async (req: Request, res: Response) => {
     let newUser: any;
 
     if (studentCode) {
-      // ===== Tìm học sinh trong collection students =====
+      // ===== Lấy học sinh =====
       const student = await students.findOne({ studentId: studentCode });
       if (!student) {
         return res.status(404).json({
@@ -59,7 +58,7 @@ export const registerUser = async (req: Request, res: Response) => {
         });
       }
 
-      // ===== Kiểm tra studentCode đã được tạo user chưa =====
+      // ===== Kiểm tra đã tạo user chưa =====
       const existingStudentUser = await users.findOne({
         studentId: student.studentId,
       });
@@ -71,20 +70,32 @@ export const registerUser = async (req: Request, res: Response) => {
         });
       }
 
-      // ===== Hash password & insert =====
+      // ===== Hash password =====
       const hashedPassword = await bcrypt.hash(password, 10);
+
+      // ===== Build classCode an toàn =====
+      const safeClassCode =
+        student.classCode ??
+        `${student.grade || ""}${student.classLetter || ""}${(
+          student.major || ""
+        )
+          .split(/\s+/)
+          .map((w: string) => w[0]?.toUpperCase() || "")
+          .join("")}`;
 
       newUser = {
         customId: crypto.randomBytes(6).toString("hex"),
-        username: student.name || student.studentId, // Ưu tiên tên thật
-        studentId: student.studentId, // Lưu riêng mã học sinh
+        username: student.name || student.studentId,
+        studentId: student.studentId,
         email,
         password: hashedPassword,
         role: "student",
+        classCode: safeClassCode,
+        major: student.major || "",
         createdAt: new Date(),
       };
     } else if (teacherCode) {
-      // ===== Tìm giáo viên trong collection teachers =====
+      // ===== Lấy giáo viên =====
       const teacher = await teachers.findOne({ teacherId: teacherCode });
       if (!teacher) {
         return res.status(404).json({
@@ -94,7 +105,7 @@ export const registerUser = async (req: Request, res: Response) => {
         });
       }
 
-      // ===== Kiểm tra teacherCode đã được tạo user chưa =====
+      // ===== Kiểm tra đã tạo user chưa =====
       const existingTeacherUser = await users.findOne({
         teacherId: teacher.teacherId,
       });
@@ -106,20 +117,27 @@ export const registerUser = async (req: Request, res: Response) => {
         });
       }
 
-      // ===== Hash password & insert =====
+      // ===== Hash password =====
       const hashedPassword = await bcrypt.hash(password, 10);
+
+      const teacherMajor = Array.isArray(teacher.majors)
+        ? teacher.majors.join(", ")
+        : teacher.major || "";
 
       newUser = {
         customId: crypto.randomBytes(6).toString("hex"),
-        username: teacher.name || teacher.teacherId, // Ưu tiên tên thật
-        teacherId: teacher.teacherId, // Lưu riêng mã giáo viên
+        username: teacher.name || teacher.teacherId,
+        teacherId: teacher.teacherId,
         email,
         password: hashedPassword,
         role: "teacher",
+        classCode: teacher.classCode || "",
+        major: teacherMajor,
         createdAt: new Date(),
       };
     }
 
+    // ===== Insert user =====
     const result = await users.insertOne(newUser);
 
     return res.status(201).json({
@@ -132,6 +150,8 @@ export const registerUser = async (req: Request, res: Response) => {
         teacherId: newUser.teacherId,
         email: newUser.email,
         role: newUser.role,
+        classCode: newUser.classCode,
+        major: newUser.major,
       },
     });
   } catch (err) {

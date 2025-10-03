@@ -21,6 +21,7 @@ import teacherRoutes from "./Routers/teacherRoutes"; // CRUD cơ bản giáo vi�
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import { checkGradesLock } from "./middleware/checkLock";
+import User from "./models/User"; // 👈 Thêm dòng này
 
 dotenv.config();
 
@@ -51,12 +52,27 @@ app.use(
 app.use(compression());
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(express.json({ limit: "5mb" }));
+// Lấy danh sách user
+app.get("/api/users", async (req, res) => {
+  const users = await User.find().select("-password");
+  res.json(users);
+});
+
+// Block / Unblock user
+app.patch("/api/users/:id/block", async (req, res) => {
+  const { id } = req.params;
+  const { isBlocked } = req.body;
+  await User.findByIdAndUpdate(id, { isBlocked });
+  res.json({ success: true });
+});
 
 // ================== API Routes ==================
 app.use("/api/admin/classes", classRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
+import userRoutes from "./Routers/userRoutes";
+app.use("/api/users", userRoutes);
 
 // 👨‍🏫 Giáo viên
 app.use("/api/teachers/auth", teacherAuthRoutes); // login, profile

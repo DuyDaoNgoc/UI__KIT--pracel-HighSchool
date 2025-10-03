@@ -137,7 +137,13 @@ export type SafeUser = Omit<IUser, "password" | "_id" | "children"> & {
    - Hàm tiện ích chuyển ObjectId -> string, xử lý default values
    - Nhận `user` có _id kiểu ObjectId để chắc chắn convert đúng
    =========================================================== */
-export const toSafeUser = (user: IUser & { _id: ObjectId }): SafeUser => ({
+/* ===========================================================
+   ===== Convert IUser -> SafeUser =====
+   - Chấp nhận _id dạng string | ObjectId (vì Mongoose có thể trả về cả hai)
+   =========================================================== */
+export const toSafeUser = (
+  user: IUser & { _id: ObjectId | string }
+): SafeUser => ({
   _id: user._id.toString(),
   studentId: user.studentId,
   teacherId: user.teacherId ?? null,
@@ -145,31 +151,27 @@ export const toSafeUser = (user: IUser & { _id: ObjectId }): SafeUser => ({
   customId: user.customId || "",
   username: user.username,
   email: user.email || "",
-  role: user.role,
+  role: user.role || "student", // ✅ default role
   name: user.name || "",
   dob: user.dob,
-  class: user.class,
-  // --- các trường lớp/học tập đầy đủ để controller dùng ---
-  classCode: (user as any).classCode || undefined,
-  classLetter: (user as any).classLetter || undefined,
-  major: (user as any).major || undefined,
-  grade: user.grade,
-  schoolYear: user.schoolYear,
-  teacherName: (user as any).teacherName || undefined,
-  // --- liên hệ và cá nhân ---
-  phone: user.phone,
-  address: user.address,
-  residence: user.residence,
-  avatar: user.avatar,
+  class: user.class || undefined,
+  classCode: (user as any).classCode || "", // ✅ luôn có giá trị string
+  classLetter: (user as any).classLetter || "",
+  major: (user as any).major || "", // ✅ luôn có giá trị string
+  grade: user.grade || "",
+  schoolYear: user.schoolYear || "",
+  teacherName: (user as any).teacherName || "",
+  phone: user.phone || "",
+  address: user.address || "",
+  residence: user.residence || "",
+  avatar:
+    user.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
   createdAt: user.createdAt || new Date(),
-  // children: convert ObjectId -> string nếu cần
   children: user.children?.map((c) => c.toString()) || [],
-  // --- học tập ---
   grades: user.grades || [],
   creditsTotal: user.creditsTotal || 0,
   creditsEarned: user.creditsEarned || 0,
   schedule: user.schedule || [],
-  // --- học phí ---
   tuitionTotal: user.tuitionTotal || 0,
   tuitionPaid: user.tuitionPaid || 0,
   tuitionRemaining: user.tuitionRemaining || 0,

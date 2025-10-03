@@ -18,7 +18,7 @@ export interface ITeacher extends Document {
   majors: string[];
   subjectClasses: string[];
   assignedClass?: IAssignedClass;
-  assignedClassCode?: string; // optional
+  assignedClassCode?: string;
   email?: string;
   degree?: string;
   educationLevel?: string;
@@ -30,7 +30,6 @@ export interface ITeacher extends Document {
   updatedAt?: Date;
 }
 
-// AssignedClass Schema
 const AssignedClassSchema = new Schema<IAssignedClass>({
   grade: { type: String, required: true },
   classLetter: { type: String, required: true },
@@ -39,7 +38,6 @@ const AssignedClassSchema = new Schema<IAssignedClass>({
   classCode: { type: String, required: true },
 });
 
-// Teacher Schema
 const TeacherSchema = new Schema<ITeacher>(
   {
     teacherId: { type: String, required: true, unique: true },
@@ -51,7 +49,7 @@ const TeacherSchema = new Schema<ITeacher>(
     majors: { type: [String], default: [] },
     subjectClasses: { type: [String], default: [] },
     assignedClass: { type: AssignedClassSchema, default: undefined },
-    assignedClassCode: { type: String, unique: true, sparse: true }, // optional
+    assignedClassCode: { type: String, unique: true, sparse: true },
     email: { type: String, unique: true, sparse: true },
     degree: { type: String },
     educationLevel: { type: String },
@@ -63,13 +61,17 @@ const TeacherSchema = new Schema<ITeacher>(
   { timestamps: true }
 );
 
-// Index unique on assignedClass.classCode only if defined
+// ✅ Index chỉ unique khi classCode có giá trị khác null
 TeacherSchema.index(
   { "assignedClass.classCode": 1 },
-  { unique: true, sparse: true }
+  {
+    unique: true,
+    partialFilterExpression: {
+      "assignedClass.classCode": { $exists: true, $ne: null },
+    },
+  }
 );
 
-// Middleware: auto generate teacherId if not provided
 TeacherSchema.pre<ITeacher>("save", async function (next) {
   if (!this.teacherId) {
     const TeacherModel = mongoose.model<ITeacher>("Teacher");
@@ -84,7 +86,7 @@ TeacherSchema.pre<ITeacher>("save", async function (next) {
     this.teacherId = "GV" + (lastNumber + 1).toString().padStart(5, "0");
   }
 
-  // Loại bỏ assignedClass nếu classCode trống
+  // Nếu classCode trống thì bỏ luôn
   if (this.assignedClass?.classCode?.trim() === "") {
     this.assignedClass = undefined;
     this.assignedClassCode = undefined;
@@ -93,7 +95,6 @@ TeacherSchema.pre<ITeacher>("save", async function (next) {
   next();
 });
 
-// Model
 const TeacherModel: Model<ITeacher> = mongoose.model<ITeacher>(
   "Teacher",
   TeacherSchema
