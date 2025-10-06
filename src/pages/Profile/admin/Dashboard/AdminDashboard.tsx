@@ -1,3 +1,4 @@
+// src/pages/Profile/admin/Dashboard/AdminDashboard.tsx
 import React, { useEffect, useState } from "react";
 import {
   ThemeProvider,
@@ -13,33 +14,35 @@ import { motion } from "framer-motion";
 import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
-import http, { get } from "../../../../api/axiosConfig";
+import { get } from "../../../../api/axiosConfig";
 import { IParent } from "../../../../types/parent";
 import { IClass } from "../../../../types/class";
 
-// ===== INTERFACES =====
 interface IStudent {
   _id: string;
   name: string;
 }
+
 interface ITeacher {
   _id: string;
   name: string;
 }
+
 interface Stats {
   totalStudents: number;
   totalTeachers: number;
   totalParents: number;
   totalClasses: number;
 }
+
 interface ChartDataItem {
   name: string;
   số_lượng: number;
 }
 
-// ===== MAIN COMPONENT =====
 const AdminDashboard: React.FC = () => {
-  // ===== STATE =====
+  const appTheme = theme(config as any);
+
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
     totalTeachers: 0,
@@ -60,31 +63,33 @@ const AdminDashboard: React.FC = () => {
   // ===== FETCH DATA =====
   const fetchData = async () => {
     try {
-      const [students, teachers, parents, classes] = await Promise.all([
+      const [students, teachers, parents, classesResponse] = await Promise.all([
         get<IStudent[]>("/admin/students"),
         get<ITeacher[]>("/admin/teachers"),
         get<IParent[]>("/admin/parents"),
-        get<IClass[]>("/admin/classes"),
+        get<Record<string, IClass[]>>("/admin/classes"), // 🧩 Trả về object group theo ngành
       ]);
+
+      // 🧩 Làm phẳng dữ liệu lớp từ { major: IClass[] } → IClass[]
+      const allClasses: IClass[] = Object.values(classesResponse).flat();
 
       setStudentsData(students);
       setTeachersData(teachers);
       setParentsData(parents);
-      setClassesData(classes);
+      setClassesData(allClasses);
 
       setStats({
         totalStudents: students.length,
         totalTeachers: teachers.length,
         totalParents: parents.length,
-        totalClasses: classes.length,
+        totalClasses: allClasses.length,
       });
 
-      // Chart mặc định
       setChartData([
         { name: "Học sinh", số_lượng: students.length },
         { name: "Giáo viên", số_lượng: teachers.length },
         { name: "Phụ huynh", số_lượng: parents.length },
-        { name: "Lớp học", số_lượng: classes.length },
+        { name: "Lớp học", số_lượng: allClasses.length },
       ]);
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu thống kê:", err);
@@ -95,7 +100,7 @@ const AdminDashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  // ===== UPDATE CHART THEO VIEWMODE =====
+  // ===== Cập nhật chart khi đổi chế độ xem =====
   useEffect(() => {
     const baseData: ChartDataItem[] = [
       { name: "Học sinh", số_lượng: studentsData.length },
@@ -120,7 +125,6 @@ const AdminDashboard: React.FC = () => {
     setChartData(filteredData);
   }, [viewMode, studentsData, teachersData, parentsData, classesData]);
 
-  // ===== ApexCharts CONFIG =====
   const apexOptions: ApexOptions = {
     chart: { type: "bar", height: 350, toolbar: { show: true } },
     plotOptions: {
@@ -134,7 +138,10 @@ const AdminDashboard: React.FC = () => {
     { name: "Số lượng", data: chartData.map((d) => d.số_lượng) },
   ];
 
-  const viewModes = [
+  const viewModes: {
+    label: string;
+    mode: "all" | "students" | "teachers" | "parents" | "classes";
+  }[] = [
     { label: "Tất cả", mode: "all" },
     { label: "Học sinh", mode: "students" },
     { label: "Giáo viên", mode: "teachers" },
@@ -152,7 +159,7 @@ const AdminDashboard: React.FC = () => {
 
   // ===== RENDER =====
   return (
-    <ThemeProvider theme={theme(config as any)}>
+    <ThemeProvider theme={appTheme}>
       <motion.div
         className="admin-dashboard"
         initial={{ opacity: 0, y: 15 }}
@@ -163,22 +170,13 @@ const AdminDashboard: React.FC = () => {
           Thống kê hệ thống
         </Typography>
 
-        {/* Nút xem tổng / từng phần */}
+        {/* Nút lọc chế độ xem */}
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
           {viewModes.map((btn, idx) => (
             <Button
               key={idx}
               variant={viewMode === btn.mode ? "contained" : "outlined"}
-              onClick={() =>
-                setViewMode(
-                  btn.mode as
-                    | "all"
-                    | "students"
-                    | "teachers"
-                    | "parents"
-                    | "classes"
-                )
-              }
+              onClick={() => setViewMode(btn.mode)}
             >
               {btn.label}
             </Button>
@@ -199,14 +197,26 @@ const AdminDashboard: React.FC = () => {
           }}
         >
           {[
-            { title: "Học sinh", value: studentsData.length, color: "#e0f2fe" },
+            {
+              title: "Học sinh",
+              value: studentsData.length,
+              color: appTheme.statsColors.students,
+            },
             {
               title: "Giáo viên",
               value: teachersData.length,
-              color: "#dcfce7",
+              color: appTheme.statsColors.teachers,
             },
-            { title: "Phụ huynh", value: parentsData.length, color: "#fef9c3" },
-            { title: "Lớp học", value: classesData.length, color: "#ede9fe" },
+            {
+              title: "Phụ huynh",
+              value: parentsData.length,
+              color: appTheme.statsColors.parents,
+            },
+            {
+              title: "Lớp học",
+              value: classesData.length,
+              color: appTheme.statsColors.classes,
+            },
           ]
             .filter((item) => cardViewMap[viewMode].includes(item.title))
             .map((item, i) => (
@@ -229,7 +239,7 @@ const AdminDashboard: React.FC = () => {
             ))}
         </Box>
 
-        {/* Biểu đồ ApexCharts */}
+        {/* Biểu đồ thống kê */}
         <Card sx={{ p: 2, borderRadius: 3, boxShadow: 3 }}>
           <CardContent>
             <ReactApexChart

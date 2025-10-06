@@ -7,9 +7,11 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "outDir": "./dist",
+    "rootDir": "./",
     "baseUrl": "./",
     "typeRoots": ["./types", "./node_modules/@types"]
   },
-  "include": ["*.ts", "utils/**/*.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

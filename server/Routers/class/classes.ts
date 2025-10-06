@@ -44,7 +44,9 @@ router.post(
         });
       }
 
-      let cls = await ClassModel.findOne({ classCode });
+      // ✅ Kiểm tra tồn tại class (theo unique index)
+      let cls = await ClassModel.findOne({ classCode, schoolYear, major });
+
       if (!cls) {
         cls = new ClassModel({
           schoolYear,
@@ -58,8 +60,14 @@ router.post(
       }
 
       return res.status(201).json({ success: true, data: cls });
-    } catch (err) {
+    } catch (err: any) {
       console.error("⚠️ create class error:", err);
+      if (err.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "Lớp này đã tồn tại (trùng classCode, major, schoolYear)",
+        });
+      }
       return res.status(500).json({
         success: false,
         message: "Không thể tạo lớp",
@@ -87,7 +95,7 @@ router.post(
         });
       }
 
-      let cls = await ClassModel.findOne({ classCode });
+      let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
       if (!cls) {
         if (!schoolYear || !classLetter) {
@@ -104,14 +112,13 @@ router.post(
           teacherName,
           studentIds: [],
         });
-        await cls.save();
       } else {
         cls.teacherName = teacherName;
-        await cls.save();
       }
 
+      await cls.save();
       return res.status(200).json({ success: true, data: cls });
-    } catch (err) {
+    } catch (err: any) {
       console.error("⚠️ assign teacher error:", err);
       return res.status(500).json({
         success: false,
@@ -140,7 +147,7 @@ router.post(
         });
       }
 
-      let cls = await ClassModel.findOne({ classCode });
+      let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
       if (!cls) {
         if (!schoolYear || !classLetter) {
@@ -157,17 +164,17 @@ router.post(
           teacherName: "",
           studentIds: [studentId],
         });
-        await cls.save();
       } else {
         cls.studentIds = cls.studentIds || [];
-        if (!cls.studentIds.includes(studentId)) {
-          cls.studentIds.push(studentId);
-          await cls.save();
-        }
+        const exists = cls.studentIds.some(
+          (id) => id.toString() === studentId.toString()
+        );
+        if (!exists) cls.studentIds.push(studentId);
       }
 
+      await cls.save();
       return res.status(200).json({ success: true, data: cls });
-    } catch (err) {
+    } catch (err: any) {
       console.error("⚠️ add student error:", err);
       return res.status(500).json({
         success: false,

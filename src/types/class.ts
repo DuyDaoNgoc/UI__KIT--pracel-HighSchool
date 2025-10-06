@@ -1,9 +1,13 @@
+import { ObjectId } from "mongodb";
+
 export interface IClass {
-  [x: string]: any;
-  classCode: string;
-  grade: number;
+  _id?: ObjectId | string;
+  schoolYear: string;
   classLetter: string;
   major: string;
-  teacherName?: string;
-  schoolYear?: string;
+  classCode: string;
+  teacherName?: string | null;
+  studentIds: (ObjectId | string)[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }

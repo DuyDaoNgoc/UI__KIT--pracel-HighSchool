@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import TeacherModel, {
   IAssignedClass,
   ITeacher,
 } from "../../../models/teacherModel";
+import ClassModel from "../../../models/Class";
 
 // Auto sinh teacherId GVxxxxx
 const generateTeacherId = async (): Promise<string> => {
@@ -48,7 +50,6 @@ export const createTeacher = async (req: Request, res: Response) => {
       avatar,
     } = req.body;
 
-    // Validate bắt buộc
     if (!name || !dob || !gender) {
       return res.status(400).json({
         success: false,
@@ -58,7 +59,6 @@ export const createTeacher = async (req: Request, res: Response) => {
 
     const finalTeacherId = teacherId?.trim() || (await generateTeacherId());
 
-    // Check trùng teacherId / email
     const query: any = { $or: [{ teacherId: finalTeacherId }] };
     if (email) query.$or.push({ email: email.trim().toLowerCase() });
     if (await TeacherModel.findOne(query)) {
@@ -68,7 +68,6 @@ export const createTeacher = async (req: Request, res: Response) => {
       });
     }
 
-    // Check trùng lớp được assign
     let assignedClass: IAssignedClass | undefined;
     let finalAssignedClassCode = "";
     if (assignedClassCode?.trim()) {
@@ -112,6 +111,31 @@ export const createTeacher = async (req: Request, res: Response) => {
     });
 
     await teacherData.save();
+
+    // ===== THÊM PHẦN UPDATE CLASS =====
+    if (finalAssignedClassCode) {
+      let cls = await ClassModel.findOne({ classCode: finalAssignedClassCode });
+      if (!cls) {
+        // Nếu class chưa tồn tại, tạo mới
+        cls = await ClassModel.create({
+          grade: "",
+          classLetter: "",
+          schoolYear: "",
+          major: "",
+          classCode: finalAssignedClassCode,
+          teacherId: teacherData._id,
+          teacherName: teacherData.name,
+          studentIds: [],
+          className: "",
+        });
+      } else {
+        // Nếu class đã có, cập nhật teacher
+        cls.teacherId = teacherData._id as mongoose.Types.ObjectId;
+        cls.teacherName = teacherData.name;
+        await cls.save();
+      }
+    }
+    // ===== END UPDATE CLASS =====
 
     return res.status(201).json({
       success: true,

@@ -1,4 +1,3 @@
-// src/types/class.ts
 import { ObjectId } from "mongodb";
 
 export interface IClass {

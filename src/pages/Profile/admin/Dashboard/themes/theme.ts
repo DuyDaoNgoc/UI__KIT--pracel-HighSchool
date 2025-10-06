@@ -1,5 +1,5 @@
 // src/pages/Profile/admin/Dashboard/themes/theme.ts
-import { createTheme } from "@mui/material/styles";
+import { createTheme, Theme } from "@mui/material/styles";
 
 /* ===== MỞ RỘNG TYPE ===== */
 declare module "@mui/material/styles" {
@@ -76,7 +76,9 @@ const paletteBase = {
 };
 
 /* ===== FUNCTION CHÍNH ===== */
-export function theme(customization: Customization = { navType: "light" }) {
+export function theme(
+  customization: Customization = { navType: "light" }
+): Theme {
   return createTheme({
     palette: {
       mode: customization.navType === "dark" ? "dark" : "light",
