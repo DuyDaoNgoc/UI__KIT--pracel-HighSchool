@@ -137,7 +137,7 @@ server/            # backend (Express + TS hoặc JS)
 **Dev:** typescript, ts-node-dev, concurrently (nếu bạn muốn chạy nhiều script cùng lúc), rimraf
 
 ---
-
+## Terminal 3 (không bắt buộc bật nếu ko cần xài cloud)
 ## 🌐 Tunnel (Cloudflare) — tuỳ chọn
 
 Nếu bạn muốn expose server ra internet cho demo nhanh:
