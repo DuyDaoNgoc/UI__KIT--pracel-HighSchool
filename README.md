@@ -148,7 +148,7 @@ npm run tunnel
 # hoặc
 npm run tunnel:run
 ```
-
+## Bật CMD (administrator)
 khi dùng cloudflared thì phải bật thêm cái 
 cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
 khi bật lên thì chạy lệnh: </br>
