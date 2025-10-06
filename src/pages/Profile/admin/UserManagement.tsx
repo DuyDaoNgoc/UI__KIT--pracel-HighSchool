@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../api/axiosConfig";
 
+// ================= INTERFACE =================
 interface IUser {
   _id: string;
   username: string;
@@ -9,10 +10,12 @@ interface IUser {
   studentId?: string;
   teacherId?: string;
   parentId?: string;
+  phone?: string; // ✅ thêm SDT
+  address?: string; // ✅ thêm địa chỉ
   isBlocked?: boolean;
   createdAt?: string;
-  classCode?: string; // lớp đầy đủ
-  major?: string; // ngành
+  classCode?: { className: string; grade: string } | string;
+  major?: { name: string; code: string } | string;
 }
 
 export default function UserManagement() {
@@ -23,19 +26,14 @@ export default function UserManagement() {
   >("all");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
+  // ================= API =================
   const fetchUsers = async () => {
     try {
       const res = await axiosInstance.get<IUser[]>("/users");
-      const filtered = (res.data || [])
-        .filter((u) => u.role !== "admin") // ẩn admin
-        .map((u) => ({
-          ...u,
-          classCode: u.classCode || "---",
-          major: u.major || "---",
-        }));
+      const filtered = (res.data || []).filter((u) => u.role !== "admin");
       setUsers(filtered);
     } catch (err) {
-      console.error("❌ Lỗi lấy danh sách người dùng:", err);
+      console.error("❌ Lỗi lấy danh sách:", err);
     }
   };
 
@@ -43,6 +41,7 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
+  // ================= ACTION =================
   const toggleBlockUser = async (id: string, currentStatus: boolean) => {
     if (
       !window.confirm(
@@ -60,15 +59,12 @@ export default function UserManagement() {
       fetchUsers();
     } catch (err) {
       console.error("❌ Lỗi khi cập nhật trạng thái:", err);
-      alert("❌ Không thể cập nhật trạng thái người dùng.");
     }
   };
 
   const deleteSelectedUsers = async () => {
-    if (selectedUsers.length === 0) {
-      alert("⚠️ Chưa chọn tài khoản nào để xoá.");
-      return;
-    }
+    if (selectedUsers.length === 0)
+      return alert("⚠️ Chưa chọn tài khoản nào để xoá.");
     if (
       !window.confirm(
         `Bạn có chắc muốn xoá ${selectedUsers.length} tài khoản này?`
@@ -80,12 +76,11 @@ export default function UserManagement() {
       await Promise.all(
         selectedUsers.map((id) => axiosInstance.delete(`/users/${id}`))
       );
-      alert("🗑️ Xoá tài khoản thành công!");
+      alert("🗑️ Xoá thành công!");
       setSelectedUsers([]);
       fetchUsers();
     } catch (err) {
-      console.error("❌ Lỗi khi xoá người dùng:", err);
-      alert("❌ Không thể xoá tài khoản.");
+      console.error("❌ Lỗi xoá:", err);
     }
   };
 
@@ -104,58 +99,64 @@ export default function UserManagement() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedUsers.length === displayedUsers.length) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(displayedUsers.map((u) => u._id));
-    }
+    setSelectedUsers(
+      selectedUsers.length === displayedUsers.length
+        ? []
+        : displayedUsers.map((u) => u._id)
+    );
   };
 
+  // ================= RENDER =================
   return (
-    <div className="user-management">
-      <h2 className="user-management__title">Quản lý người dùng</h2>
+    <div className="teacher">
+      <h2 className="teacher__title">Quản lý người dùng</h2>
 
-      {/* 🔍 Tìm kiếm */}
       <input
         type="text"
         placeholder="Tìm theo tên hoặc email..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="user-search"
+        className="teacher-form__input"
       />
 
-      {/* 🎛️ Bộ lọc vai trò */}
-      <div className="role-filters">
+      <div className="teacher-form__actions">
         <button
-          className={filterRole === "student" ? "active" : ""}
+          className={`teacher-form__button ${
+            filterRole === "student" ? "active" : ""
+          }`}
           onClick={() => setFilterRole("student")}
         >
           Học sinh
         </button>
         <button
-          className={filterRole === "teacher" ? "active" : ""}
+          className={`teacher-form__button ${
+            filterRole === "teacher" ? "active" : ""
+          }`}
           onClick={() => setFilterRole("teacher")}
         >
           Giáo viên
         </button>
         <button
-          className={filterRole === "parent" ? "active" : ""}
+          className={`teacher-form__button ${
+            filterRole === "parent" ? "active" : ""
+          }`}
           onClick={() => setFilterRole("parent")}
         >
           Phụ huynh
         </button>
         <button
-          className={filterRole === "all" ? "active" : ""}
+          className={`teacher-form__button ${
+            filterRole === "all" ? "active" : ""
+          }`}
           onClick={() => setFilterRole("all")}
         >
           Tất cả
         </button>
       </div>
 
-      {/* 🗑️ Nút xoá */}
-      <div style={{ margin: "10px 0" }}>
+      <div className="teacher-form__actions">
         <button
-          className="delete-btn"
+          className="teacher-form__button teacher-form__button--cancel"
           onClick={deleteSelectedUsers}
           disabled={selectedUsers.length === 0}
         >
@@ -163,8 +164,8 @@ export default function UserManagement() {
         </button>
       </div>
 
-      <table className="user-table">
-        <thead className="user-table__head">
+      <table className="teacher-table">
+        <thead className="teacher-table__head">
           <tr>
             <th>
               <input
@@ -179,15 +180,18 @@ export default function UserManagement() {
             <th>Tên đăng nhập</th>
             <th>Email</th>
             <th>Vai trò</th>
-            <th>Mã học sinh</th>
-            <th>Mã giáo viên</th>
-            <th>Mã phụ huynh</th>
+            <th>Mã HS</th>
+            <th>Mã GV</th>
+            <th>Mã PH</th>
             <th>Lớp</th>
             <th>Ngành</th>
+            <th> SĐT</th> {/* ✅ thêm cột SĐT */}
+            <th> Địa chỉ</th> {/* ✅ thêm cột Địa chỉ */}
             <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>
         </thead>
+
         <tbody>
           {displayedUsers.length > 0 ? (
             displayedUsers.map((u) => (
@@ -202,15 +206,33 @@ export default function UserManagement() {
                 <td>{u.username}</td>
                 <td>{u.email}</td>
                 <td>{u.role}</td>
-                <td>{u.studentId || "---"}</td>
-                <td>{u.teacherId || "---"}</td>
-                <td>{u.parentId || "---"}</td>
-                <td>{u.classCode}</td>
-                <td>{u.major}</td>
+                <td>{u.studentId || <span className="red">None</span>}</td>
+                <td>{u.teacherId || <span className="red">None</span>}</td>
+                <td>{u.parentId || <span className="red">None</span>}</td>
+                <td>
+                  {typeof u.classCode === "string"
+                    ? u.classCode
+                    : u.classCode
+                    ? `${u.classCode.className} (${u.classCode.grade})`
+                    : "---"}
+                </td>
+                <td>
+                  {typeof u.major === "string"
+                    ? u.major
+                    : u.major
+                    ? `${u.major.name} (${u.major.code})`
+                    : "---"}
+                </td>
+                <td>{u.phone || "---"}</td> {/* ✅ render SĐT */}
+                <td>{u.address || "---"}</td> {/* ✅ render địa chỉ */}
                 <td>{u.isBlocked ? "🚫 Đình chỉ" : "✅ Hoạt động"}</td>
                 <td>
                   <button
-                    className={u.isBlocked ? "unblock-btn" : "block-btn"}
+                    className={`teacher-table__button ${
+                      u.isBlocked
+                        ? "teacher-table__button--edit"
+                        : "teacher-table__button--delete"
+                    }`}
                     onClick={() => toggleBlockUser(u._id, u.isBlocked || false)}
                   >
                     {u.isBlocked ? "Mở khoá" : "Đình chỉ"}
@@ -220,7 +242,7 @@ export default function UserManagement() {
             ))
           ) : (
             <tr>
-              <td colSpan={11} style={{ textAlign: "center" }}>
+              <td colSpan={13} style={{ textAlign: "center" }}>
                 Không có người dùng nào phù hợp.
               </td>
             </tr>

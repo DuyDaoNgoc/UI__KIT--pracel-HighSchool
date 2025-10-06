@@ -202,23 +202,117 @@ export const loginUser = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "❌ Server error" });
   }
 };
-
 // ===================== GET ALL USERS =====================
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
+    const db = await connectDB();
+    const students = db.collection("students");
+    const teachers = db.collection("teachers");
+
+    // lấy users từ mongoose (lean trả object thuần)
     const users = await User.find().lean();
 
-    // map qua toSafeUser, bổ sung class, classCode, major, role
-    const result = users.map((u) => {
-      const safeUser = toSafeUser(u);
-      return {
-        ...safeUser,
-        class: (u as any).classLetter || u.classCode || "",
-        classCode: (u as any).classCode || "",
-        major: (u as any).major || "",
-        role: u.role,
-      };
-    });
+    const result = await Promise.all(
+      users.map(async (u: any) => {
+        const safeUser = toSafeUser(u as any);
+
+        // --- Hàm phụ: lấy string từ nhiều kiểu field ---
+        const extractClassString = (obj: any) => {
+          if (!obj) return "";
+          if (typeof obj === "string") return obj;
+          if (typeof obj === "object") {
+            return (
+              obj.className ||
+              obj.class ||
+              obj.classCode ||
+              obj.classLetter ||
+              ""
+            );
+          }
+          return "";
+        };
+        const extractMajorString = (obj: any) => {
+          if (!obj) return "";
+          if (typeof obj === "string") return obj;
+          if (Array.isArray(obj)) return obj.join(", ");
+          if (typeof obj === "object")
+            return (
+              obj.name ||
+              (obj.majors
+                ? Array.isArray(obj.majors)
+                  ? obj.majors.join(", ")
+                  : obj.majors
+                : "")
+            );
+          return "";
+        };
+
+        // 1) ưu tiên lấy từ chính document user
+        let classStr = "";
+        let majorStr = "";
+
+        // user có thể chứa classCode (string/object), class, classLetter,...
+        classStr =
+          extractClassString(u.classCode) ||
+          extractClassString(u.class) ||
+          extractClassString((u as any).classLetter);
+        majorStr =
+          extractMajorString(u.major) || extractMajorString((u as any).majors);
+
+        // 2) nếu thiếu, fallback sang students/teachers collection theo role
+        if ((!classStr || !majorStr) && u.role === "student" && u.studentId) {
+          const student = await students.findOne({ studentId: u.studentId });
+          if (student) {
+            classStr =
+              classStr ||
+              student.classCode ||
+              student.class ||
+              student.classLetter ||
+              "";
+            majorStr =
+              majorStr ||
+              student.major ||
+              (Array.isArray(student.majors)
+                ? student.majors.join(", ")
+                : student.majors || "");
+          }
+        }
+
+        if ((!classStr || !majorStr) && u.role === "teacher" && u.teacherId) {
+          const teacher = await teachers.findOne({ teacherId: u.teacherId });
+          if (teacher) {
+            classStr =
+              classStr ||
+              teacher.classCode ||
+              teacher.class ||
+              teacher.className ||
+              "";
+            majorStr =
+              majorStr ||
+              teacher.major ||
+              (Array.isArray(teacher.majors)
+                ? teacher.majors.join(", ")
+                : teacher.majors || "");
+          }
+        }
+
+        // normalize thành object (frontend hiện tại của bạn có thể nhận object)
+        const classObj = classStr
+          ? { className: classStr, grade: u.grade || "" }
+          : null;
+        const majorObj = majorStr
+          ? { name: majorStr, code: (u as any).majorCode || "" }
+          : null;
+
+        return {
+          ...safeUser,
+          // giữ tên field giống bạn đang dùng: classCode + major
+          classCode: classObj,
+          major: majorObj,
+          role: u.role,
+        };
+      })
+    );
 
     res.status(200).json(result);
   } catch (err) {

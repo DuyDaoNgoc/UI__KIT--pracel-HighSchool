@@ -47,7 +47,8 @@ const UserSchema = new Schema<IUserDocument>(
 
     // 🎯 Thông tin phụ
     dob: { type: Date },
-    class: { type: String },
+    classCode: { type: String },
+    major: { type: String },
     schoolYear: { type: String },
     phone: { type: String },
     address: { type: String },

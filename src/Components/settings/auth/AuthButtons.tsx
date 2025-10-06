@@ -45,9 +45,16 @@ export default function AuthButtons() {
         </span>
         <div className="avatar" onClick={() => setIsMenuOpen(!isMenuOpen)}>
           <img
-            src={user.avatar || avatar}
+            src={
+              user?.avatar
+                ? user.avatar.startsWith("http")
+                  ? user.avatar // ảnh full URL
+                  : `http://localhost:5000/${user.avatar}` // ảnh từ backend (thêm base URL)
+                : avatar // ảnh mặc định
+            }
             alt="avatar"
             className="avatar-image"
+            onError={(e) => (e.currentTarget.src = avatar)} // fallback nếu ảnh lỗi
           />
         </div>
 

@@ -1,17 +1,17 @@
 // server/Routers/studentAuth.ts
 import { Router, Request, Response } from "express";
-import User from "../models/User"; // chỉ import model
-import { IUser } from "../types/user"; // import interface
+import User from "../../models/User"; // chỉ import model
+import { IUser } from "../../types/user"; // import interface
 import { Document } from "mongoose"; // để tạo kiểu Mongoose Document
 import {
   verifyToken,
   checkRole,
   AuthRequest,
-} from "../middleware/authMiddleware";
+} from "../../middleware/authMiddleware";
 
-import ClassModel from "../models/Class";
+import ClassModel from "../../models/Class";
 
-import { generateClassCode } from "../helpers/classCode"; // ✅ helper sinh mã lớp
+import { generateClassCode } from "../../helpers/classCode"; // ✅ helper sinh mã lớp
 
 // Tạo kiểu cho Document Mongoose
 type IUserDocument = IUser & Document;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axiosInstance from "../../../api/axiosConfig";
+import axiosInstance from "../../../../api/axiosConfig";
 
 interface ITeacher {
   _id: string;

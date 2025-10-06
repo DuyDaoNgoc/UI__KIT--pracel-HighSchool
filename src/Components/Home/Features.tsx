@@ -23,7 +23,7 @@ const Features: React.FC<FeaturesProps> = ({ list }) => {
   return (
     <>
       {list.map((items, index) => (
-        <section className="main__content--mgt" id="main" key={index}>
+        <section className="main__content--mgt section" id="main" key={index}>
           <div>
             <h2 className="title" data-aos="zoom-in-down">
               {items.title}

@@ -24,7 +24,7 @@ export default function Contact({ list }: ContactProps) {
   return (
     <>
       {list.map((items, index) => (
-        <section key={index} className="content--pdt">
+        <section key={index} className="content--pdt section">
           <h3 className="title content--mgbt-4" data-aos="zoom-in-down">
             {items.title}
           </h3>

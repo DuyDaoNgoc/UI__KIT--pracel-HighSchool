@@ -1,7 +1,7 @@
 // server/Routers/classes.ts
 import { Router, Request, Response } from "express";
-import ClassModel, { IClass } from "../models/Class";
-import { verifyToken, checkRole } from "../middleware/authMiddleware";
+import ClassModel, { IClass } from "../../models/Class";
+import { verifyToken, checkRole } from "../../middleware/authMiddleware";
 
 const router = Router();
 

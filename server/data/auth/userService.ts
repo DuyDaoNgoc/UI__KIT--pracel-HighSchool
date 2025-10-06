@@ -18,21 +18,30 @@ export async function createUser(input: CreateUserInput): Promise<SafeUser> {
 
   const newUser: Omit<IUser, "_id"> = {
     studentId: input.studentId ?? "",
-    teacherId: input.teacherId ?? "", // ✅ lưu teacherId nếu có
+    teacherId: input.teacherId ?? "",
     parentId: input.parentId ?? null,
     customId: input.customId ?? "",
     username: input.username,
     email: input.email,
     password: hashedPassword,
-    role: input.role ?? (input.teacherId ? "teacher" : "student"), // role tự động teacher nếu teacherId
-    dob: input.dob ?? "",
-    class: input.class ?? "",
-    schoolYear: input.schoolYear ?? "",
+    role: input.role ?? (input.teacherId ? "teacher" : "student"),
+
+    // 🧩 DỮ LIỆU HỌC SINH / GIÁO VIÊN BỔ SUNG
+    dob: input.dob ?? "", // Ngày sinh
+    grade: input.grade ?? "", // Khối (VD: 1)
+    class: input.class ?? "", // Lớp (VD: A)
+    major: input.major ?? "", // Ngành học (CNTT,...)
+    classCode: input.classCode ?? "", // VD: 1ACNTT
+    schoolYear: input.schoolYear ?? "", // VD: 2024-2025
     phone: input.phone ?? "",
     address: input.address ?? "",
+    location: input.location ?? "", // VD: Đà Nẵng
+
     avatar:
       input.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-    createdAt: new Date(),
+    createdAt: input.createdAt ? new Date(input.createdAt) : new Date(),
+
+    // 🧩 Giữ nguyên phần cũ
     children: (input.children ?? []).map((id) => new ObjectId(id)),
     grades: input.grades ?? [],
     creditsTotal: input.creditsTotal ?? 0,
@@ -41,6 +50,7 @@ export async function createUser(input: CreateUserInput): Promise<SafeUser> {
     tuitionTotal: input.tuitionTotal ?? 0,
     tuitionPaid: input.tuitionPaid ?? 0,
     tuitionRemaining: input.tuitionRemaining ?? 0,
+
     // Trường để quản lý khóa login
     loginAttempts: 0,
     lockUntil: 0,

@@ -1,4 +1,3 @@
-// server/types/user.ts
 import { ObjectId } from "mongodb";
 
 /**
@@ -14,40 +13,40 @@ export type Role = "student" | "teacher" | "admin" | "parent";
    =========================================================== */
 export interface IUser {
   // ===== ID & định danh =====
-  _id?: ObjectId | string; // DB có ObjectId, FE thường dùng string
-  studentId?: string; // mã học sinh (STU-xxxxx)
-  teacherId?: string | null; // mã giáo viên (TEA-xxxxx)
-  parentId?: string | null; // mã phụ huynh (PAR-xxxxx)
-  customId?: string; // id do hệ thống tùy biến
+  _id?: ObjectId | string;
+  studentId?: string;
+  teacherId?: string | null;
+  parentId?: string | null;
+  customId?: string;
 
   // ===== Thông tin cơ bản =====
-  username: string; // tên đăng nhập / hiển thị chính
-  email?: string; // email (optional)
-  password?: string; // mật khẩu (chỉ lưu server)
-  role: Role; // vai trò user
-  name?: string; // tên đầy đủ (thêm để đồng bộ với chỗ dùng `name`)
+  username: string;
+  email?: string;
+  password?: string;
+  role: Role;
+  name?: string;
 
   // ===== Thông tin cá nhân =====
-  dob?: Date | string; // ngày sinh
-  gender?: "Nam" | "Nữ" | "other"; // giới tính
+  dob?: Date | string;
+  gender?: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   residence?: string;
-  avatar?: string; // url avatar
-  createdAt?: Date; // timestamp (server sẽ set)
+  location?: string; // 🆕 nơi ở (VD: Đà Nẵng)
+  avatar?: string;
+  createdAt?: Date;
 
   // ===== Thông tin lớp / học tập =====
-  // Lưu các trường liên quan lớp/hệ học để controller có thể truy xuất trực tiếp
-  class?: string; // classLetter (như "A") - alias cũ
-  classCode?: string; // mã lớp đầy đủ (ví dụ "10A1CNTT")
-  classLetter?: string; // ký hiệu lớp (A, B, C...)
-  major?: string; // chuyên ngành / tổ hợp môn
-  grade?: string; // khối (ví dụ "10", "11")
-  schoolYear?: string; // niên khóa (ví dụ "2024-2025")
-  teacherName?: string; // tên giáo viên được đồng bộ nhanh (string)
+  class?: string;
+  classCode?: string; // 🆕 mã lớp đầy đủ (VD: 1ACNTT)
+  classLetter?: string;
+  major?: string; // 🆕 ngành học (VD: CNTT)
+  grade?: string; // 🆕 khối học (VD: 1, 10, 12)
+  schoolYear?: string;
+  teacherName?: string;
 
   // ===== Quan hệ & con cái =====
-  children?: (ObjectId | string)[]; // danh sách con (với parent role)
+  children?: (ObjectId | string)[];
 
   // ===== Điểm & học tập =====
   grades?: { subject: string; score: number }[];
@@ -68,21 +67,17 @@ export interface IUser {
   tuitionRemaining?: number;
 
   // ===== Bảo mật / khóa tài khoản =====
-  loginAttempts?: number; // số lần login thất bại
-  lockUntil?: number; // timestamp đến khi tài khoản bị khóa
+  loginAttempts?: number;
+  lockUntil?: number;
 }
 
 /* ===========================================================
    ===== Interface Mongoose Document =====
-   - Giữ kế thừa IUser như cấu trúc của bạn
-   - Nếu cần, có thể mở rộng thêm Document của mongoose sau này
    =========================================================== */
-export interface IUserDocument extends IUser {} // kế thừa IUser
+export interface IUserDocument extends IUser {}
 
 /* ===========================================================
    ===== Input khi tạo user =====
-   - Kiểu dữ liệu dùng cho API create user
-   - Giữ tương tự IUser nhưng loại bỏ _id/createdAt/children raw
    =========================================================== */
 export interface CreateUserInput {
   studentId?: string;
@@ -94,12 +89,15 @@ export interface CreateUserInput {
   password?: string;
   role?: Role;
   dob?: Date | string;
-  class?: string; // classLetter
+  class?: string;
+  classCode?: string; // 🆕
+  grade?: string; // 🆕
+  major?: string; // 🆕
   schoolYear?: string;
-  grade?: string;
   phone?: string;
   address?: string;
   residence?: string;
+  location?: string; // 🆕
   avatar?: string;
   createdAt?: Date;
   children?: string[];
@@ -115,31 +113,22 @@ export interface CreateUserInput {
   tuitionTotal?: number;
   tuitionPaid?: number;
   tuitionRemaining?: number;
-
-  // 🎯 Lưu ý: ở đây là kiểu dữ liệu (number), không phải schema definition
   loginAttempts?: number;
   lockUntil?: number;
 }
 
 /* ===========================================================
    ===== SafeUser trả về FE =====
-   - Loại bỏ password, _id luôn string, children luôn array string
    =========================================================== */
 export type SafeUser = Omit<IUser, "password" | "_id" | "children"> & {
-  _id: string; // luôn string
-  children: string[]; // luôn mảng string (không null)
+  _id: string;
+  children: string[];
   teacherId?: string | null;
   parentId?: string | null;
 };
 
 /* ===========================================================
    ===== Convert IUser -> SafeUser =====
-   - Hàm tiện ích chuyển ObjectId -> string, xử lý default values
-   - Nhận `user` có _id kiểu ObjectId để chắc chắn convert đúng
-   =========================================================== */
-/* ===========================================================
-   ===== Convert IUser -> SafeUser =====
-   - Chấp nhận _id dạng string | ObjectId (vì Mongoose có thể trả về cả hai)
    =========================================================== */
 export const toSafeUser = (
   user: IUser & { _id: ObjectId | string }
@@ -151,19 +140,20 @@ export const toSafeUser = (
   customId: user.customId || "",
   username: user.username,
   email: user.email || "",
-  role: user.role || "student", // ✅ default role
+  role: user.role || "student",
   name: user.name || "",
   dob: user.dob,
   class: user.class || undefined,
-  classCode: (user as any).classCode || "", // ✅ luôn có giá trị string
+  classCode: (user as any).classCode || "",
   classLetter: (user as any).classLetter || "",
-  major: (user as any).major || "", // ✅ luôn có giá trị string
+  major: (user as any).major || "",
   grade: user.grade || "",
   schoolYear: user.schoolYear || "",
   teacherName: (user as any).teacherName || "",
   phone: user.phone || "",
   address: user.address || "",
   residence: user.residence || "",
+  location: (user as any).location || "", // 🆕
   avatar:
     user.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
   createdAt: user.createdAt || new Date(),

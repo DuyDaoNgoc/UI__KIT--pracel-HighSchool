@@ -9,6 +9,10 @@ export interface IUserProfile {
   address?: string;
   avatar?: string;
   children?: string[];
+
+  // ✅ Bổ sung để không lỗi khi nhận dữ liệu từ backend
+  classCode?: { className: string; grade: string } | string;
+  major?: { name: string; code: string } | string;
 }
 
 export interface IGrade {

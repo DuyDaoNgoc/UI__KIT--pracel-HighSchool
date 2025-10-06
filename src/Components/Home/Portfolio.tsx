@@ -33,7 +33,11 @@ export default function Portfolio({ list }: PortfolioProps) {
   return (
     <>
       {list.map((items, index) => (
-        <section key={index} className="main__content--mgt" id="Portfolio">
+        <section
+          key={index}
+          className="main__content--mgt section"
+          id="Portfolio"
+        >
           <h2 className="title content--mgbt-4" data-aos="zoom-in-down">
             {items.title}
           </h2>

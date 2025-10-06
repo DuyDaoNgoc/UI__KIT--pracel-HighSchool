@@ -34,7 +34,7 @@ export default function Testimonials({ list }: TestimonialsProps) {
   return (
     <>
       {list.map((items, index) => (
-        <section key={index} className="main__content--mgt">
+        <section key={index} className="main__content--mgt section">
           <h2 className="title" data-aos="zoom-in-down">
             {items.title}
           </h2>

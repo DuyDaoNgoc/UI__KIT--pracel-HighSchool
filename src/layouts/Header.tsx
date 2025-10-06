@@ -37,7 +37,7 @@ export default function Header({ list }: HeaderProps) {
   return (
     <>
       {data.map((item, index) => (
-        <section className="wd-hg" key={index}>
+        <section className="wd-hg section" key={index}>
           {/* BACKGROUND */}
           <img src={HeaderImg} alt="background" className="background" />
 

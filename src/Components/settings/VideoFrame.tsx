@@ -23,7 +23,7 @@ const VideoFrame = ({
   return (
     <>
       {list.map((item, idx) => (
-        <section className="content__title" key={idx}>
+        <section className="content__title section" key={idx}>
           <h2 className="text__content--large text--min">{item.title}</h2>
 
           <div

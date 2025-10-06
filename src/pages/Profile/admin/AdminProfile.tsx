@@ -4,32 +4,47 @@ import axiosInstance from "../../../api/axiosConfig";
 import { INews } from "../../../types/news";
 import { ICreatedStudent } from "../../../types/student";
 import Logout from "../../../Components/settings/logout/logout";
-import NotFound from "../../../error/404"; // ✅ Trang lỗi
+import NotFound from "../../../error/404";
 import { useAuth } from "../../../context/AuthContext";
 
 import AdminSidebar from "./AdminSidebar";
-import NewsTab from "./NewsTab";
-import LockTab from "./LockTab";
+import NewsTab from "./News/NewsTab";
+import LockTab from "./Lock/LockTab";
 import StudentsTab from "./StudentsTab";
-import ClassesTab from "./ClassesTab";
+import ClassesTab from "./createrRole/ClassesTab";
 import StudentModal from "./StudentModal";
-import CreateTeacher from "./CreateTeacher";
+import CreateTeacher from "./createrRole/CreateTeacher";
 import UserManagement from "./UserManagement";
+import AdminDashboard from "./Dashboard/AdminDashboard";
 
+// ======================== INTERFACES ========================
 interface ILockResp {
   locked: boolean;
 }
 
+interface IStudentForm {
+  name: string;
+  dob: string;
+  address: string;
+  residence: string;
+  phone: string;
+  grade: string;
+  classLetter: string;
+  schoolYear: string;
+  major: string;
+}
+
+// ======================== COMPONENT ========================
 const AdminProfile: FC = () => {
   const { user, token } = useAuth();
 
-  // ==== State quản lý ====
+  // ==== STATE ====
   const [activeTab, setActiveTab] = useState<string>("news");
   const [pendingNews, setPendingNews] = useState<INews[]>([]);
   const [locked, setLocked] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  const [studentForm, setStudentForm] = useState({
+  const [studentForm, setStudentForm] = useState<IStudentForm>({
     name: "",
     dob: "",
     address: "",
@@ -40,6 +55,7 @@ const AdminProfile: FC = () => {
     schoolYear: "",
     major: "",
   });
+
   const [creating, setCreating] = useState<boolean>(false);
   const [createdStudents, setCreatedStudents] = useState<ICreatedStudent[]>([]);
   const [viewing, setViewing] = useState<boolean>(false);
@@ -69,7 +85,7 @@ const AdminProfile: FC = () => {
       );
       setPendingNews(Array.isArray(res.data) ? res.data : []);
       setErrorMsg("");
-    } catch (err: any) {
+    } catch (err) {
       console.warn("⚠️ fetchNews error:", err);
       setPendingNews([]);
       setErrorMsg("Không thể lấy tin tức chờ duyệt");
@@ -110,7 +126,7 @@ const AdminProfile: FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setStudentForm((s) => ({ ...s, [name]: value }));
+    setStudentForm((prev) => ({ ...prev, [name]: value }));
   };
 
   // ==== Generate ID / ClassCode ====
@@ -138,11 +154,9 @@ const AdminProfile: FC = () => {
       const data = Array.isArray(res.data) ? res.data : [];
       setCreatedStudents(
         data.sort((a, b) => {
-          if (!a?.createdAt) return 1;
-          if (!b?.createdAt) return -1;
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          const aTime = new Date(a?.createdAt ?? 0).getTime();
+          const bTime = new Date(b?.createdAt ?? 0).getTime();
+          return bTime - aTime;
         })
       );
     } catch (err) {
@@ -154,27 +168,16 @@ const AdminProfile: FC = () => {
   // ==== Create student ====
   const createStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { name, dob, grade, classLetter, major } = studentForm;
 
-    if (
-      !studentForm.name ||
-      !studentForm.dob ||
-      !studentForm.grade ||
-      !studentForm.classLetter
-    ) {
+    if (!name || !dob || !grade || !classLetter) {
       return alert("Vui lòng nhập đủ: Họ tên, Ngày sinh, Khối, Lớp.");
     }
 
     setCreating(true);
     try {
-      const studentId = generateStudentId(
-        studentForm.grade,
-        studentForm.classLetter
-      );
-      const classCode = generateClassCode(
-        studentForm.grade,
-        studentForm.classLetter,
-        studentForm.major
-      );
+      const studentId = generateStudentId(grade, classLetter);
+      const classCode = generateClassCode(grade, classLetter, major);
       const payload = { ...studentForm, studentId, classCode };
 
       await axiosInstance.post<ICreatedStudent>(
@@ -182,7 +185,6 @@ const AdminProfile: FC = () => {
         payload,
         authHeaders
       );
-
       await fetchCreatedStudents();
       alert(`✅ Tạo học sinh thành công! Mã: ${studentId}`);
 
@@ -254,6 +256,7 @@ const AdminProfile: FC = () => {
     setSelectedStudent(s);
     setViewing(true);
   };
+
   const closeView = () => {
     setSelectedStudent(null);
     setViewing(false);
@@ -302,12 +305,10 @@ const AdminProfile: FC = () => {
             deleteStudent={deleteStudent}
           />
         )}
-        {activeTab === "classes" && (
-          <ClassesTab students={createdStudents || []} />
-        )}
+        {activeTab === "classes" && <ClassesTab students={createdStudents} />}
         {activeTab === "create-teacher" && <CreateTeacher />}
-
         {activeTab === "users" && <UserManagement />}
+        {activeTab === "dashboard" && <AdminDashboard />}
       </main>
 
       {viewing && selectedStudent && (

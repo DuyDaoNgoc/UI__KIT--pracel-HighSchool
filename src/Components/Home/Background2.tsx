@@ -15,7 +15,7 @@ export default function Background2({ list }: Background2Props) {
       {list.map((items, index) => (
         <section
           key={index}
-          className="wd-hg-2 background--filter"
+          className="wd-hg-2 background--filter section"
           data-aos="zoom-in-down"
         >
           {/* Ảnh lấy từ thư mục public */}

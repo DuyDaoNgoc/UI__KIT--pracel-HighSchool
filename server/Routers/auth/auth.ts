@@ -1,12 +1,12 @@
 import { Router, RequestHandler } from "express";
-import { registerUser } from "../controllers/registerUser";
-import { loginUser } from "../controllers/userController";
+import { registerUser } from "../../controllers/registerUser";
+import { loginUser } from "../../controllers/userController";
 import {
   verifyToken,
   checkRole,
   AuthRequest,
-} from "../middleware/authMiddleware";
-import { connectDB } from "../configs/db";
+} from "../../middleware/authMiddleware";
+import { connectDB } from "../../configs/db";
 import { ObjectId } from "mongodb";
 
 const router = Router();

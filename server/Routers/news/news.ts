@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
-import { connectDB } from "../configs/db";
+import { connectDB } from "../../configs/db";
 import {
   verifyToken,
   checkRole,
   AuthRequest,
-} from "../middleware/authMiddleware";
+} from "../../middleware/authMiddleware";
 
 const router = Router();
 

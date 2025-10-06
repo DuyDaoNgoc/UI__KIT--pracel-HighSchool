@@ -41,6 +41,13 @@ export default function AdminSidebar({
       </div>
       <ul className="profile__menu">
         <li
+          onClick={() => setActiveTab("dashboard")}
+          className={activeTab === "dashboard" ? "active" : ""}
+        >
+          <HomeIcon /> Thống kê
+        </li>
+
+        <li
           onClick={() => setActiveTab("news")}
           className={activeTab === "news" ? "active" : ""}
         >

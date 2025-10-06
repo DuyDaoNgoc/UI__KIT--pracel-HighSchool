@@ -1,6 +1,6 @@
 import { Router } from "express";
-import Teacher from "../models/teacherModel";
-import { createTeacher } from "../controllers/admin/teacher/createTeacher";
+import Teacher from "../../models/teacherModel";
+import { createTeacher } from "../../controllers/admin/teacher/createTeacher";
 
 const router = Router();
 

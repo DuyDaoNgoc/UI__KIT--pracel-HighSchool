@@ -13,6 +13,7 @@ export interface IStudent extends Document {
   schoolYear: string; // Niên khóa
   studentId: string; // Mã học sinh
   classCode?: string; // 💡 thêm để truy cập classCode
+  className: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

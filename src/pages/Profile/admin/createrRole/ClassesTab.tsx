@@ -1,7 +1,7 @@
 // src/pages/Profile/admin/ClassesTab.tsx
 import React, { useState, useEffect } from "react";
-import { ICreatedStudent } from "../../../types/student";
-import axiosInstance from "../../../api/axiosConfig";
+import { ICreatedStudent } from "../../../../types/student";
+import axiosInstance from "../../../../api/axiosConfig";
 
 interface ClassesTabProps {
   students: ICreatedStudent[];

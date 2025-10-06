@@ -73,15 +73,12 @@ export const registerUser = async (req: Request, res: Response) => {
       // ===== Hash password =====
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // ===== Build classCode an toàn =====
+      // ===== Xử lý classCode & major cho student =====
       const safeClassCode =
-        student.classCode ??
-        `${student.grade || ""}${student.classLetter || ""}${(
-          student.major || ""
-        )
-          .split(/\s+/)
-          .map((w: string) => w[0]?.toUpperCase() || "")
-          .join("")}`;
+        student.classCode ||
+        `${student.grade || ""}${student.classLetter || ""}`.trim();
+
+      const safeMajor = student.major || student.faculty || "";
 
       newUser = {
         customId: crypto.randomBytes(6).toString("hex"),
@@ -91,7 +88,7 @@ export const registerUser = async (req: Request, res: Response) => {
         password: hashedPassword,
         role: "student",
         classCode: safeClassCode,
-        major: student.major || "",
+        major: safeMajor,
         createdAt: new Date(),
       };
     } else if (teacherCode) {
@@ -120,9 +117,13 @@ export const registerUser = async (req: Request, res: Response) => {
       // ===== Hash password =====
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const teacherMajor = Array.isArray(teacher.majors)
-        ? teacher.majors.join(", ")
-        : teacher.major || "";
+      // ===== Xử lý major của giáo viên =====
+      let teacherMajor = "";
+      if (Array.isArray(teacher.majors) && teacher.majors.length > 0) {
+        teacherMajor = teacher.majors.join(", ");
+      } else if (teacher.major) {
+        teacherMajor = teacher.major;
+      }
 
       newUser = {
         customId: crypto.randomBytes(6).toString("hex"),

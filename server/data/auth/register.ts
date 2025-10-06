@@ -7,7 +7,6 @@ export const registerUser = async (req: Request, res: Response) => {
   try {
     const { studentCode, teacherCode, email, password } = req.body;
 
-    // 🔎 Validate input
     if (
       (!studentCode?.trim() && !teacherCode?.trim()) ||
       !email?.trim() ||
@@ -24,7 +23,6 @@ export const registerUser = async (req: Request, res: Response) => {
     const students = db.collection("students");
     const teachers = db.collection("teachers");
 
-    // 🔎 Check email tồn tại
     const existingUser = await users.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -37,7 +35,6 @@ export const registerUser = async (req: Request, res: Response) => {
     let role: "student" | "teacher" = "student";
     let codeValue: string = "";
 
-    // 🔎 Xác định student hay teacher
     if (studentCode?.trim()) {
       accountInfo = await students.findOne({ studentId: studentCode.trim() });
       if (!accountInfo) {
@@ -60,7 +57,6 @@ export const registerUser = async (req: Request, res: Response) => {
       role = "teacher";
     }
 
-    // 🔎 Kiểm tra code đã tạo user chưa
     const existingCodeUser = await users.findOne({
       $or: [{ studentId: codeValue }, { teacherId: codeValue }],
     });
@@ -71,9 +67,9 @@ export const registerUser = async (req: Request, res: Response) => {
       });
     }
 
-    // 🔎 Hash password & insert
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ✅ Thêm đầy đủ thông tin từ accountInfo (student hoặc teacher)
     const newUser = {
       customId: crypto.randomBytes(6).toString("hex"),
       username: accountInfo.name || codeValue,
@@ -82,6 +78,20 @@ export const registerUser = async (req: Request, res: Response) => {
       role,
       studentId: role === "student" ? codeValue : undefined,
       teacherId: role === "teacher" ? codeValue : undefined,
+
+      // ✅ Bổ sung toàn bộ thông tin từ bảng gốc
+      name: accountInfo.name || "",
+      dob: accountInfo.dob || "",
+      gender: accountInfo.gender || "",
+      phone: accountInfo.phone || "",
+      address: accountInfo.address || "",
+      residence: accountInfo.residence || "",
+      grade: accountInfo.grade || "",
+      classLetter: accountInfo.classLetter || "",
+      major: accountInfo.major || "",
+      classCode: accountInfo.classCode || "",
+      schoolYear: accountInfo.schoolYear || "",
+
       createdAt: new Date(),
     };
 
@@ -94,7 +104,6 @@ export const registerUser = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ Trả dữ liệu đầy đủ
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -105,6 +114,17 @@ export const registerUser = async (req: Request, res: Response) => {
         role: newUser.role,
         studentId: newUser.studentId,
         teacherId: newUser.teacherId,
+        name: newUser.name,
+        dob: newUser.dob,
+        gender: newUser.gender,
+        phone: newUser.phone,
+        address: newUser.address,
+        residence: newUser.residence,
+        grade: newUser.grade,
+        classLetter: newUser.classLetter,
+        major: newUser.major,
+        classCode: newUser.classCode,
+        schoolYear: newUser.schoolYear,
       },
     });
   } catch (err) {

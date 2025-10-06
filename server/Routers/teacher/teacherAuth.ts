@@ -4,10 +4,10 @@ import {
   verifyToken,
   requireTeacher,
   AuthRequest,
-} from "../middleware/authMiddleware";
-import User from "../models/User"; // Model người dùng (bao gồm học sinh)
-import { IUserDocument } from "../types/user"; // Interface đúng
-import { createTeacher } from "../controllers/admin/teacher/registerTeacher"; // controller mới
+} from "../../middleware/authMiddleware";
+import User from "../../models/User"; // Model người dùng (bao gồm học sinh)
+import { IUserDocument } from "../../types/user"; // Interface đúng
+import { createTeacher } from "../../controllers/admin/teacher/registerTeacher"; // controller mới
 
 interface IStudentResponse {
   _id: string;
@@ -67,7 +67,7 @@ router.get("/students", verifyToken, requireTeacher, getStudents);
 // ===== Lấy trạng thái khóa điểm =====
 const getGradesLockStatus: RequestHandler = async (_req, res) => {
   try {
-    const { connectDB } = await import("../configs/db"); // không dùng .default
+    const { connectDB } = await import("../../configs/db"); // không dùng .default
     const db = await connectDB();
 
     const settings = db.collection<IGradesLock>("settings");

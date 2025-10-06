@@ -16,7 +16,7 @@ export default function Background3({ list }: Background3Props) {
       {list.map((items, index) => (
         <section
           key={index}
-          className="background-3 text__content--white"
+          className="background-3 text__content--white section"
           data-aos="zoom-in-down"
         >
           <div className="text__wrapper">

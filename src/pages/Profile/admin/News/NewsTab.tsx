@@ -1,6 +1,6 @@
 // src/pages/Profile/admin/NewsTab.tsx
 import React from "react";
-import { INews } from "../../../types/news";
+import { INews } from "../../../../types/news";
 
 interface Props {
   pendingNews: INews[];

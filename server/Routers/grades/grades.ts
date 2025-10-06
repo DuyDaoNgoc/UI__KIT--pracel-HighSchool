@@ -4,9 +4,9 @@ import {
   verifyToken,
   checkRole,
   AuthRequest,
-} from "../middleware/authMiddleware";
-import SystemSetting from "../models/Setting";
-import { User } from "../models/User";
+} from "../../middleware/authMiddleware";
+import SystemSetting from "../../models/Setting";
+import { User } from "../../models/User";
 
 const router = Router();
 const SETTINGS_KEY = "gradesLock";

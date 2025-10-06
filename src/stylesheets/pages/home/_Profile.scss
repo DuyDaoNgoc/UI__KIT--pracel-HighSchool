@@ -9,12 +9,18 @@
 
 /* Sidebar */
 .profile__sidebar {
-  flex: 0 0 220px;
-  min-width: 180px;
+  position: fixed; // cố định sidebar
+  top: 0;
+  left: 0;
+  height: 100vh; // chiếm toàn bộ chiều cao màn hình
+  width: 220px; // chiều rộng sidebar
   background: #f5f5f5;
   padding: 20px;
   list-style: none;
-  border-radius: 8px;
+  border-radius: 0; // bỏ bo góc để dính vào cạnh
+  border-right: 1px solid #ddd;
+  overflow-y: auto; // nếu menu dài thì có scroll
+  z-index: 1000;
 }
 
 .profile__user {
@@ -51,7 +57,9 @@
 
 /* Main content */
 .profile__content {
-  flex: 1 1 600px;
+  flex: 1;
+  margin-left: 220px; // chừa chỗ cho sidebar
+  padding: 20px;
   min-width: 300px;
 }
 

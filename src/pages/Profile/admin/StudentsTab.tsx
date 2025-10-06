@@ -163,6 +163,13 @@ export default function StudentsTab({
                     Xem
                   </button>
                   <button
+                    onClick={() => assignTeacher(s.studentId)}
+                    disabled={actionLoading === s.studentId}
+                    className="action-btn assign"
+                  >
+                    Gán GV
+                  </button>
+                  <button
                     onClick={() => deleteStudent(s.studentId)}
                     disabled={actionLoading === s.studentId}
                     className="action-btn delete"

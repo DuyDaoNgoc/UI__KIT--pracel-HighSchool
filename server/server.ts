@@ -9,15 +9,14 @@ import { Server } from "socket.io";
 import compression from "compression";
 import helmet from "helmet";
 
-import authRoutes from "./Routers/auth";
-import newsRoutes from "./Routers/news";
-import gradesRoutes from "./Routers/grades";
-import adminRoutes from "./Routers/admin";
-import teacherAuthRoutes from "./Routers/teacherAuth";
-import classRouter from "./Routers/classes";
-import teacherAdminRoutes from "./Routers/teacherRoutes"; // admin quản lý GV
-import teacherRoutes from "./Routers/teacherRoutes"; // CRUD cơ bản giáo viên
-
+import authRoutes from "./Routers/auth/auth";
+import newsRoutes from "./Routers/news/news";
+import gradesRoutes from "./Routers/grades/grades";
+import adminRoutes from "./Routers/admin/admin";
+import teacherAuthRoutes from "./Routers/teacher/teacherAuth";
+import classRouter from "./Routers/class/classes";
+import teacherAdminRoutes from "./Routers/teacher/teacherRoutes"; // admin quản lý GV
+import teacherRoutes from "./Routers/teacher/teacherRoutes"; // CRUD cơ bản giáo viên
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import { checkGradesLock } from "./middleware/checkLock";
@@ -71,7 +70,7 @@ app.use("/api/admin/classes", classRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
-import userRoutes from "./Routers/userRoutes";
+import userRoutes from "./Routers/auth/userRoutes";
 app.use("/api/users", userRoutes);
 
 // 👨‍🏫 Giáo viên
@@ -80,6 +79,11 @@ app.use("/api/teachers", teacherRoutes); // danh sách, CRUD
 app.use("/api/admin/teachers", teacherAdminRoutes); // quản lý giáo viên admin
 
 app.use("/api/admin", adminRoutes);
+// phụ huynh
+import parentsRoutes from "./Routers/parent/parents";
+
+// 🧑‍💼 Admin Parents
+app.use("/api/admin/parents", parentsRoutes);
 
 // ================== Test Routes ==================
 app.get("/api/protected", verifyToken, (req: Request, res: Response) => {
