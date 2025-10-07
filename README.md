@@ -111,7 +111,7 @@ npm run build
 
 ```
 UI-KIT-pracel/
-├─ public/            # static assets
+public/            # static assets
 ├─               # build output
 src/               # frontend source (React)
 ├─ 
