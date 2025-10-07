@@ -53,6 +53,7 @@ npm install
 
 ---
 ## 🔑 Biến môi trường (.env)
+trong folder server:
 
 MONGO_URI=mongodb+srv://pracelJS:duypro0478@duy04.wdkexkx.mongodb.net/?retryWrites=true&w=majority&appName=Duy04
 PORT=8000
