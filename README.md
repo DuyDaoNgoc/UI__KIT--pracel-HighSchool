@@ -164,3 +164,14 @@ khi bật lên thì chạy lệnh: </br>
 <b> C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
 </br>
 (nếu đã build vào Variables mới xài đc)
+
+## Còn cách khác để dùng cloud chỉ với 2 terminal
+<img width="422" height="216" alt="image" src="https://github.com/user-attachments/assets/4883a459-5be6-4688-85d3-55c8778bb0e1" /> </br>
+<ul>
+  <li>Khi build trong server sẽ có 2 đường dẫn chính được tạo ngầu nhiên đó là :</li>
+     <li>   → Local:   http://localhost:8000</li>
+     <li> → LAN:     http://192.168.10.28:5000 </li>  
+</ul>
+<li> Local: Cục bộ: Chỉ sự tác động hoặc phạm vi hẹp, không lan rộng ra bên ngoài. </li>
+<li>LAN: là mạng cục bộ, là một hệ thống mạng nội bộ cho phép các thiết bị như máy tính, máy in kết nối và chia sẻ tài nguyên, dữ liệu trong một phạm vi địa lý giới hạn như nhà riêng, văn phòng hoặc trường học </li>
+<li><b>Khi build xong chọn mạng lan để chia sẻ đường link của lan đó nhưng với điều kiện là các máy được chia sẽ bắt buộc phải cùng Wifi với máy chủ đã chia sẻ</b></li>
