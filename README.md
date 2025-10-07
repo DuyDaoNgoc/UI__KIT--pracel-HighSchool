@@ -1,41 +1,42 @@
-# UI__KIT--pracel-HighSchool
+# UI\_\_KIT--pracel-HighSchool
 
 Dự án giao diện web **UI-KIT-pracel** (Parcel + React + Express + MongoDB).
 Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nhanh trên máy local và cách build production.
 
 ---
+
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/ed36cd42-ec04-46b9-a2d9-1ffe8dfd7c07" />
 
 ## 📑 Mục lục
 
-* [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-* [Clone & cài đặt nhanh](#clone--cài-đặt-nhanh)
-* [Biến môi trường (.env)](#biến-môi-trường-env)
-* [Scripts (lệnh thường dùng)](#scripts-lệnh-thường-dùng)
-* [Chạy dự án (2 terminal)](#chạy-dự-án-2-terminal)
-* [Build production](#build-production)
-* [Cấu trúc thư mục mẫu](#cấu-trúc-thư-mục-mẫu)
-* [Các dependency chính](#các-dependency-chính)
-* [Tunnel (Cloudflare) — tuỳ chọn test ngoài mạng local](#tunnel-cloudflare--tuỳ-chọn-test-ngoài-mạng-local)
-* [Troubleshooting & tips](#troubleshooting--tips)
-* [Góp ý / đóng góp](#góp-ý--đóng-góp)
-* [License](#license)
+- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+- [Clone & cài đặt nhanh](#clone--cài-đặt-nhanh)
+- [Biến môi trường (.env)](#biến-môi-trường-env)
+- [Scripts (lệnh thường dùng)](#scripts-lệnh-thường-dùng)
+- [Chạy dự án (2 terminal)](#chạy-dự-án-2-terminal)
+- [Build production](#build-production)
+- [Cấu trúc thư mục mẫu](#cấu-trúc-thư-mục-mẫu)
+- [Các dependency chính](#các-dependency-chính)
+- [Tunnel (Cloudflare) — tuỳ chọn test ngoài mạng local](#tunnel-cloudflare--tuỳ-chọn-test-ngoài-mạng-local)
+- [Troubleshooting & tips](#troubleshooting--tips)
+- [Góp ý / đóng góp](#góp-ý--đóng-góp)
+- [License](#license)
 
 ---
 
 ## 💻 Yêu cầu hệ thống
 
-* Node.js v18+ (khuyến nghị)
-* npm v9+
-* Git
-* MongoDB (local) hoặc MongoDB Atlas (connection string dùng trong `.env`)
-* (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
+- Node.js v18+ (khuyến nghị)
+- npm v9+
+- Git
+- MongoDB (local) hoặc MongoDB Atlas (connection string dùng trong `.env`)
+- (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
 
 ---
 
 ## 🚀 Clone & cài đặt nhanh
 
-```bash
+````bash
 # 1. Clone repo từ GitHub
 git clone <đường_dẫn_repo>
 
@@ -70,7 +71,7 @@ Những lệnh chính bạn sẽ dùng (theo `package.json`  của repo):
 * `npm run clean` — xóa cache / dist (ví dụ dùng `rimraf`).
 * `npm run tunnel` / `npm run tunnel:run` — helper cho Cloudflare tunnel (nếu repo có cấu hình).
 
-> 
+>
 
 ## ▶️ Chạy dự án (2 terminal)
 
@@ -81,15 +82,18 @@ Những lệnh chính bạn sẽ dùng (theo `package.json`  của repo):
 ```bash
 # Từ thư mục gốc UI-KIT-pracel
 npm run client
-```
+````
 
-* Parcel sẽ khởi chạy frontend theo cấu hình trong `package.json` (script `client`).
-* Theo cấu hình repo, client mặc định được cấu hình chạy trên `http://localhost:5000` 
-(bạn phải tự ghi http://localhost:5000 lên trang web nhé)
+- Parcel sẽ khởi chạy frontend theo cấu hình trong `package.json` (script `client`).
+- Theo cấu hình repo, client mặc định được cấu hình chạy trên `http://localhost:5000`
+  (bạn phải tự ghi http://localhost:5000 lên trang web nhé)
+
 ### Terminal 2 — Backend (Express / TypeScript)
+
 cd server
 npm run server
-```
+
+````
 
 * Server sẽ lắng nghe port theo biến `PORT` trong `.env` (ví dụ `5001`).
 * Nếu cần gọi API từ client tới server, hãy cấu hình proxy hoặc gọi thẳng tới `http://localhost:5001/api` (hoặc endpoint server của bạn).
@@ -100,21 +104,21 @@ npm run server
 
 ```bash
 npm run build
-```
+````
 
-* Parcel sẽ build frontend vào thư mục `dist/`.
-* Deploy `dist/` cùng backend lên môi trường hosting hoặc VPS.
+- Parcel sẽ build frontend vào thư mục `dist/`.
+- Deploy `dist/` cùng backend lên môi trường hosting hoặc VPS.
 
 ---
 
-## 📂 Cấu trúc thư mục 
+## 📂 Cấu trúc thư mục
 
 ```
 UI-KIT-pracel/
 public/            # static assets
 ├─               # build output
 src/               # frontend source (React)
-├─ 
+├─
 ├─ dist/
 server/            # backend (Express + TS hoặc JS)
 │  ├─ controllers/
@@ -137,7 +141,9 @@ server/            # backend (Express + TS hoặc JS)
 **Dev:** typescript, ts-node-dev, concurrently (nếu bạn muốn chạy nhiều script cùng lúc), rimraf
 
 ---
+
 ## Terminal 3 (không bắt buộc bật nếu ko cần xài cloud)
+
 ## 🌐 Tunnel (Cloudflare) — tuỳ chọn
 
 Nếu bạn muốn expose server ra internet cho demo nhanh:
@@ -148,12 +154,12 @@ npm run tunnel
 # hoặc
 npm run tunnel:run
 ```
+
 ## Bật CMD (administrator)
-khi dùng cloudflared thì phải bật thêm cái 
+
+khi dùng cloudflared thì phải bật thêm cái
 cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
 khi bật lên thì chạy lệnh: </br>
-<b>  C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
+<b> C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
 </br>
 (nếu đã build vào Variables mới xài đc)
-
-
