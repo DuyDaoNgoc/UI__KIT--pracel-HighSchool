@@ -154,7 +154,21 @@ npm run server
 
 ---
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/383c001c-f345-413b-9d01-7e56542db43b" />
+<br>
+## Khi chạy nó sẽ báo:
+</br>
+<b>CLIENT: THÀNH CÔNG</b>
+<b>SERVER KHÔNG NHẬN ĐƯỢC DỮ LIỆU TRÊN MONGODB</b>
+</br>
+<img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/9cc1e79f-ab8c-46fd-b22a-aefde138d851" />
+</br>
+## ĐẾN BƯỚC NÀY RỒI SẼ VÀO TRUY CẬP MONGODB ĐỂ SERVER CÓ THỂ NHẬN ĐƯỢC DỮ LIỆU
 
+<ol>
+  <li>
+    <a href = "https://account.mongodb.com/account/login">Truy cập vào Mongodb </a>
+  </li>
+</ol>
 
 ## 🏗 Build production
 
