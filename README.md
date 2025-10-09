@@ -39,6 +39,7 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 ## 🚀 Clone & cài đặt nhanh
 
 ````bash
+# 0. Sao chép đường dẫn về
 # 1. Clone repo từ GitHub
 git clone <đường_dẫn_repo>
 
