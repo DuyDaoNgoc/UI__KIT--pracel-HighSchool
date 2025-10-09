@@ -160,6 +160,7 @@ npm run server
 <b>CLIENT: THÀNH CÔNG</b>
 <b>SERVER KHÔNG NHẬN ĐƯỢC DỮ LIỆU TRÊN MONGODB</b>
 </br>
+
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/9cc1e79f-ab8c-46fd-b22a-aefde138d851" />
 </br>
 
@@ -169,11 +170,17 @@ npm run server
   <li>
     <a href = "https://account.mongodb.com/account/login">Truy cập vào Mongodb và đăng nhập tài khoản đã được cung cấp </a>
   </li>
+  </br>
   <img width="1919" height="863" alt="image" src="https://github.com/user-attachments/assets/446009a8-b917-42c2-97e9-e03a481e6d01" />
+  </br>
 <li>Sau khi đăng nhập thi nó sẽ vào trang</li>
+</br>
   <img width="1919" height="896" alt="image" src="https://github.com/user-attachments/assets/0a4c8869-0881-4fd5-87b5-c57e4b715ba0" />
+  </br>
   <li>Ấn vào Add Current IP Address để nhận Ip rồi server sẽ đọc ip đó và truy cập thành công  </li>
+  </br>
 <img width="1920" height="990" alt="image" src="https://github.com/user-attachments/assets/dcbfbfb5-2f0f-4ba3-8cec-c82626af20c7" />
+</br>
   <li>Sau đó chạy cơ bản thì lên mạng ghi : <a href= "http://localhost:5000/" >localhost:5000 </a> </li>
 </ol>
 
