@@ -36,63 +36,43 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 
 --
 ## 🚀 Clone & cài đặt nhanh-
-````bash
-# 0. Sao chép đường dẫn về
-```
 ```bash
-#0.1 bật phần mềm git vào mục bất kì
-```
+# 0. Sao chép đường dẫn về
+
+# 0.1 bật phần mềm git vào mục bất kì
 
 # 1. Clone repo từ GitHub
-
-```bash
 git clone <đường_dẫn_repo>
-```
+
 # 2. Vào thư mục dự án
-```bash
 cd UI-KIT-pracel
-```
+
 # 3. (Tuỳ chọn) Mở VS Code
 code .
 
 # 4. Cài dependencies cho phần client (gốc)
 npm install
 
-> Sau bước trên, bạn đã cài xong dependencies cho client và server.
-
----
-## 🔑 Biến môi trường (.env)
-trong folder server:
-
+# 🔑 Biến môi trường (.env)
+# Trong folder server, tạo file .env với nội dung:
 MONGO_URI=mongodb+srv://pracelJS:duypro0478@duy04.wdkexkx.mongodb.net/?retryWrites=true&w=majority&appName=Duy04
 PORT=8000
-// c:\Users\Admin\Documents\UI-KIT-pracel\.env
 JWT_SECRET=supersecret
 ADMIN_EMAIL=kinbingo18@gmail.com
 ADMIN_PASSWORD=duypro0478
 
+# Những lệnh chính bạn sẽ dùng (theo package.json của repo):
+# npm run client      - khởi động frontend bằng Parcel
+# npm run server      - khởi động backend
+# npm run build       - build frontend production
+# npm run clean       - xóa cache / dist
+# npm run tunnel      - helper Cloudflare tunnel (nếu có)
+# npm run tunnel:run  - helper Cloudflare tunnel (nếu có)
 
-
-Những lệnh chính bạn sẽ dùng (theo `package.json`  của repo):
-
-* `npm run client` — khởi động frontend bằng Parcel (theo cấu hình script).
-* `npm run server` — khởi động backend (script có thể `cd server && ts-node-dev index.ts` hoặc tương tự).
-* `npm run build` — build frontend production (output `dist/`).
-* `npm run clean` — xóa cache / dist (ví dụ dùng `rimraf`).
-* `npm run tunnel` / `npm run tunnel:run` — helper cho Cloudflare tunnel (nếu repo có cấu hình).
-
->
-
-## ▶️ Chạy dự án (2 terminal)
-
-**Mở 2 terminal riêng** để chạy client và server — không chạy cả hai trên cùng một port.
-
-### Terminal 1 — Frontend (Parcel)
-
-```bash
+# ▶️ Chạy dự án (2 terminal)
+# Terminal 1 — Frontend (Parcel)
 # Từ thư mục gốc UI-KIT-pracel
 npm run client
-````
 
 - Parcel sẽ khởi chạy frontend theo cấu hình trong `package.json` (script `client`).
 - Theo cấu hình repo, client mặc định được cấu hình chạy trên `http://localhost:5000`
