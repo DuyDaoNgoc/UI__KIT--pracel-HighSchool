@@ -153,6 +153,8 @@ npm run server
 * Nếu cần gọi API từ client tới server, hãy cấu hình proxy hoặc gọi thẳng tới `http://localhost:5001/api` (hoặc endpoint server của bạn).
 
 ---
+<img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/383c001c-f345-413b-9d01-7e56542db43b" />
+
 
 ## 🏗 Build production
 
