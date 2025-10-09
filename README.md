@@ -262,6 +262,11 @@ khi bật lên thì chạy lệnh: </br>
 ## Còn cách khác để dùng cloud chỉ với 2 terminal
 ## ĐÂY LÀ TERMIANL TRONG SERVER 
 <img width="422" height="216" alt="image" src="https://github.com/user-attachments/assets/4883a459-5be6-4688-85d3-55c8778bb0e1" /> </br>
+
+</br>
+
+##  VỀ CẤU TRÚC ĐỂ PATH THÌ LIÊN HỆ TÔI , TÔI SẼ CUNG CẤP
+   <a href="0905536704">0905536704 ZALO  </a>
 <ul>
   <li>Khi build trong server sẽ có 2 đường dẫn chính được tạo ngầu nhiên đó là :</li>
      <li>   → Local:   http://localhost:8000</li>
