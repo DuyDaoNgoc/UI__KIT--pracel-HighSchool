@@ -40,7 +40,10 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 
 ````bash
 # 0. Sao chép đường dẫn về
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/5632e522-48a1-44ef-b450-5719aa0e069d" />
+#0.1 bật phần mềm git vào mục bất kì
 # 1. Clone repo từ GitHub
+
 git clone <đường_dẫn_repo>
 
 # 2. Vào thư mục dự án
