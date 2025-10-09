@@ -6,6 +6,7 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 ---
 
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/ed36cd42-ec04-46b9-a2d9-1ffe8dfd7c07" />
+![tải xuống](https://github.com/user-attachments/assets/9dba4757-e498-4fdb-aad0-e74b44a330ee)
 
 ## 📑 Mục lục
 
