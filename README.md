@@ -174,10 +174,10 @@ npm run server
   <img width="1919" height="896" alt="image" src="https://github.com/user-attachments/assets/0a4c8869-0881-4fd5-87b5-c57e4b715ba0" />
   <li>Ấn vào Add Current IP Address để nhận Ip rồi server sẽ đọc ip đó và truy cập thành công  </li>
 <img width="1920" height="990" alt="image" src="https://github.com/user-attachments/assets/dcbfbfb5-2f0f-4ba3-8cec-c82626af20c7" />
-
+  <li>Sau đó chạy cơ bản thì lên mạng ghi : <a href= "http://localhost:5000/" >localhost:5000 </a> </li>
 </ol>
 
-## 🏗 Build production
+## 🏗 Build production (không bắt buộc vì src và server đã auto build dist)
 
 ```bash
 npm run build
