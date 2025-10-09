@@ -48,18 +48,18 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 git clone <đường_dẫn_repo>
 ```
 
-## dán phải ấn chuột phải
+<b>  dán phải ấn chuột phải </b>
 </br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/05696579-797a-44c0-983d-ddc94d853a14" />
 </br>
-## và dán xong ấn tải
+<b>  và dán xong ấn tải </b>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/6dec581e-d69f-4efc-b66f-3c73f715e83f" />
 </br>
-## và khi tải xong nó sẽ như này
+<b>  và khi tải xong nó sẽ như này </b>
 </br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/e46e2522-39fd-48db-8593-5af40e9926ab" />
 </br>
-# 2. Vào thư mục dự án
+<b>2. Vào thư mục dự án </b> 
 ```bash
 cd UI-KIT-pracel
 ```
