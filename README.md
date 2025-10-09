@@ -32,6 +32,7 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 - Git
 - MongoDB (local) hoặc MongoDB Atlas (connection string dùng trong `.env`)
 - (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/d25df88f-eb47-4812-81d9-b9168aa925f9" />
 
 ---
 
