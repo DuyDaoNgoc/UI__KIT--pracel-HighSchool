@@ -249,7 +249,7 @@ cmd từ bên ngoài và (bẳt buộc cmd với quyền administrator)
 khi bật lên thì chạy lệnh: </br>
 <b> C:\cloudflared\cloudflared.exe tunnel --url http://localhost:8000 </b>
 </br>
-(nếu đã build vào Variables mới xài đc)
+(nếu đã build vào Variables mới xài đc)</br>
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/ba405aed-43bb-42c7-b2b5-23625d10a8c8" />
 ## Còn cách khác để dùng cloud chỉ với 2 terminal
 ## ĐÂY LÀ TERMIANL TRONG SERVER 
