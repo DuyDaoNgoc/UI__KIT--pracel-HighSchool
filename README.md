@@ -53,6 +53,7 @@ git clone <đường_dẫn_repo>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/05696579-797a-44c0-983d-ddc94d853a14" />
 </br>
 <b>  và dán xong ấn tải </b>
+</br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/6dec581e-d69f-4efc-b66f-3c73f715e83f" />
 </br>
 <b>  và khi tải xong nó sẽ như này </b>
