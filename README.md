@@ -162,6 +162,7 @@ npm run server
 </br>
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/9cc1e79f-ab8c-46fd-b22a-aefde138d851" />
 </br>
+
 ## ĐẾN BƯỚC NÀY RỒI SẼ VÀO TRUY CẬP MONGODB ĐỂ SERVER CÓ THỂ NHẬN ĐƯỢC DỮ LIỆU
 
 <ol>
