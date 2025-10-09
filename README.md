@@ -38,17 +38,20 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 ## 🚀 Clone & cài đặt nhanh-
 ````bash
 # 0. Sao chép đường dẫn về
-
-bash
+```
+```bash
 #0.1 bật phần mềm git vào mục bất kì
+```
 
 # 1. Clone repo từ GitHub
 
+```bash
 git clone <đường_dẫn_repo>
-
+```
 # 2. Vào thư mục dự án
+```bash
 cd UI-KIT-pracel
-
+```
 # 3. (Tuỳ chọn) Mở VS Code
 code .
 
