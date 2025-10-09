@@ -155,7 +155,9 @@ npm run server
 ---
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/383c001c-f345-413b-9d01-7e56542db43b" />
 <br>
+
 ## Khi chạy nó sẽ báo:
+
 </br>
 <b>CLIENT: THÀNH CÔNG</b>
 <b>SERVER KHÔNG NHẬN ĐƯỢC DỮ LIỆU TRÊN MONGODB</b>
@@ -181,6 +183,7 @@ npm run server
   </br>
 <img width="1920" height="990" alt="image" src="https://github.com/user-attachments/assets/dcbfbfb5-2f0f-4ba3-8cec-c82626af20c7" />
 </br>
+  </br>
   <li>Sau đó chạy cơ bản thì lên mạng ghi : <a href= "http://localhost:5000/" >localhost:5000 </a> </li>
 </ol>
 
