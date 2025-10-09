@@ -67,15 +67,16 @@ cd UI-KIT-pracel
 
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/0740e338-ca3e-46cb-ac35-6343738459c4" />
 
-# 3. (Tuỳ chọn) Mở VS Code
-```bash
-code .
-```
+# 3. (Tuỳ chọn) Mở Terminal
+
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/df49c580-bd6a-4094-9d5c-2c10a3f28ea8" />
 
 # 4. Cài dependencies cho phần client (gốc)
 ```bash
 npm install
 ```
+
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/cd21f548-3fa1-4043-b44b-8cf62fbaf317" />
 > Sau bước trên, bạn đã cài xong dependencies cho client và server.
 
 ---
