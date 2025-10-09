@@ -11,7 +11,7 @@ export interface ICreatedTeacher {
   _id: string;
   name: string;
   dob?: string;
-  gender?: "male" | "female" | "other";
+  gender?: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   majors: string[];

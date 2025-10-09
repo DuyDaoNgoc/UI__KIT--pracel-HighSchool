@@ -46,7 +46,7 @@ export const getAllClasses = async (req: Request, res: Response) => {
 
     const groupedByMajor: Record<string, any[]> = {};
 
-    classes.forEach((cls) => {
+    for (const cls of classes) {
       const major = cls.major || "Chưa có ngành";
       if (!groupedByMajor[major]) groupedByMajor[major] = [];
 
@@ -67,12 +67,12 @@ export const getAllClasses = async (req: Request, res: Response) => {
           name: s.username,
         })),
       });
-    });
+    }
 
-    res.status(200).json(groupedByMajor);
+    return res.status(200).json(groupedByMajor);
   } catch (err) {
     console.error("⚠️ getAllClasses error:", err);
-    res.status(500).json({ message: "Lấy danh sách lớp thất bại" });
+    return res.status(500).json({ message: "Lấy danh sách lớp thất bại" });
   }
 };
 
@@ -85,7 +85,6 @@ export const createOrGetClass = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
     }
 
-    // ✅ Viết tắt ngành: Công nghệ Thông tin → CNTT
     const majorAbbrev = major
       .split(/\s+/)
       .map((w: string) => w[0]?.toUpperCase() || "")
@@ -96,7 +95,6 @@ export const createOrGetClass = async (req: Request, res: Response) => {
 
     let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
-    // Nếu chưa có -> tạo mới
     if (!cls) {
       cls = new ClassModel({
         schoolYear,
@@ -104,34 +102,35 @@ export const createOrGetClass = async (req: Request, res: Response) => {
         major,
         classCode,
         className,
-        teacherId: teacherId ? new mongoose.Types.ObjectId(teacherId) : null,
+        teacherId: teacherId
+          ? new mongoose.Types.ObjectId(teacherId as string)
+          : null,
         teacherName: "",
         studentIds: [],
       });
       await cls.save();
     }
 
-    // Nếu có teacherId mới => cập nhật
+    // ✅ Cập nhật giáo viên nếu có teacherId mới
     if (
       teacherId &&
       (!cls.teacherId ||
-        !cls.teacherId.equals(new mongoose.Types.ObjectId(teacherId)))
+        !cls.teacherId.equals(new mongoose.Types.ObjectId(teacherId as string)))
     ) {
       const teacher = await TeacherModel.findById(teacherId);
-      cls.teacherId = new mongoose.Types.ObjectId(teacherId);
+      cls.teacherId = new mongoose.Types.ObjectId(teacherId as string);
       cls.teacherName = teacher?.name || "";
       await cls.save();
 
-      // Cập nhật teacherId cho toàn bộ học sinh trong lớp
       if (cls.studentIds.length > 0) {
         await UserModel.updateMany(
           { _id: { $in: cls.studentIds } },
-          { $set: { teacherId: cls.teacherId } }
+          { $set: { teacherId: cls.teacherId } },
         );
       }
     }
 
-    res.status(200).json(cls);
+    return res.status(200).json(cls);
   } catch (err: any) {
     if (err.code === 11000) {
       return res.status(409).json({
@@ -139,7 +138,7 @@ export const createOrGetClass = async (req: Request, res: Response) => {
       });
     }
     console.error("⚠️ createOrGetClass error:", err);
-    res.status(500).json({ message: "Tạo hoặc lấy lớp thất bại" });
+    return res.status(500).json({ message: "Tạo hoặc lấy lớp thất bại" });
   }
 };
 
@@ -184,18 +183,16 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    const studentObjectId = new mongoose.Types.ObjectId(studentId);
-
+    const studentObjectId = new mongoose.Types.ObjectId(studentId as string);
     if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
       cls.studentIds.push(studentObjectId);
       await cls.save();
     }
 
-    // Nếu lớp có giáo viên thì set luôn cho học sinh
     if (cls.teacherId) {
       await UserModel.updateOne(
         { _id: studentObjectId },
-        { $set: { teacherId: cls.teacherId } }
+        { $set: { teacherId: cls.teacherId } },
       );
     }
 
@@ -209,10 +206,10 @@ export const addStudentToClass = async (req: Request, res: Response) => {
         select: "name subject majors",
       });
 
-    res.status(200).json(populated);
+    return res.status(200).json(populated);
   } catch (err) {
     console.error("⚠️ addStudentToClass error:", err);
-    res.status(500).json({ message: "Thêm học sinh thất bại" });
+    return res.status(500).json({ message: "Thêm học sinh thất bại" });
   }
 };
 
@@ -237,15 +234,13 @@ export const assignTeacher = async (req: Request, res: Response) => {
     let major = "";
 
     if (match) {
-      const [, year, letter, maj] = match;
-      schoolYear = year;
-      classLetter = letter;
-      major = maj;
+      [, schoolYear, classLetter, major] = match;
     } else if (teacher.majors?.length) {
       major = teacher.majors[0];
     }
 
     const className = `${schoolYear}${classLetter} - ${major}`;
+    const teacherObjectId = new mongoose.Types.ObjectId(teacherId as string);
 
     let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
@@ -256,31 +251,30 @@ export const assignTeacher = async (req: Request, res: Response) => {
         major,
         classCode,
         className,
-        teacherId,
+        teacherId: teacherObjectId,
         teacherName: teacher.name,
         studentIds: [],
       });
       await cls.save();
     } else {
-      cls.teacherId = new mongoose.Types.ObjectId(teacherId);
+      cls.teacherId = teacherObjectId;
       cls.teacherName = teacher.name;
-      if (!cls.schoolYear) cls.schoolYear = schoolYear;
-      if (!cls.classLetter) cls.classLetter = classLetter;
-      if (!cls.major) cls.major = major;
+      cls.schoolYear ||= schoolYear;
+      cls.classLetter ||= classLetter;
+      cls.major ||= major;
       await cls.save();
     }
 
-    // ✅ đồng bộ teacherId cho học sinh
     if (cls.studentIds.length > 0) {
       await UserModel.updateMany(
         { _id: { $in: cls.studentIds } },
-        { $set: { teacherId } }
+        { $set: { teacherId: teacherObjectId } },
       );
     }
 
-    res.status(200).json(cls);
+    return res.status(200).json(cls);
   } catch (err) {
     console.error("⚠️ assignTeacher error:", err);
-    res.status(500).json({ message: "Gán giáo viên thất bại" });
+    return res.status(500).json({ message: "Gán giáo viên thất bại" });
   }
 };

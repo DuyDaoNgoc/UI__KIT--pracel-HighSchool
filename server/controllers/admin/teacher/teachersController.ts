@@ -6,7 +6,7 @@ export const createTeacher = async (req: Request, res: Response) => {
   try {
     const teacherData: Partial<ITeacher> = {
       ...req.body,
-      gender: (req.body.gender as "male" | "female" | "other") || "male", // ✅ ép kiểu
+      gender: (req.body.gender as "Nam" | "Nữ" | "other") || "Nam", // ✅ ép kiểu
     };
 
     const newTeacher = new TeacherModel(teacherData);

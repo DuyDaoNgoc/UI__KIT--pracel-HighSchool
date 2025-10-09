@@ -16,7 +16,7 @@ export interface ITeacher {
   _id: string;
   name: string;
   dob?: Date;
-  gender: "male" | "female" | "other";
+  gender: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   majors: string[]; // chuyên ngành
@@ -33,7 +33,7 @@ export interface ICreatedTeacher {
   _id: string;
   name: string;
   dob?: string; // frontend luôn dùng string yyyy-mm-dd
-  gender: "male" | "female" | "other";
+  gender: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   majors: string[];
@@ -50,7 +50,7 @@ export interface ICreatedTeacher {
 export interface ITeacherForm {
   name: string;
   dob: string; // yyyy-mm-dd
-  gender: "male" | "female" | "other";
+  gender: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   majors: string[];

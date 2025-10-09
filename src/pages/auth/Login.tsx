@@ -3,7 +3,7 @@ import http from "../../lib/http";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const Login: React.FC = () => {
   // form state
   const [form, setForm] = useState({ email: "", password: "" });
@@ -34,14 +34,14 @@ const Login: React.FC = () => {
   }, [lockSecondsLeft]); // Chỉ chạy khi lockSecondsLeft thay đổi
 
   // Handle input change
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Cập nhật giá trị form tương ứng
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   // Handle form submit
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleSubmit = async (e: React.FormEvent) => {
     // Ngăn chặn reload trang
     e.preventDefault();
@@ -95,7 +95,7 @@ const Login: React.FC = () => {
         // Hiển thị lỗi
         setMessage(errorMsg);
       }
-      //  eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
     } catch (err: any) {
       // Lỗi kết nối hoặc lỗi khác
       // Hiển thị lỗi từ backend hoặc lỗi kết nối

@@ -9,7 +9,7 @@ interface Props {
   requestUpdateGrade: (
     studentId: string,
     subject: string,
-    newScore: number
+    newScore: number,
   ) => void;
 }
 

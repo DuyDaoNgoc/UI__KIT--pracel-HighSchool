@@ -13,7 +13,6 @@ const getBaseURL = (): string => {
     if (hostname === "localhost" || hostname === "127.0.0.1") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
-
     // LAN (192.168.x.x)
     const lanRegex = /^192\.168\.\d+\.\d+$/;
     if (lanRegex.test(hostname)) {
@@ -59,7 +58,7 @@ http.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // ===== Helpers =====
@@ -71,7 +70,7 @@ export async function get<T>(url: string, config?: any): Promise<T> {
 export async function post<T, B = any>(
   url: string,
   body: B,
-  config?: any
+  config?: any,
 ): Promise<T> {
   const res = await http.post<T>(url, body, config);
   return res.data;

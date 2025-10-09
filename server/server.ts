@@ -15,12 +15,15 @@ import gradesRoutes from "./Routers/grades/grades";
 import adminRoutes from "./Routers/admin/admin";
 import teacherAuthRoutes from "./Routers/teacher/teacherAuth";
 import classRouter from "./Routers/class/classes";
-import teacherAdminRoutes from "./Routers/teacher/teacherRoutes"; // admin quản lý GV
-import teacherRoutes from "./Routers/teacher/teacherRoutes"; // CRUD cơ bản giáo viên
+import teacherAdminRoutes from "./Routers/teacher/teacherRoutes";
+import teacherRoutes from "./Routers/teacher/teacherRoutes";
+import userRoutes from "./Routers/auth/userRoutes";
+import parentsRoutes from "./Routers/parent/parents";
+
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
 import { checkGradesLock } from "./middleware/checkLock";
-import User from "./models/User"; // 👈 Thêm dòng này
+import User from "./models/User";
 
 dotenv.config();
 
@@ -46,23 +49,33 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     maxAge: 600,
-  })
+  }),
 );
 app.use(compression());
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(express.json({ limit: "5mb" }));
-// Lấy danh sách user
+
+// ================== User APIs ==================
 app.get("/api/users", async (req, res) => {
-  const users = await User.find().select("-password");
-  res.json(users);
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    console.error("❌ Error fetching users:", err);
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
 });
 
-// Block / Unblock user
 app.patch("/api/users/:id/block", async (req, res) => {
-  const { id } = req.params;
-  const { isBlocked } = req.body;
-  await User.findByIdAndUpdate(id, { isBlocked });
-  res.json({ success: true });
+  try {
+    const { id } = req.params;
+    const { isBlocked } = req.body;
+    await User.findByIdAndUpdate(id, { isBlocked });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Error blocking user:", err);
+    res.status(500).json({ message: "Failed to update user" });
+  }
 });
 
 // ================== API Routes ==================
@@ -70,19 +83,17 @@ app.use("/api/admin/classes", classRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
-import userRoutes from "./Routers/auth/userRoutes";
 app.use("/api/users", userRoutes);
 
 // 👨‍🏫 Giáo viên
-app.use("/api/teachers/auth", teacherAuthRoutes); // login, profile
-app.use("/api/teachers", teacherRoutes); // danh sách, CRUD
-app.use("/api/admin/teachers", teacherAdminRoutes); // quản lý giáo viên admin
+app.use("/api/teachers/auth", teacherAuthRoutes);
+app.use("/api/teachers", teacherRoutes);
+app.use("/api/admin/teachers", teacherAdminRoutes);
 
+// 🧑‍💼 Admin
 app.use("/api/admin", adminRoutes);
-// phụ huynh
-import parentsRoutes from "./Routers/parent/parents";
 
-// 🧑‍💼 Admin Parents
+// 👨‍👩‍👧 Phụ huynh
 app.use("/api/admin/parents", parentsRoutes);
 
 // ================== Test Routes ==================
@@ -96,8 +107,14 @@ app.get(
   checkRole(["admin"]),
   (req: Request, res: Response) => {
     res.json({ message: "✅ Admin access", user: req.user });
-  }
+  },
 );
+
+// ================== Socket URL Route ==================
+app.get("/socket-url", (req: Request, res: Response) => {
+  const port = process.env.PORT || 8000;
+  res.json({ url: `http://localhost:${port}` });
+});
 
 // ================== Static Routes ==================
 app.use(
@@ -105,14 +122,14 @@ app.use(
   express.static(path.join(__dirname, "uploads"), {
     maxAge: "365d",
     immutable: true,
-  })
+  }),
 );
 app.use(
   "/videos",
   express.static(path.join(__dirname, "uploads/videos"), {
     maxAge: "365d",
     immutable: true,
-  })
+  }),
 );
 
 // ================== Frontend Build ==================
@@ -120,10 +137,10 @@ app.use(
   express.static(path.join(__dirname, "../dist"), {
     maxAge: "365d",
     immutable: true,
-  })
+  }),
 );
 
-// Fallback SPA
+// ================== SPA Fallback ==================
 app.get("*", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
 });
@@ -149,7 +166,7 @@ io.on("connection", (socket) => {
 
   socket.on("message", (data) => io.emit("message", data));
   socket.on("disconnect", () =>
-    console.log("❎ Client disconnected:", socket.id)
+    console.log("❎ Client disconnected:", socket.id),
   );
 });
 
@@ -180,11 +197,11 @@ function getLocalIP() {
       console.log(`📊 Grades API:    http://${localIP}:${PORT}/api/grades`);
       console.log(`🛠️ Admin API:     http://${localIP}:${PORT}/api/admin`);
       console.log(
-        `👨‍🏫 Teacher Auth: http://${localIP}:${PORT}/api/teachers/auth`
+        `👨‍🏫 Teacher Auth: http://${localIP}:${PORT}/api/teachers/auth`,
       );
       console.log(`👩‍🏫 Teacher CRUD: http://${localIP}:${PORT}/api/teachers`);
       console.log(
-        `📚 Admin Teachers: http://${localIP}:${PORT}/api/admin/teachers`
+        `📚 Admin Teachers: http://${localIP}:${PORT}/api/admin/teachers`,
       );
     });
   } catch (err) {

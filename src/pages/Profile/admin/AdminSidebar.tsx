@@ -1,10 +1,14 @@
-// src/pages/Profile/admin/AdminSidebar.tsx
-import { FileText, Lock, Unlock, UserPlus, Users } from "lucide-react";
+import {
+  FileText,
+  Lock,
+  Unlock,
+  UserPlus,
+  Users,
+  BookOpen, // ✅ thêm icon cho lớp học
+} from "lucide-react";
 import Logout from "@/Components/settings/logout/logout";
 import { useAuth } from "../../../context/AuthContext";
-import Home from "../../../pages/Home";
 import { Link } from "react-router-dom";
-
 import HomeIcon from "@/icons/HomeIcon";
 import { motion } from "framer-motion";
 import { pageVariants } from "../../../configs/animations/pageVariants";
@@ -21,24 +25,26 @@ export default function AdminSidebar({
   setActiveTab,
 }: Props) {
   const { logout } = useAuth() as { logout: () => void };
+
   return (
     <motion.aside
       className="profile__sidebar"
-      variants={pageVariants.zoom} // dùng zoom (không có x/y translate)
+      variants={pageVariants.zoom}
       initial="initial"
       animate="animate"
       exit="exit"
-      style={{ willChange: "transform, opacity" }} // hint cho trình duyệt để mượt hơn
+      style={{ willChange: "transform, opacity" }}
     >
       <div className="profile__user">
         <div className="home">
           <Link to="/">
-            <HomeIcon />{" "}
+            <HomeIcon />
           </Link>
           <h3 className="titlecolor">Admin Panel</h3>
         </div>
         <p>Quản trị viên</p>
       </div>
+
       <ul className="profile__menu">
         <li
           onClick={() => setActiveTab("dashboard")}
@@ -53,6 +59,7 @@ export default function AdminSidebar({
         >
           <FileText size={18} /> Tin tức chờ duyệt
         </li>
+
         <li
           onClick={() => setActiveTab("lock")}
           className={activeTab === "lock" ? "active" : ""}
@@ -60,25 +67,35 @@ export default function AdminSidebar({
           {locked ? <Lock size={18} /> : <Unlock size={18} />} Trạng thái khóa
           điểm
         </li>
+
         <li
           onClick={() => setActiveTab("students")}
           className={activeTab === "students" ? "active" : ""}
         >
           <UserPlus size={18} /> Tạo học sinh
         </li>
+
         <li
           onClick={() => setActiveTab("classes")}
           className={activeTab === "classes" ? "active" : ""}
         >
           <Users size={18} /> Danh sách lớp
         </li>
+
+        <li
+          onClick={() => setActiveTab("create-class")}
+          className={activeTab === "create-class" ? "active" : ""}
+        >
+          <BookOpen size={18} /> Tạo lớp học {/* ✅ thêm icon */}
+        </li>
+
         <li
           onClick={() => setActiveTab("create-teacher")}
           className={activeTab === "create-teacher" ? "active" : ""}
         >
           <UserPlus size={18} /> Tạo giáo viên
         </li>
-        {/* ✅ Thêm tab quản lý người dùng */}
+
         <li
           onClick={() => setActiveTab("users")}
           className={activeTab === "users" ? "active" : ""}

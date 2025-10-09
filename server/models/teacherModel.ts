@@ -32,7 +32,7 @@ export interface ITeacher extends Document {
   teacherId: string; // Mã giáo viên do hệ thống sinh (VD: "GV00001")
   name: string; // Họ tên
   dob?: Date; // Ngày sinh (tuỳ chọn)
-  gender: "male" | "female" | "other"; // Enum giới tính
+  gender: "Nam" | "Nữ" | "other"; // Enum giới tính
   phone?: string; // SĐT
   address?: string; // Địa chỉ
   majors: string[]; // Các ngành đào tạo (mảng)
@@ -81,7 +81,7 @@ const TeacherSchema = new Schema<ITeacher>(
     // dob: tuỳ chọn
     dob: { type: Date },
     // gender: bắt buộc, chỉ cho phép 3 giá trị
-    gender: { type: String, enum: ["male", "female", "other"], required: true },
+    gender: { type: String, enum: ["Nam", "Nữ", "other"], required: true },
     phone: { type: String },
     address: { type: String },
 
@@ -114,7 +114,7 @@ const TeacherSchema = new Schema<ITeacher>(
 
     avatar: { type: String },
   },
-  { timestamps: true } // Tự động: Mongoose thêm createdAt & updatedAt
+  { timestamps: true }, // Tự động: Mongoose thêm createdAt & updatedAt
 );
 
 /* =======================
@@ -135,7 +135,7 @@ TeacherSchema.index(
       // chỉ áp dụng unique cho doc mà assignedClass.classCode tồn tại và khác null
       "assignedClass.classCode": { $exists: true, $ne: null },
     },
-  }
+  },
 );
 
 /*
@@ -200,7 +200,7 @@ TeacherSchema.pre<ITeacher>("save", async function (next) {
 */
 const TeacherModel: Model<ITeacher> = mongoose.model<ITeacher>(
   "Teacher",
-  TeacherSchema
+  TeacherSchema,
 );
 
 export default TeacherModel;

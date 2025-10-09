@@ -10,9 +10,11 @@
     "clean": "rimraf .parcel-cache dist",
     "fix:svg": "node fix-svg-attrs.js",
     "/* cloudflared helper scripts (ADDED) */": "/* keep these for quick tunnel control */",
-    "tunnel": "C:\\cloudflared\\cloudflared.exe tunnel --url http://localhost:8000",
-    "tunnel:run": "C:\\cloudflared\\cloudflared.exe tunnel --config C:\\Users\\Admin\\Documents\\UI-KIT-pracel\\.cloudflared\\config.yml run my-app",
-    "dev:cloud": "cross-env-shell \"npm run client\" \"npm run server\" \"npm run tunnel:run\""
+    "tunnel": "C:\\\\cloudflared\\\\cloudflared.exe tunnel --url http://localhost:8000",
+    "tunnel:run": "C:\\\\cloudflared\\\\cloudflared.exe tunnel --config C:\\\\Users\\\\Admin\\\\Documents\\\\UI-KIT-pracel\\\\.cloudflared\\\\config.yml run my-app",
+    "dev:cloud": "cross-env-shell \"npm run client\" \"npm run server\" \"npm run tunnel:run\"",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix"
   },
   "alias": {
     "assets": "./public/assets",
@@ -54,11 +56,13 @@
     "react-redux": "^9.2.0",
     "react-router": "^6.30.1",
     "react-router-dom": "^6.30.1",
+    "react-toastify": "^11.0.5",
     "recharts": "^2.12.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.37.0",
     "@parcel/transformer-sass": "^2.15.4",
     "@types/aos": "^3.0.7",
     "@types/axios": "^0.9.36",
@@ -71,16 +75,25 @@
     "@types/react-dom": "^19.1.9",
     "@types/react-native-web": "^0.19.2",
     "@types/recharts": "^1.8.29",
-    "@types/socket.io-client": "^1.4.36",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "buffer": "^6.0.3",
     "concurrently": "^9.2.0",
     "cross-env": "^10.1.0",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^6.1.1",
     "events": "^3.3.0",
+    "globals": "^16.4.0",
     "https-browserify": "^1.0.0",
+    "jiti": "^2.6.1",
     "nodemon": "^3.1.10",
     "parcel": "^2.15.4",
     "posthtml-doctype": "^1.1.1",
     "posthtml-include": "^2.0.1",
+    "prettier": "^3.6.2",
     "process": "^0.11.10",
     "rimraf": "^6.0.1",
     "sass": "^1.90.0",
@@ -88,7 +101,9 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.2",
-    "url": "^0.11.4"
+    "typescript-eslint": "^8.46.0",
+    "url": "^0.11.4",
+    "vite": "^7.1.9"
   },
   "posthtml": {
     "plugins": {}

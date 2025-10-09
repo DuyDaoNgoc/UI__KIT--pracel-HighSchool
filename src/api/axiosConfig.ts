@@ -53,7 +53,7 @@ http.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // ===== Helpers
@@ -65,7 +65,7 @@ export async function get<T>(url: string, config?: any): Promise<T> {
 export async function post<T, B = any>(
   url: string,
   body: B,
-  config?: any
+  config?: any,
 ): Promise<T> {
   const res = await http.post<T>(url, body, config);
   return res.data;

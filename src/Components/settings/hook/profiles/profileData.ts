@@ -47,7 +47,7 @@ export const fetchSchedule = async (
   // thuộc tính schedule trong data có thể undefined nên dùng ? để tránh lỗi
   // trả về mảng rỗng nếu undefined
   // nên kiểu trả về của hàm là Promise<IScheduleItem[]>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
 ): Promise<IScheduleItem[]> => {
   try {
     // dùng console log để debug xem userId có đúng không
@@ -62,7 +62,7 @@ export const fetchSchedule = async (
     // Xử lý lỗi
     console.error(
       "Error fetching schedule:",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       err.response?.data || err.message
     );
     return [];

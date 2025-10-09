@@ -16,6 +16,7 @@ import StudentModal from "./StudentModal";
 import CreateTeacher from "./createrRole/CreateTeacher";
 import UserManagement from "./UserManagement";
 import AdminDashboard from "./Dashboard/AdminDashboard";
+import CreateClass from "./Class/CreateClass";
 
 // ======================== INTERFACES ========================
 interface ILockResp {
@@ -68,7 +69,7 @@ const AdminProfile: FC = () => {
     : undefined;
 
   // ==== Helper: viết tắt ngành ====
-  const majorAbbrev = (major?: string) => {
+  const majorAbbrev = (major?: string): string => {
     if (!major) return "";
     return major
       .split(/\s+/)
@@ -77,11 +78,11 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Fetch tin tức ====
-  const fetchNews = async () => {
+  const fetchNews = async (): Promise<void> => {
     try {
       const res = await axiosInstance.get<INews[]>(
         "/admin/news/pending",
-        authHeaders
+        authHeaders,
       );
       setPendingNews(Array.isArray(res.data) ? res.data : []);
       setErrorMsg("");
@@ -93,11 +94,11 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Fetch trạng thái khóa điểm ====
-  const fetchLockStatus = async () => {
+  const fetchLockStatus = async (): Promise<void> => {
     try {
       const res = await axiosInstance.get<ILockResp>(
         "/admin/grades/status",
-        authHeaders
+        authHeaders,
       );
       setLocked(!!res.data?.locked);
     } catch (err) {
@@ -106,7 +107,7 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Toggle khóa/mở khóa ====
-  const toggleLock = async () => {
+  const toggleLock = async (): Promise<void> => {
     try {
       if (locked) {
         await axiosInstance.post("/admin/grades/unlock", {}, authHeaders);
@@ -123,21 +124,25 @@ const AdminProfile: FC = () => {
 
   // ==== Handle form input ====
   const handleStudentChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ): void => {
     const { name, value } = e.target;
     setStudentForm((prev) => ({ ...prev, [name]: value }));
   };
 
   // ==== Generate ID / ClassCode ====
-  const generateStudentId = (grade?: string, cls?: string) => {
+  const generateStudentId = (grade?: string, cls?: string): string => {
     const randomPart = Math.floor(10000 + Math.random() * 90000).toString();
     const g = grade || studentForm.grade || "X";
     const c = cls || studentForm.classLetter || "X";
     return `${g}${c}${randomPart}`;
   };
 
-  const generateClassCode = (grade?: string, cls?: string, major?: string) => {
+  const generateClassCode = (
+    grade?: string,
+    cls?: string,
+    major?: string,
+  ): string => {
     const g = grade || studentForm.grade || "X";
     const c = cls || studentForm.classLetter || "X";
     const abbr = majorAbbrev(major || studentForm.major || "");
@@ -145,11 +150,11 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Fetch students ====
-  const fetchCreatedStudents = async () => {
+  const fetchCreatedStudents = async (): Promise<void> => {
     try {
       const res = await axiosInstance.get<ICreatedStudent[]>(
         "/admin/students",
-        authHeaders
+        authHeaders,
       );
       const data = Array.isArray(res.data) ? res.data : [];
       setCreatedStudents(
@@ -157,7 +162,7 @@ const AdminProfile: FC = () => {
           const aTime = new Date(a?.createdAt ?? 0).getTime();
           const bTime = new Date(b?.createdAt ?? 0).getTime();
           return bTime - aTime;
-        })
+        }),
       );
     } catch (err) {
       console.warn("⚠️ fetchCreatedStudents error:", err);
@@ -166,12 +171,13 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Create student ====
-  const createStudent = async (e: React.FormEvent) => {
+  const createStudent = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     const { name, dob, grade, classLetter, major } = studentForm;
 
     if (!name || !dob || !grade || !classLetter) {
-      return alert("Vui lòng nhập đủ: Họ tên, Ngày sinh, Khối, Lớp.");
+      alert("Vui lòng nhập đủ: Họ tên, Ngày sinh, Khối, Lớp.");
+      return;
     }
 
     setCreating(true);
@@ -183,8 +189,9 @@ const AdminProfile: FC = () => {
       await axiosInstance.post<ICreatedStudent>(
         "/admin/students/create",
         payload,
-        authHeaders
+        authHeaders,
       );
+
       await fetchCreatedStudents();
       alert(`✅ Tạo học sinh thành công! Mã: ${studentId}`);
 
@@ -208,7 +215,7 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Delete student ====
-  const deleteStudent = async (studentId: string) => {
+  const deleteStudent = async (studentId: string): Promise<void> => {
     if (!studentId || !confirm(`Xác nhận xóa học sinh ${studentId}?`)) return;
 
     setActionLoading(studentId);
@@ -229,7 +236,7 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Assign teacher ====
-  const assignTeacher = async (studentId: string) => {
+  const assignTeacher = async (studentId: string): Promise<void> => {
     const teacherId = prompt("Nhập teacherId:");
     if (!teacherId) return;
 
@@ -238,7 +245,7 @@ const AdminProfile: FC = () => {
       await axiosInstance.post(
         `/admin/students/${studentId}/assign-teacher`,
         { teacherId },
-        authHeaders
+        authHeaders,
       );
       await fetchCreatedStudents();
       alert("✅ Gán giáo viên thành công.");
@@ -251,13 +258,13 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Modal helpers ====
-  const openView = (s: ICreatedStudent) => {
+  const openView = (s: ICreatedStudent): void => {
     if (!s) return;
     setSelectedStudent(s);
     setViewing(true);
   };
 
-  const closeView = () => {
+  const closeView = (): void => {
     setSelectedStudent(null);
     setViewing(false);
   };
@@ -267,8 +274,9 @@ const AdminProfile: FC = () => {
     fetchNews();
     fetchLockStatus();
     fetchCreatedStudents();
-    const iv = setInterval(() => fetchLockStatus(), 30000);
+    const iv = setInterval(fetchLockStatus, 30000);
     return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ==== Render ====
@@ -306,6 +314,7 @@ const AdminProfile: FC = () => {
           />
         )}
         {activeTab === "classes" && <ClassesTab students={createdStudents} />}
+        {activeTab === "create-class" && <CreateClass />}
         {activeTab === "create-teacher" && <CreateTeacher />}
         {activeTab === "users" && <UserManagement />}
         {activeTab === "dashboard" && <AdminDashboard />}

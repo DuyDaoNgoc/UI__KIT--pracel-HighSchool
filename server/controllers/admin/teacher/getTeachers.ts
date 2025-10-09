@@ -10,7 +10,7 @@ export interface ICreatedTeacher {
   _id: string;
   name: string;
   dob?: string; // yyyy-mm-dd
-  gender?: "male" | "female" | "other";
+  gender?: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   majors: string[];

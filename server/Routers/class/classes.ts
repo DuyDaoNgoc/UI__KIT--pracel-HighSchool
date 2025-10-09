@@ -1,12 +1,13 @@
 // server/Routers/classes.ts
 import { Router, Request, Response } from "express";
+import mongoose from "mongoose";
 import ClassModel, { IClass } from "../../models/Class";
 import { verifyToken, checkRole } from "../../middleware/authMiddleware";
 
 const router = Router();
 
 /**
- * GET all classes
+ * 🏫 GET all classes
  */
 router.get(
   "/",
@@ -27,7 +28,7 @@ router.get(
 );
 
 /**
- * CREATE class (hoặc lấy nếu đã tồn tại)
+ * 🏗️ CREATE class (hoặc lấy nếu đã tồn tại)
  */
 router.post(
   "/create",
@@ -35,24 +36,32 @@ router.post(
   checkRole(["admin"]),
   async (req: Request, res: Response) => {
     try {
-      const { schoolYear, classLetter, major, classCode } = req.body;
+      const { schoolYear, classLetter, major } = req.body;
 
-      if (!schoolYear || !classLetter || !classCode) {
+      if (!schoolYear || !classLetter || !major) {
         return res.status(400).json({
           success: false,
-          message: "Thiếu thông tin lớp",
+          message: "Thiếu thông tin lớp (schoolYear, classLetter, major)",
         });
       }
 
-      // ✅ Kiểm tra tồn tại class (theo unique index)
+      // ✅ Viết tắt ngành (ví dụ: Công nghệ thông tin → CNTT)
+      const majorAbbrev = major
+        .split(/\s+/)
+        .map((w: string) => w[0]?.toUpperCase() || "")
+        .join("");
+      const classCode = `${schoolYear}${classLetter}${majorAbbrev}`;
+
+      // ✅ Kiểm tra lớp đã tồn tại chưa
       let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
       if (!cls) {
         cls = new ClassModel({
           schoolYear,
           classLetter,
-          major: major ?? "",
+          major,
           classCode,
+          teacherId: null,
           teacherName: "",
           studentIds: [],
         });
@@ -77,7 +86,7 @@ router.post(
 );
 
 /**
- * ASSIGN teacher to class (tự tạo lớp nếu chưa tồn tại)
+ * 👩‍🏫 ASSIGN teacher to class (chỉ gán nếu lớp đã tồn tại)
  */
 router.post(
   "/:classCode/assign-teacher",
@@ -86,35 +95,27 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { classCode } = req.params;
-      const { teacherName, schoolYear, classLetter, major } = req.body;
+      const { teacherName, teacherId, schoolYear, major } = req.body;
 
-      if (!teacherName) {
+      if (!teacherName && !teacherId) {
         return res.status(400).json({
           success: false,
-          message: "Thiếu tên giáo viên",
+          message: "Thiếu thông tin giáo viên (teacherName hoặc teacherId)",
         });
       }
 
-      let cls = await ClassModel.findOne({ classCode, schoolYear, major });
+      // ✅ Tìm lớp đã tồn tại
+      const cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
       if (!cls) {
-        if (!schoolYear || !classLetter) {
-          return res.status(400).json({
-            success: false,
-            message: "Thiếu schoolYear hoặc classLetter để tạo lớp",
-          });
-        }
-        cls = new ClassModel({
-          schoolYear,
-          classLetter,
-          major: major ?? "",
-          classCode,
-          teacherName,
-          studentIds: [],
+        return res.status(404).json({
+          success: false,
+          message: "Lớp chưa tồn tại, không thể gán giáo viên",
         });
-      } else {
-        cls.teacherName = teacherName;
       }
+
+      cls.teacherName = teacherName || "";
+      cls.teacherId = teacherId ? new mongoose.Types.ObjectId(teacherId) : null;
 
       await cls.save();
       return res.status(200).json({ success: true, data: cls });
@@ -129,7 +130,7 @@ router.post(
 );
 
 /**
- * ADD student to class (tự tạo lớp nếu chưa tồn tại)
+ * 👨‍🎓 ADD student to class (chỉ thêm nếu lớp đã tồn tại)
  */
 router.post(
   "/:classCode/add-student",
@@ -138,7 +139,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { classCode } = req.params;
-      const { studentId, schoolYear, classLetter, major } = req.body;
+      const { studentId, schoolYear, major } = req.body;
 
       if (!studentId) {
         return res.status(400).json({
@@ -147,32 +148,24 @@ router.post(
         });
       }
 
-      let cls = await ClassModel.findOne({ classCode, schoolYear, major });
+      // ✅ Tìm lớp đã tồn tại
+      const cls = await ClassModel.findOne({ classCode, schoolYear, major });
 
       if (!cls) {
-        if (!schoolYear || !classLetter) {
-          return res.status(400).json({
-            success: false,
-            message: "Thiếu schoolYear hoặc classLetter để tạo lớp",
-          });
-        }
-        cls = new ClassModel({
-          schoolYear,
-          classLetter,
-          major: major ?? "",
-          classCode,
-          teacherName: "",
-          studentIds: [studentId],
+        return res.status(404).json({
+          success: false,
+          message: "Lớp chưa tồn tại, không thể thêm học sinh",
         });
-      } else {
-        cls.studentIds = cls.studentIds || [];
-        const exists = cls.studentIds.some(
-          (id) => id.toString() === studentId.toString()
-        );
-        if (!exists) cls.studentIds.push(studentId);
       }
 
-      await cls.save();
+      const studentObjectId = new mongoose.Types.ObjectId(studentId);
+
+      // ✅ Nếu học sinh chưa có trong lớp thì thêm
+      if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
+        cls.studentIds.push(studentObjectId);
+        await cls.save();
+      }
+
       return res.status(200).json({ success: true, data: cls });
     } catch (err: any) {
       console.error("⚠️ add student error:", err);

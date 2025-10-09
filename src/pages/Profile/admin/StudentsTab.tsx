@@ -5,7 +5,7 @@ import { ICreatedStudent } from "../../../types/student";
 interface StudentsTabProps {
   studentForm: any;
   handleStudentChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
   creating: boolean;
   createStudent: (e: React.FormEvent) => void;
@@ -13,7 +13,7 @@ interface StudentsTabProps {
   generateClassCode: (
     grade?: string,
     classLetter?: string,
-    major?: string
+    major?: string,
   ) => string;
   actionLoading: string | null;
   openView: (student: ICreatedStudent) => void;
@@ -162,13 +162,7 @@ export default function StudentsTab({
                   >
                     Xem
                   </button>
-                  <button
-                    onClick={() => assignTeacher(s.studentId)}
-                    disabled={actionLoading === s.studentId}
-                    className="action-btn assign"
-                  >
-                    Gán GV
-                  </button>
+
                   <button
                     onClick={() => deleteStudent(s.studentId)}
                     disabled={actionLoading === s.studentId}

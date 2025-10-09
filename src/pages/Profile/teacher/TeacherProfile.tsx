@@ -65,7 +65,7 @@ export default function TeacherProfile() {
   async function requestUpdateGrade(
     studentId: string,
     subject: string,
-    newScore: number
+    newScore: number,
   ) {
     if (gradesLocked) {
       alert("❌ Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
@@ -76,7 +76,7 @@ export default function TeacherProfile() {
       const payload = { studentId, subject, grade: newScore };
       const res = await axiosInstance.post<{ message?: string }>(
         "/api/grades/request-update",
-        payload
+        payload,
       );
       alert(res.data?.message || "✅ Yêu cầu cập nhật đã gửi cho admin.");
     } catch (err: any) {

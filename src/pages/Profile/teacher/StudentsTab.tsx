@@ -17,7 +17,7 @@ interface Props {
   requestUpdateGrade: (
     studentId: string,
     subject: string,
-    newScore: number
+    newScore: number,
   ) => void;
 }
 
@@ -40,17 +40,17 @@ export default function StudentsTab(props: Props) {
     () => [
       "all",
       ...Array.from(
-        new Set(students.map((s) => s.schoolYear ?? "Unknown"))
+        new Set(students.map((s) => s.schoolYear ?? "Unknown")),
       ).sort(),
     ],
-    [students]
+    [students],
   );
   const classes = useMemo(
     () => [
       "all",
       ...Array.from(new Set(students.map((s) => s.class ?? "Unknown"))).sort(),
     ],
-    [students]
+    [students],
   );
 
   const filteredStudents = useMemo(
@@ -61,7 +61,7 @@ export default function StudentsTab(props: Props) {
         const byClass = filterClass === "all" ? true : s.class === filterClass;
         return byYear && byClass;
       }),
-    [students, filterYear, filterClass]
+    [students, filterYear, filterClass],
   );
 
   return (

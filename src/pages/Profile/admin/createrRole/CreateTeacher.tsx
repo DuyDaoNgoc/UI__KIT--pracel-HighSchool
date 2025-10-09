@@ -6,7 +6,7 @@ interface ITeacher {
   teacherId?: string;
   name: string;
   dob?: string;
-  gender: "male" | "female" | "other";
+  gender: "Nam" | "Nữ" | "other";
   phone?: string;
   address?: string;
   degree?: string;
@@ -21,7 +21,7 @@ interface ITeacherForm {
   teacherId: string;
   name: string;
   dob: string;
-  gender: "male" | "female" | "other";
+  gender: "Nam" | "Nữ" | "other";
   phone: string;
   address: string;
   degree: string;
@@ -36,7 +36,7 @@ export default function CreateTeacherWithTable() {
     teacherId: "",
     name: "",
     dob: "",
-    gender: "male",
+    gender: "Nam",
     phone: "",
     address: "",
     degree: "",
@@ -74,7 +74,7 @@ export default function CreateTeacherWithTable() {
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -85,7 +85,7 @@ export default function CreateTeacherWithTable() {
       teacherId: "",
       name: "",
       dob: "",
-      gender: "male",
+      gender: "Nam",
       phone: "",
       address: "",
       degree: "",
@@ -201,8 +201,8 @@ export default function CreateTeacherWithTable() {
           value={form.gender}
           onChange={handleChange}
         >
-          <option value="male">Nam</option>
-          <option value="female">Nữ</option>
+          <option value="Nam">Nam</option>
+          <option value="Nữ">Nữ</option>
           <option value="other">Khác</option>
         </select>
         <input

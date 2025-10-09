@@ -23,7 +23,7 @@ export function useStudents() {
     } catch (err: any) {
       setStudents([]);
       setError(
-        err?.response?.data?.message || "Không thể lấy danh sách học sinh"
+        err?.response?.data?.message || "Không thể lấy danh sách học sinh",
       );
     } finally {
       setLoading(false);
@@ -43,7 +43,7 @@ export function useReports() {
     setError(null);
     try {
       const res = await axiosInstance.get<IDailyReport[]>(
-        `/api/teachers/reports?date=${date}`
+        `/api/teachers/reports?date=${date}`,
       );
       setReports(Array.isArray(res.data) ? res.data : []);
     } catch (err: any) {
@@ -65,13 +65,13 @@ export function useLockStatus() {
     setLoadingLock(true);
     try {
       let res = await axiosInstance.get<{ locked: boolean }>(
-        "/api/admin/grades/status"
+        "/api/admin/grades/status",
       );
       setGradesLocked(Boolean(res?.data?.locked));
     } catch {
       try {
         const res = await axiosInstance.get<{ locked: boolean }>(
-          "/api/grades/status"
+          "/api/grades/status",
         );
         setGradesLocked(Boolean(res?.data?.locked));
       } catch {

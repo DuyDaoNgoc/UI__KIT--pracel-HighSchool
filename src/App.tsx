@@ -27,10 +27,15 @@ import Register from "./pages/auth/Register";
 import { AuthProvider } from "./context/AuthContext";
 import SubHeader from "./layouts/SubHeader";
 
-import io from "socket.io-client";
-import type { Socket } from "socket.io-client";
-
-// Trang demo
+import Loading from "./Components/settings/loading/Loading";
+import {
+  SocketProvider,
+  useSocket,
+} from "./Components/settings/hook/IOserver/useSocket";
+import {
+  LoadingProvider,
+  useGlobalLoading,
+} from "./Components/settings/hook/IOserver/loading/LoadingContext";
 const Airlines = () => <h2>Airlines Page</h2>;
 const Vacation = () => <h2>Vacation Page</h2>;
 const FindMore = () => <h2>Find More Page</h2>;
@@ -38,7 +43,8 @@ const Admin = () => <AdminProfile />;
 
 function Layout() {
   const location = useLocation();
-  const [socket, setSocket] = useState<typeof Socket | null>(null);
+  const { socket, loading: socketLoading, error } = useSocket(); // ✅ lấy trạng thái socket
+  const { loading: globalLoading, setLoading } = useGlobalLoading();
   const [messages, setMessages] = useState<
     { text: string; timestamp: number }[]
   >([]);
@@ -47,38 +53,51 @@ function Layout() {
     AOS.init({ duration: 800, delay: 100, once: true });
   }, []);
 
-  // ================= Socket.IO =================
   useEffect(() => {
-    const fetchSocketUrl = async () => {
+    if (!socket) return;
+
+    const handleMessage = (msg: { text: string; timestamp: number }) => {
+      setMessages((prev) => [...prev, msg]);
+    };
+
+    socket.on("message", handleMessage);
+
+    return () => {
+      socket.off("message", handleMessage);
+    };
+  }, [socket]);
+  // ===== Track offline =====
+  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+  React.useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+  const showLoading = socketLoading || isOffline || globalLoading;
+
+  // CHECK SERVER
+  useEffect(() => {
+    const checkServer = async () => {
       try {
-        // Lấy URL socket từ server
-        const res = await fetch("/socket-url");
-        const data = await res.json(); // { url: "https://xxxxx.ngrok-free.app" }
-        const socketClient = io(data.url) as ReturnType<typeof io>;
-
-        setSocket(socketClient);
-
-        socketClient.on("connect", () =>
-          console.log("Socket connected:", socketClient.id)
-        );
-        socketClient.on("message", (msg: { text: string; timestamp: number }) =>
-          setMessages((prev) => [...prev, msg])
-        );
-        socketClient.on("disconnect", () => console.log("Socket disconnected"));
-
-        return () => socketClient.disconnect();
+        const res = await fetch("/socket-url", { cache: "no-store" });
+        if (!res.ok) throw new Error("Server offline");
+        setIsOffline(false);
       } catch (err) {
-        console.error("Failed to connect socket:", err);
+        setIsOffline(true);
       }
     };
 
-    fetchSocketUrl();
+    // Check ngay khi load + mỗi 5s
+    checkServer();
+    const interval = setInterval(checkServer, 5000);
+
+    return () => clearInterval(interval);
   }, []);
-
-  const sendMessage = (msg: string) => {
-    if (socket) socket.emit("message", { text: msg, timestamp: Date.now() });
-  };
-
   const hiddenLayoutRoutes = [
     "/login",
     "/register",
@@ -90,7 +109,7 @@ function Layout() {
   ];
 
   const isHidden = hiddenLayoutRoutes.some((route) =>
-    location.pathname.startsWith(route)
+    location.pathname.startsWith(route),
   );
 
   const defaultItem = {
@@ -101,7 +120,42 @@ function Layout() {
   };
 
   return (
-    <div id="app">
+    <div id="app" style={{ position: "relative" }}>
+      {showLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(255,255,255,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <Loading />
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            color: "red",
+            textAlign: "center",
+            marginTop: "20px",
+            position: "fixed",
+            top: 0,
+            width: "100%",
+            zIndex: 9999,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
       {!isHidden &&
         (location.pathname === "/" ? (
           <Header />
@@ -142,9 +196,13 @@ function Layout() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Layout />
-      </Router>
+      <SocketProvider>
+        <Router>
+          <LoadingProvider>
+            <Layout />
+          </LoadingProvider>
+        </Router>
+      </SocketProvider>
     </AuthProvider>
   );
 }

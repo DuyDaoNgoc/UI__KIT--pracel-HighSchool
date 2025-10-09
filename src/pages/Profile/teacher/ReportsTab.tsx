@@ -16,7 +16,7 @@ export default function ReportsTab({
   fetchReports,
 }: Props) {
   const [reportDate, setReportDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
 
   return (
