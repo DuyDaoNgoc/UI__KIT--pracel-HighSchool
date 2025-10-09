@@ -34,14 +34,14 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 - (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/d25df88f-eb47-4812-81d9-b9168aa925f9" />
 
----
-
-## 🚀 Clone & cài đặt nhanh
-
+--
+## 🚀 Clone & cài đặt nhanh-
 ````bash
 # 0. Sao chép đường dẫn về
-<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/5632e522-48a1-44ef-b450-5719aa0e069d" />
+
+bash
 #0.1 bật phần mềm git vào mục bất kì
+
 # 1. Clone repo từ GitHub
 
 git clone <đường_dẫn_repo>
