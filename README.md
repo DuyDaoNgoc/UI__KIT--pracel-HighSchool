@@ -167,8 +167,14 @@ npm run server
 
 <ol>
   <li>
-    <a href = "https://account.mongodb.com/account/login">Truy cập vào Mongodb </a>
+    <a href = "https://account.mongodb.com/account/login">Truy cập vào Mongodb và đăng nhập tài khoản đã được cung cấp </a>
   </li>
+  <img width="1919" height="863" alt="image" src="https://github.com/user-attachments/assets/446009a8-b917-42c2-97e9-e03a481e6d01" />
+<li>Sau khi đăng nhập thi nó sẽ vào trang</li>
+  <img width="1919" height="896" alt="image" src="https://github.com/user-attachments/assets/0a4c8869-0881-4fd5-87b5-c57e4b715ba0" />
+  <li>Ấn vào Add Current IP Address để nhận Ip rồi server sẽ đọc ip đó và truy cập thành công  </li>
+<img width="1920" height="990" alt="image" src="https://github.com/user-attachments/assets/dcbfbfb5-2f0f-4ba3-8cec-c82626af20c7" />
+
 </ol>
 
 ## 🏗 Build production
