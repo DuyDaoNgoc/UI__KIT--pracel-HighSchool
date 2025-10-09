@@ -36,22 +36,31 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 
 --
 ## 🚀 Clone & cài đặt nhanh-
-## 🚀 Clone & cài đặt nhanh-
 
-# 0. Sao chép đường dẫn về
+# 0. Sao chép đường dẫn về 
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/29be8e1d-2be5-4dbe-a01d-19bf40478fba" />
 ```bash
 # 0.1 bật phần mềm git vào mục bất kì
 ```
-
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/5befa9fc-d3d8-4636-bb30-a8ba01cf34c8" />
 # 1. Clone repo từ GitHub
 ```bash
 git clone <đường_dẫn_repo>
 ```
+## dán phải ấn chuột phải
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/05696579-797a-44c0-983d-ddc94d853a14" />
+## và dán xong ấn tải
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/6dec581e-d69f-4efc-b66f-3c73f715e83f" />
+## và khi tải xong nó sẽ như này
+
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/e46e2522-39fd-48db-8593-5af40e9926ab" />
 
 # 2. Vào thư mục dự án
 ```bash
 cd UI-KIT-pracel
 ```
+
+<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/0740e338-ca3e-46cb-ac35-6343738459c4" />
 
 # 3. (Tuỳ chọn) Mở VS Code
 ```bash
