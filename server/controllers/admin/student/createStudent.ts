@@ -1,8 +1,6 @@
 // server/controllers/admin/createStudent.ts
 import { Request, Response } from "express";
 import { connectDB } from "../../../configs/db";
-import ClassModel from "../../../models/Class";
-import mongoose from "mongoose";
 
 export const createStudent = async (req: Request, res: Response) => {
   try {
@@ -34,6 +32,7 @@ export const createStudent = async (req: Request, res: Response) => {
       classCode,
     } = req.body;
 
+    // Check các thông tin bắt buộc
     if (!studentId || !name || !dob || !grade || !classLetter || !schoolYear) {
       return res.status(400).json({
         success: false,
@@ -43,6 +42,7 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // Chuyển dob thành Date object
     const parsedDob = new Date(dob);
     if (isNaN(parsedDob.getTime())) {
       return res.status(400).json({
@@ -52,6 +52,7 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // Check unique studentId
     const existingStudent = await students.findOne({ studentId });
     if (existingStudent) {
       return res.status(409).json({
@@ -60,6 +61,7 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // Tạo classCode an toàn nếu chưa có
     const safeClassCode =
       classCode ??
       `${grade}${classLetter}${(major || "")
@@ -93,33 +95,7 @@ export const createStudent = async (req: Request, res: Response) => {
     // Insert student
     const result = await students.insertOne(newStudent);
 
-    // ===== THÊM PHẦN UPDATE CLASS =====
-    const className = `${grade}${classLetter} - ${major || ""} (${schoolYear})`;
-    const cls = await ClassModel.findOne({ classCode: safeClassCode });
-
-    if (!cls) {
-      // Tạo mới class nếu chưa có
-      await ClassModel.create({
-        grade,
-        classLetter,
-        schoolYear,
-        major: major ?? "",
-        classCode: safeClassCode,
-        teacherId: null,
-        teacherName: "",
-        studentIds: [new mongoose.Types.ObjectId(result.insertedId)],
-        className,
-      });
-    } else {
-      // Thêm student vào class nếu chưa có
-      const studentObjectId = new mongoose.Types.ObjectId(result.insertedId);
-      if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
-        cls.studentIds.push(studentObjectId);
-        await cls.save();
-      }
-    }
-    // ===== END UPDATE CLASS =====
-
+    // Lấy danh sách tất cả students mới nhất
     const allStudents = await students.find().sort({ createdAt: -1 }).toArray();
 
     return res.status(201).json({
@@ -136,7 +112,7 @@ export const createStudent = async (req: Request, res: Response) => {
     if (error?.errInfo?.details?.schemaRulesNotSatisfied) {
       console.error(
         "📋 Schema rules not satisfied:",
-        JSON.stringify(error.errInfo.details.schemaRulesNotSatisfied, null, 2)
+        JSON.stringify(error.errInfo.details.schemaRulesNotSatisfied, null, 2),
       );
     }
 

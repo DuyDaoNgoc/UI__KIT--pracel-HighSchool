@@ -18,7 +18,6 @@ const getBaseURL = (): string => {
     if (lanRegex.test(hostname)) {
       return `http://${hostname}:${BACKEND_PORT}/api`;
     }
-
     // Production domain
     if (process.env.NODE_ENV === "production") {
       return `https://UI-kit.com/api`;

@@ -36,6 +36,9 @@ import {
   LoadingProvider,
   useGlobalLoading,
 } from "./Components/settings/hook/IOserver/loading/LoadingContext";
+
+import { register } from "../server/serviceWorker"; // ✅ nhúng SW
+
 const Airlines = () => <h2>Airlines Page</h2>;
 const Vacation = () => <h2>Vacation Page</h2>;
 const FindMore = () => <h2>Find More Page</h2>;
@@ -43,7 +46,7 @@ const Admin = () => <AdminProfile />;
 
 function Layout() {
   const location = useLocation();
-  const { socket, loading: socketLoading, error } = useSocket(); // ✅ lấy trạng thái socket
+  const { socket, loading: socketLoading, error } = useSocket();
   const { loading: globalLoading, setLoading } = useGlobalLoading();
   const [messages, setMessages] = useState<
     { text: string; timestamp: number }[]
@@ -66,6 +69,7 @@ function Layout() {
       socket.off("message", handleMessage);
     };
   }, [socket]);
+
   // ===== Track offline =====
   const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
   React.useEffect(() => {
@@ -92,12 +96,11 @@ function Layout() {
       }
     };
 
-    // Check ngay khi load + mỗi 5s
     checkServer();
     const interval = setInterval(checkServer, 5000);
-
     return () => clearInterval(interval);
   }, []);
+
   const hiddenLayoutRoutes = [
     "/login",
     "/register",
@@ -107,7 +110,6 @@ function Layout() {
     "/profile/parent",
     "/profile/admin",
   ];
-
   const isHidden = hiddenLayoutRoutes.some((route) =>
     location.pathname.startsWith(route),
   );
@@ -194,6 +196,14 @@ function Layout() {
 }
 
 export default function App() {
+  // ===== Nhúng service worker =====
+  useEffect(() => {
+    register({
+      onSuccess: (reg) => console.log("Service Worker registered", reg),
+      onUpdate: (reg) => console.log("Service Worker updated", reg),
+    });
+  }, []);
+
   return (
     <AuthProvider>
       <SocketProvider>

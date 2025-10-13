@@ -5,7 +5,6 @@ import UserModel from "../../../models/User";
 import TeacherModel from "../../../models/teacherModel";
 import { IUserDocument } from "../../../types/user";
 
-/* ===== Kiểu dữ liệu khi populate ===== */
 interface IClassWithPopulate {
   _id: mongoose.Types.ObjectId;
   classCode: string;
@@ -30,7 +29,6 @@ interface IClassWithPopulate {
   };
 }
 
-/* ===== Lấy danh sách lớp (populate học sinh + giáo viên) ===== */
 export const getAllClasses = async (req: Request, res: Response) => {
   try {
     const classes = await ClassModel.find()
@@ -76,7 +74,6 @@ export const getAllClasses = async (req: Request, res: Response) => {
   }
 };
 
-/* ===== Tạo hoặc lấy lớp ===== */
 export const createOrGetClass = async (req: Request, res: Response) => {
   try {
     const { schoolYear, classLetter, major, teacherId } = req.body;
@@ -103,7 +100,7 @@ export const createOrGetClass = async (req: Request, res: Response) => {
         classCode,
         className,
         teacherId: teacherId
-          ? new mongoose.Types.ObjectId(teacherId as string)
+          ? new mongoose.Types.ObjectId(String(teacherId))
           : null,
         teacherName: "",
         studentIds: [],
@@ -111,14 +108,13 @@ export const createOrGetClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    // ✅ Cập nhật giáo viên nếu có teacherId mới
     if (
       teacherId &&
       (!cls.teacherId ||
-        !cls.teacherId.equals(new mongoose.Types.ObjectId(teacherId as string)))
+        !cls.teacherId.equals(new mongoose.Types.ObjectId(String(teacherId))))
     ) {
       const teacher = await TeacherModel.findById(teacherId);
-      cls.teacherId = new mongoose.Types.ObjectId(teacherId as string);
+      cls.teacherId = new mongoose.Types.ObjectId(String(teacherId));
       cls.teacherName = teacher?.name || "";
       await cls.save();
 
@@ -133,16 +129,15 @@ export const createOrGetClass = async (req: Request, res: Response) => {
     return res.status(200).json(cls);
   } catch (err: any) {
     if (err.code === 11000) {
-      return res.status(409).json({
-        message: "Lớp đã tồn tại (duplicate index)",
-      });
+      return res
+        .status(409)
+        .json({ message: "Lớp đã tồn tại (duplicate index)" });
     }
     console.error("⚠️ createOrGetClass error:", err);
     return res.status(500).json({ message: "Tạo hoặc lấy lớp thất bại" });
   }
 };
 
-/* ===== Thêm học sinh vào lớp ===== */
 export const addStudentToClass = async (req: Request, res: Response) => {
   try {
     const { studentId } = req.body;
@@ -183,7 +178,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    const studentObjectId = new mongoose.Types.ObjectId(studentId as string);
+    const studentObjectId = new mongoose.Types.ObjectId(String(studentId));
     if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
       cls.studentIds.push(studentObjectId);
       await cls.save();
@@ -213,7 +208,6 @@ export const addStudentToClass = async (req: Request, res: Response) => {
   }
 };
 
-/* ===== Gán giáo viên cho lớp ===== */
 export const assignTeacher = async (req: Request, res: Response) => {
   try {
     const { classCode } = req.params;
@@ -233,14 +227,11 @@ export const assignTeacher = async (req: Request, res: Response) => {
     let classLetter = "";
     let major = "";
 
-    if (match) {
-      [, schoolYear, classLetter, major] = match;
-    } else if (teacher.majors?.length) {
-      major = teacher.majors[0];
-    }
+    if (match) [, schoolYear, classLetter, major] = match;
+    else if (teacher.majors?.length) major = teacher.majors[0];
 
     const className = `${schoolYear}${classLetter} - ${major}`;
-    const teacherObjectId = new mongoose.Types.ObjectId(teacherId as string);
+    const teacherObjectId = new mongoose.Types.ObjectId(String(teacherId));
 
     let cls = await ClassModel.findOne({ classCode, schoolYear, major });
 

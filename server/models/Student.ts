@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 
 // Interface Mongoose + TS
 export interface IStudent extends Document {
@@ -12,8 +12,12 @@ export interface IStudent extends Document {
   major: string; // Ngành
   schoolYear: string; // Niên khóa
   studentId: string; // Mã học sinh
-  classCode?: string; // 💡 thêm để truy cập classCode
+  classCode?: string; // 💡 để truy cập classCode
   className: string;
+  teacherId?: Types.ObjectId | null;
+  parentId?: Types.ObjectId | null;
+  avatar?: string;
+  role?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -31,9 +35,14 @@ const StudentSchema: Schema<IStudent> = new Schema(
     major: { type: String, required: true },
     schoolYear: { type: String, required: true },
     studentId: { type: String, required: true, unique: true },
-    classCode: { type: String }, // 💡 thêm field
+    classCode: { type: String },
+    className: { type: String, required: true },
+    teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
+    parentId: { type: Schema.Types.ObjectId, ref: "Parent", default: null },
+    avatar: { type: String, default: "" },
+    role: { type: String, default: "student" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // 📌 Middleware: tự sinh studentId nếu chưa có
@@ -42,7 +51,7 @@ StudentSchema.pre<IStudent>("save", async function (next) {
     const lastStudent = await Student.findOne(
       {},
       {},
-      { sort: { studentId: -1 } }
+      { sort: { studentId: -1 } },
     );
 
     let newId = "HS00001"; // default
@@ -53,6 +62,12 @@ StudentSchema.pre<IStudent>("save", async function (next) {
 
     this.studentId = newId;
   }
+
+  // Tự động sinh className nếu chưa có
+  if (!this.className) {
+    this.className = `${this.grade}${this.classLetter} - ${this.major}`;
+  }
+
   next();
 });
 
