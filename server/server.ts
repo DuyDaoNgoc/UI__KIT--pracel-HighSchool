@@ -191,7 +191,7 @@ function getLocalIP() {
       const localIP = getLocalIP();
       console.log("\n🚀 Backend + Frontend + Socket.IO running at:");
       console.log(`   → Local:   http://localhost:${PORT}`);
-      console.log(`   → LAN:     http://${localIP}:${PORT}`);
+      console.log(`   → LAN:     http://${localIP}:5000`);
       console.log(`📰 News API:      http://${localIP}:${PORT}/api/news`);
       console.log(`🔑 Auth API:      http://${localIP}:${PORT}/api/auth/login`);
       console.log(`📊 Grades API:    http://${localIP}:${PORT}/api/grades`);
@@ -209,3 +209,4 @@ function getLocalIP() {
     process.exit(1);
   }
 })();
+
