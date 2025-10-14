@@ -10,7 +10,7 @@ const getBaseURL = (): string => {
     const hostname = window.location.hostname;
 
     // Dev: localhost / 127.0.0.1 → backend local
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (hostname === "localhost" || hostname === "172.16.0.25") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
     // LAN (192.168.x.x)

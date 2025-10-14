@@ -3,20 +3,49 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
+const getSocketURL = async (): Promise<string> => {
+  if (typeof window === "undefined")
+    return (
+      process.env.REACT_APP_BACKEND_URL || `http://localhost:${BACKEND_PORT}`
+    );
 
-const getSocketURL = (): string => {
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname === "localhost" || hostname === "127.0.0.1")
-      return `http://localhost:${BACKEND_PORT}`;
-    const lanRegex = /^192\.168\.\d+\.\d+$/;
-    if (lanRegex.test(hostname)) return `http://${hostname}:${BACKEND_PORT}`;
-    if (process.env.NODE_ENV === "production") return `https://UI-kit.com`;
-    return window.location.origin;
+  const hostname = window.location.hostname;
+
+  // localhost
+  if (hostname === "localhost") {
+    return `http://localhost:${BACKEND_PORT}`;
   }
-  return (
-    process.env.REACT_APP_BACKEND_URL || `http://localhost:${BACKEND_PORT}`
-  );
+
+  // LAN hiện tại từ server
+  if (process.env.NODE_ENV === "production") {
+    const res = await fetch("/socket-url");
+    const data = await res.json();
+    return data.url; // http://<LAN_IP>:PORT
+  }
+
+  // LAN IP kiểu 192.168.x.x
+  const lanRegex = /^192\.168\.\d+\.\d+$/;
+  if (lanRegex.test(hostname)) {
+    return `http://${hostname}:${BACKEND_PORT}`;
+  }
+
+  // production => fetch từ server để lấy IP LAN
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const res = await fetch("/socket-url");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) return data.url; // sẽ là http://<LAN_IP>:PORT
+      }
+      console.warn("⚠️ /socket-url response chưa có url, fallback");
+    } catch (err) {
+      console.error("❌ Không lấy được LAN IP từ server, fallback:", err);
+    }
+    return `http://localhost:${BACKEND_PORT}`;
+  }
+
+  // fallback
+  return window.location.origin;
 };
 
 export type SocketType = Socket | null;
@@ -61,55 +90,59 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    const socketURL = getSocketURL();
-    console.log("🔗 Kết nối socket đến:", socketURL);
+    const initSocket = async () => {
+      const socketURL = await getSocketURL();
+      console.log("🔗 Kết nối socket đến:", socketURL);
 
-    const s: Socket = io(socketURL, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
+      const s: Socket = io(socketURL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+      });
 
-    setSocket(s);
+      setSocket(s);
 
-    const eventHandler: SocketEventHandler = (event, payload) => {
-      setData((prev) => ({ ...prev, [event]: payload }));
-    };
+      const eventHandler: SocketEventHandler = (event, payload) => {
+        setData((prev) => ({ ...prev, [event]: payload }));
+      };
 
-    // @ts-ignore
-    s.onAny(eventHandler);
-
-    s.on("connect", () => {
-      console.log("✅ Socket connected:", s.id);
-      setLoading(false);
-      setError(null);
-    });
-
-    s.on("disconnect", () => {
-      console.warn("⚠️ Socket disconnected");
-      setLoading(true);
-    });
-
-    s.on("connect_error", (err: any) => {
-      console.error("❌ Socket connect_error:", err.message || err);
-      setError("Không thể kết nối server");
-      setLoading(false);
-    });
-
-    // ===== Reconnect events =====
-    s.io.on("reconnect_attempt", () => setLoading(true));
-    s.io.on("reconnect_failed", () => {
-      setLoading(false);
-      setError("Không thể kết nối server");
-    });
-
-    return () => {
       // @ts-ignore
-      s.offAny?.();
-      s.disconnect();
-      console.log("🔌 Socket disconnected cleanup.");
+      s.onAny(eventHandler);
+
+      s.on("connect", () => {
+        console.log("✅ Socket connected:", s.id);
+        setLoading(false);
+        setError(null);
+      });
+
+      s.on("disconnect", () => {
+        console.warn("⚠️ Socket disconnected");
+        setLoading(true);
+      });
+
+      s.on("connect_error", (err: any) => {
+        console.error("❌ Socket connect_error:", err.message || err);
+        setError("Không thể kết nối server");
+        setLoading(false);
+      });
+
+      // ===== Reconnect events =====
+      s.io.on("reconnect_attempt", () => setLoading(true));
+      s.io.on("reconnect_failed", () => {
+        setLoading(false);
+        setError("Không thể kết nối server");
+      });
+
+      return () => {
+        // @ts-ignore
+        s.offAny?.();
+        s.disconnect();
+        console.log("🔌 Socket disconnected cleanup.");
+      };
     };
+
+    initSocket();
   }, []);
 
   return (

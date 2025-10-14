@@ -28,7 +28,7 @@ export async function connectDB(): Promise<Db> {
       await client.connect();
       db = client.db(process.env.MONGO_DB_NAME || "Duy04");
       console.log(
-        `✅ MongoClient connected → ${process.env.MONGO_DB_NAME || "Duy04"}`
+        `✅ MongoClient connected → ${process.env.MONGO_DB_NAME || "Duy04"}`,
       );
 
       // connect mongoose (so your mongoose models work)
@@ -54,7 +54,7 @@ export async function ensureIndexes() {
   await users.createIndex({ email: 1 }, { unique: true, name: "uniq_email" });
   await users.createIndex(
     { username: 1 },
-    { unique: true, name: "uniq_username" }
+    { unique: true, name: "uniq_username" },
   );
 
   console.log("✅ Indexes ensured (email, username)");

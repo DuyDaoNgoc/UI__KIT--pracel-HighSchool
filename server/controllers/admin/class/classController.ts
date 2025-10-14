@@ -4,7 +4,7 @@ import ClassModel from "../../../models/Class";
 import UserModel from "../../../models/User";
 import TeacherModel from "../../../models/teacherModel";
 import { IUserDocument } from "../../../types/user";
-
+import { IStudent } from "../../../models/Student";
 interface IClassWithPopulate {
   _id: mongoose.Types.ObjectId;
   classCode: string;
@@ -27,6 +27,16 @@ interface IClassWithPopulate {
     subject?: string;
     majors?: string[];
   };
+  IStudent?:
+    | IStudent
+    | {
+        _id: mongoose.Types.ObjectId;
+        studentId: string;
+        username: string;
+        major: string[];
+        schoolYear: string;
+        classLetter: string;
+      };
 }
 
 export const getAllClasses = async (req: Request, res: Response) => {

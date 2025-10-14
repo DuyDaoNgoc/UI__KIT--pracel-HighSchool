@@ -11,7 +11,7 @@ const getBaseURL = (): string => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
 
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (hostname === "localhost" || hostname === "172.16.0.25") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
 

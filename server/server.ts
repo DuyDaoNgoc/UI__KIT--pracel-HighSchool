@@ -85,15 +85,15 @@ app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
 app.use("/api/users", userRoutes);
 
-// 👨‍🏫 Giáo viên
+// Giáo viên
 app.use("/api/teachers/auth", teacherAuthRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/admin/teachers", teacherAdminRoutes);
 
-// 🧑‍💼 Admin
+//  Admin
 app.use("/api/admin", adminRoutes);
 
-// 👨‍👩‍👧 Phụ huynh
+// Phụ huynh
 app.use("/api/admin/parents", parentsRoutes);
 
 // ================== Test Routes ==================
@@ -111,9 +111,14 @@ app.get(
 );
 
 // ================== Socket URL Route ==================
-app.get("/socket-url", (req: Request, res: Response) => {
-  const port = process.env.PORT || 8000;
-  res.json({ url: `http://localhost:${port}` });
+app.get("/socket-url", (req, res) => {
+  try {
+    const localIP = getLocalIP();
+    res.json({ url: `http://${localIP}:5000` }); // <-- gửi response
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal Server Error" }); // <-- GỌI LẠI res.json nếu err xảy ra
+  }
 });
 
 // ================== Static Routes ==================
@@ -205,7 +210,7 @@ function getLocalIP() {
       );
     });
   } catch (err) {
-    console.error("❌ Failed to start server:", err);
+    console.error("❌⛔ Failed to start server:", err);
     process.exit(1);
   }
 })();

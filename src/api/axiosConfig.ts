@@ -5,11 +5,11 @@ import axios from "axios";
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
 
 // ===== Hàm lấy baseURL động
-const getBaseURL = (): string => {
+const getBaseURL = async (): Promise<string> => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
 
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (hostname === "localhost") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
 
@@ -18,28 +18,39 @@ const getBaseURL = (): string => {
       return `http://${hostname}:${BACKEND_PORT}/api`;
     }
 
+    // Production: lấy LAN IP thật từ server
     if (process.env.NODE_ENV === "production") {
-      return `https://UI-kit.com/api`;
+      try {
+        const res = await fetch("/socket-url");
+        const data = await res.json();
+        return `${data.url}/api`; // http://<LAN_IP>:PORT/api
+      } catch {
+        return `http://localhost:${BACKEND_PORT}/api`; // fallback
+      }
     }
 
     return `${window.location.origin}/api`;
   }
 
-  if (process.env.REACT_APP_BACKEND_URL) {
-    return process.env.REACT_APP_BACKEND_URL;
-  }
-
-  return `http://localhost:${BACKEND_PORT}/api`;
+  return (
+    process.env.REACT_APP_BACKEND_URL || `http://localhost:${BACKEND_PORT}/api`
+  );
 };
 
 const API_URL = getBaseURL();
 
 // ===== Axios instance chuẩn
+// ===== Axios instance chuẩn với baseURL async
 const http = axios.create({
-  baseURL: API_URL,
+  baseURL: undefined, // sẽ set sau
   headers: { "Content-Type": "application/json" },
-  timeout: 15000, // giảm timeout xuống 15s cho responsive hơn
+  timeout: 15000,
 });
+
+// Lấy URL động + set baseURL
+(async () => {
+  http.defaults.baseURL = await getBaseURL();
+})();
 
 // ===== Interceptor tự động thêm token
 http.interceptors.request.use(
