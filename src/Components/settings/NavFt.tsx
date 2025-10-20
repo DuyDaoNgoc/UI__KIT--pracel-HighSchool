@@ -15,7 +15,6 @@ const NavFt: React.FC = () => {
           <Link to="/contact">Contact</Link>
         </li>
       </ul>
-
       <ul className="nav__footer--items text__content--size-18">
         <li>
           <Link to="/testimonials">Testimonials</Link>
@@ -27,7 +26,6 @@ const NavFt: React.FC = () => {
           <Link to="/news">News</Link>
         </li>
       </ul>
-
       <ul className="nav__footer--items text__content--size-18">
         <li>
           <Link to="/documentation">Documentation</Link>

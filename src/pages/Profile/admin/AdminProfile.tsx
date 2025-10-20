@@ -4,7 +4,7 @@ import axiosInstance from "../../../api/axiosConfig";
 import { INews } from "../../../types/news";
 import { ICreatedStudent } from "../../../types/student";
 import Logout from "../../../Components/settings/logout/logout";
-import NotFound from "../../../error/404";
+import NotFound from "../../../error/404NotFound";
 import { useAuth } from "../../../context/AuthContext";
 
 import AdminSidebar from "./AdminSidebar";

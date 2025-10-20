@@ -5,6 +5,7 @@ import {
   UserPlus,
   Users,
   BookOpen, // ✅ thêm icon cho lớp học
+  BarChart2,
 } from "lucide-react";
 import Logout from "@/Components/settings/logout/logout";
 import { useAuth } from "../../../context/AuthContext";
@@ -44,22 +45,19 @@ export default function AdminSidebar({
         </div>
         <p>Quản trị viên</p>
       </div>
-
       <ul className="profile__menu">
         <li
           onClick={() => setActiveTab("dashboard")}
           className={activeTab === "dashboard" ? "active" : ""}
         >
-          <HomeIcon /> Thống kê
+          <BarChart2 /> Thống kê
         </li>
-
         <li
           onClick={() => setActiveTab("news")}
           className={activeTab === "news" ? "active" : ""}
         >
           <FileText size={18} /> Tin tức chờ duyệt
         </li>
-
         <li
           onClick={() => setActiveTab("lock")}
           className={activeTab === "lock" ? "active" : ""}
@@ -67,35 +65,30 @@ export default function AdminSidebar({
           {locked ? <Lock size={18} /> : <Unlock size={18} />} Trạng thái khóa
           điểm
         </li>
-
         <li
           onClick={() => setActiveTab("students")}
           className={activeTab === "students" ? "active" : ""}
         >
           <UserPlus size={18} /> Tạo học sinh
         </li>
-
         <li
           onClick={() => setActiveTab("classes")}
           className={activeTab === "classes" ? "active" : ""}
         >
           <Users size={18} /> Danh sách lớp
         </li>
-
         <li
           onClick={() => setActiveTab("create-class")}
           className={activeTab === "create-class" ? "active" : ""}
         >
           <BookOpen size={18} /> Tạo lớp học {/* ✅ thêm icon */}
         </li>
-
         <li
           onClick={() => setActiveTab("create-teacher")}
           className={activeTab === "create-teacher" ? "active" : ""}
         >
           <UserPlus size={18} /> Tạo giáo viên
         </li>
-
         <li
           onClick={() => setActiveTab("users")}
           className={activeTab === "users" ? "active" : ""}

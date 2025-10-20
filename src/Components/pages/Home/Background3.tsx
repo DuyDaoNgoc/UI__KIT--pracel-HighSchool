@@ -1,6 +1,6 @@
 // src/components/Background3.tsx
 import React from "react";
-import Dots from "../settings/Dots";
+import Dots from "../../settings/Dots";
 
 interface Background3Props {
   list: {

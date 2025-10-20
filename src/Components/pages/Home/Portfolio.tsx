@@ -2,11 +2,11 @@
 import React from "react";
 
 // Import icon components thật
-import ViewIcon from "../../icons/View";
-import LikeIcon from "../../icons/Like";
-import CommentsIcon from "../../icons/Comments";
-import PrevIcon from "../../icons/Prev";
-import NextIcon from "../../icons/Next";
+import ViewIcon from "../../../icons/View";
+import LikeIcon from "../../../icons/Like";
+import CommentsIcon from "../../../icons/Comments";
+import PrevIcon from "../../../icons/Prev";
+import NextIcon from "../../../icons/Next";
 
 interface PortfolioProps {
   list: {

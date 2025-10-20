@@ -1,11 +1,11 @@
 import React, { useEffect } from "react";
-import Features from "../Components/Home/Features";
-import Background2 from "../Components/Home/Background2";
-import Testimonials from "../Components/Home/Testimonials";
-import Pricing from "../Components/Home/Pricing";
-import Portfolio from "../Components/Home/Portfolio";
-import Background3 from "../Components/Home/Background3";
-import ContactPhone from "../Components/Home/ContactPhone";
+import Features from "../Components/pages/Home/Features";
+import Background2 from "../Components/pages/Home/Background2";
+import Testimonials from "../Components/pages/Home/Testimonials";
+import Pricing from "../Components/pages/Home/Pricing";
+import Portfolio from "../Components/pages/Home/Portfolio";
+import Background3 from "../Components/pages/Home/Background3";
+import ContactPhone from "../Components/pages/Home/ContactPhone";
 
 // ICONS + ASSETS
 import mac from "../../public/assets/imgs/phone/mac.png";

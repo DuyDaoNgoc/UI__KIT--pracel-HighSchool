@@ -1,5 +1,5 @@
-// src/pages/Profile/admin/ClassesTab.tsx
-import React, { useState, useEffect } from "react";
+// ...existing code...
+import React, { useState, useEffect, useRef } from "react";
 import { ICreatedStudent } from "../../../../types/student";
 import axiosInstance from "../../../../api/axiosConfig";
 
@@ -19,31 +19,53 @@ export default function ClassesTab({ students }: ClassesTabProps) {
     useState<ICreatedStudent | null>(null);
   const [studentList, setStudentList] = useState<ICreatedStudent[]>([]);
 
+  // track which students we've already attempted to sync (avoid duplicates)
+  const syncedRef = useRef<Set<string>>(new Set());
+
   // ===== Cập nhật danh sách students từ props =====
   useEffect(() => {
-    setStudentList(students);
+    setStudentList(Array.isArray(students) ? students : []);
   }, [students]);
 
-  // ===== Đồng bộ học sinh lên MongoDB classes =====
+  // helper: build correct endpoint to avoid double "/api" when axios baseURL already has it
+  const buildAddStudentPath = (axiosInst: any) => {
+    try {
+      const base = axiosInst?.defaults?.baseURL || "";
+      const hasApi = base.includes("/api");
+      return `${hasApi ? "" : "/api"}/admin/classes/add-student`;
+    } catch {
+      return "/api/admin/classes/add-student";
+    }
+  };
+
+  // ===== Đồng bộ học sinh lên MongoDB classes (idempotent, skip already-synced) =====
   useEffect(() => {
+    const path = buildAddStudentPath(axiosInstance);
+
     const syncStudentsToClasses = async () => {
       for (const s of studentList) {
         if (!s.grade || !s.classLetter || !s.major || !s._id) continue;
+        if (syncedRef.current.has(s._id)) continue; // already synced
 
         try {
-          await axiosInstance.post("/api/admin/classes/add-student", {
+          await axiosInstance.post(path, {
             studentId: s._id,
             grade: s.grade,
             classLetter: s.classLetter,
             major: s.major,
           });
+          // mark as synced only on success
+          syncedRef.current.add(s._id);
         } catch (err) {
+          // log but do not break the loop; will retry next time studentList changes
           console.error("⚠️ sync student to class error:", err);
         }
       }
     };
 
     if (studentList.length > 0) syncStudentsToClasses();
+    // do not include buildAddStudentPath in deps to avoid recalculating; axiosInstance is stable import
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentList]);
 
   // ===== Gom nhóm theo ngành → trong ngành theo khối (grade) → trong khối theo lớp =====
@@ -96,7 +118,6 @@ export default function ClassesTab({ students }: ClassesTabProps) {
         Object.entries(groupedByMajor).map(([major, grades]) => (
           <div key={major} className="major-block">
             <h3 className="profile__subtitle">Ngành {major}</h3>
-
             {Object.entries(grades).map(([grade, classes]) => (
               <div key={grade} className="grade-block">
                 <h4 className="profile__subtitle2">Khóa {grade}</h4>
@@ -134,7 +155,7 @@ export default function ClassesTab({ students }: ClassesTabProps) {
                           </thead>
                           <tbody>
                             {studentsInClass.map((s: ICreatedStudent) => (
-                              <tr key={s.studentId}>
+                              <tr key={s.studentId || s._id}>
                                 <td>{s.studentId}</td>
                                 <td>{s.name}</td>
                                 <td>{formatDate(s.dob)}</td>
@@ -149,7 +170,7 @@ export default function ClassesTab({ students }: ClassesTabProps) {
                                         selectedStudent?.studentId ===
                                           s.studentId
                                           ? null
-                                          : s
+                                          : s,
                                       )
                                     }
                                   >

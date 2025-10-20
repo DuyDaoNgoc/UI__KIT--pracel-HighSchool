@@ -1,7 +1,7 @@
 import React from "react";
-import DesktopIcon from "../../icons/Desktop";
-import DiamondIcon from "../../icons/Diamond";
-import LayerIcon from "../../icons/Layer";
+import DesktopIcon from "../../../icons/Desktop";
+import DiamondIcon from "../../../icons/Diamond";
+import LayerIcon from "../../../icons/Layer";
 
 interface FeatureItem {
   title: string;

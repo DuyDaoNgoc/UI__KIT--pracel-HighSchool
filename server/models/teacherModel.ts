@@ -18,7 +18,7 @@ export interface IAssignedClass {
   classLetter: string; // Tên lớp (VD: "A", "B")
   major: string; // Chuyên ngành hoặc tổ hợp môn (VD: "Toán")
   schoolYear: string; // Niên khóa (VD: "2024-2025")
-  classCode: string; // Mã duy nhất của lớp (VD: "10A1-2024") => dùng để lookup
+  classCode: string | undefined; // Mã duy nhất của lớp (VD: "10A1-2024") => dùng để lookup
   className?: string; //
 }
 

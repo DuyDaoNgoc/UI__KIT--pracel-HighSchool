@@ -132,6 +132,7 @@ export default function StudentsTab({
               <th>Mã HS</th>
               <th>Tên</th>
               <th>Lớp</th>
+              <th>Ngành</th>
               <th>Ngày tạo</th>
               <th>Giới tính</th>
               <th>Hành động</th>
@@ -143,12 +144,8 @@ export default function StudentsTab({
                 <td>{s.studentId}</td>
                 <td>{s.name}</td>
                 {/* Hiển thị lớp + ngành */}
-                <td>
-                  {s.classCode
-                    ? s.classCode
-                    : generateClassCode(s.grade, s.classLetter, s.major)}
-                  {s.major ? ` (${s.major})` : ""}
-                </td>
+                <td>{s.classCode ? s.classCode : ""}</td>
+                <td>{s.major ? s.major : "-"}</td>
                 <td>
                   {s.createdAt
                     ? new Date(s.createdAt).toLocaleDateString()

@@ -31,13 +31,12 @@ interface ITeacher {
 interface Stats {
   totalStudents: number;
   totalTeachers: number;
-  totalParents: number;
   totalClasses: number;
 }
 
 interface ChartDataItem {
   name: string;
-  số_lượng: number;
+  so_luong: number;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -46,28 +45,26 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
     totalTeachers: 0,
-    totalParents: 0,
     totalClasses: 0,
   });
 
   const [studentsData, setStudentsData] = useState<IStudent[]>([]);
   const [teachersData, setTeachersData] = useState<ITeacher[]>([]);
-  const [parentsData, setParentsData] = useState<IParent[]>([]);
   const [classesData, setClassesData] = useState<IClass[]>([]);
 
   const [chartData, setChartData] = useState<ChartDataItem[]>([]);
   const [viewMode, setViewMode] = useState<
-    "all" | "students" | "teachers" | "parents" | "classes"
+    "all" | "students" | "teachers" | "classes"
   >("all");
 
   // ===== FETCH DATA =====
   const fetchData = async () => {
     try {
-      const [students, teachers, parents, classesResponse] = await Promise.all([
+      const [students, teachers, classesResponse] = await Promise.all([
         get<IStudent[]>("/admin/students"),
         get<ITeacher[]>("/admin/teachers"),
-        get<IParent[]>("/admin/parents"),
-        get<Record<string, IClass[]>>("/admin/classes"), // 🧩 Trả về object group theo ngành
+
+        get<Record<string, IClass[]>>("/admin/classes"),
       ]);
 
       // 🧩 Làm phẳng dữ liệu lớp từ { major: IClass[] } → IClass[]
@@ -75,21 +72,18 @@ const AdminDashboard: React.FC = () => {
 
       setStudentsData(students);
       setTeachersData(teachers);
-      setParentsData(parents);
       setClassesData(allClasses);
 
       setStats({
         totalStudents: students.length,
         totalTeachers: teachers.length,
-        totalParents: parents.length,
         totalClasses: allClasses.length,
       });
 
       setChartData([
-        { name: "Học sinh", số_lượng: students.length },
-        { name: "Giáo viên", số_lượng: teachers.length },
-        { name: "Phụ huynh", số_lượng: parents.length },
-        { name: "Lớp học", số_lượng: allClasses.length },
+        { name: "Học sinh", so_luong: students.length },
+        { name: "Giáo viên", so_luong: teachers.length },
+        { name: "Lớp học", so_luong: allClasses.length },
       ]);
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu thống kê:", err);
@@ -103,17 +97,15 @@ const AdminDashboard: React.FC = () => {
   // ===== Cập nhật chart khi đổi chế độ xem =====
   useEffect(() => {
     const baseData: ChartDataItem[] = [
-      { name: "Học sinh", số_lượng: studentsData.length },
-      { name: "Giáo viên", số_lượng: teachersData.length },
-      { name: "Phụ huynh", số_lượng: parentsData.length },
-      { name: "Lớp học", số_lượng: classesData.length },
+      { name: "Học sinh", so_luong: studentsData.length },
+      { name: "Giáo viên", so_luong: teachersData.length },
+      { name: "Lớp học", so_luong: classesData.length },
     ];
 
     const viewMap: Record<typeof viewMode, string> = {
       all: "",
       students: "Học sinh",
       teachers: "Giáo viên",
-      parents: "Phụ huynh",
       classes: "Lớp học",
     };
 
@@ -123,7 +115,7 @@ const AdminDashboard: React.FC = () => {
         : baseData.filter((d) => d.name === viewMap[viewMode]);
 
     setChartData(filteredData);
-  }, [viewMode, studentsData, teachersData, parentsData, classesData]);
+  }, [viewMode, studentsData, teachersData, classesData]);
 
   const apexOptions: ApexOptions = {
     chart: { type: "bar", height: 350, toolbar: { show: true } },
@@ -135,25 +127,23 @@ const AdminDashboard: React.FC = () => {
     tooltip: { y: { formatter: (val: number) => val.toString() } },
   };
   const apexSeries = [
-    { name: "Số lượng", data: chartData.map((d) => d.số_lượng) },
+    { name: "Số lượng", data: chartData.map((d) => d.so_luong) },
   ];
 
   const viewModes: {
     label: string;
-    mode: "all" | "students" | "teachers" | "parents" | "classes";
+    mode: "all" | "students" | "teachers" | "classes";
   }[] = [
     { label: "Tất cả", mode: "all" },
     { label: "Học sinh", mode: "students" },
     { label: "Giáo viên", mode: "teachers" },
-    { label: "Phụ huynh", mode: "parents" },
     { label: "Lớp học", mode: "classes" },
   ];
 
   const cardViewMap: Record<typeof viewMode, string[]> = {
-    all: ["Học sinh", "Giáo viên", "Phụ huynh", "Lớp học"],
+    all: ["Học sinh", "Giáo viên", "Lớp học"],
     students: ["Học sinh"],
     teachers: ["Giáo viên"],
-    parents: ["Phụ huynh"],
     classes: ["Lớp học"],
   };
 
@@ -206,11 +196,6 @@ const AdminDashboard: React.FC = () => {
               title: "Giáo viên",
               value: teachersData.length,
               color: appTheme.statsColors.teachers,
-            },
-            {
-              title: "Phụ huynh",
-              value: parentsData.length,
-              color: appTheme.statsColors.parents,
             },
             {
               title: "Lớp học",

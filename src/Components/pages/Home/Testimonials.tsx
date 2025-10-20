@@ -1,9 +1,9 @@
 // src/components/Testimonials.tsx
 import React from "react";
-import LinkedinIcon from "../../icons/Linkedin";
-import GooglePlusIcon from "../../icons/GooglePlus";
-import FacebookIcon from "../../icons/Facebook";
-import TwitterIcon from "../../icons/Twitter";
+import LinkedinIcon from "../../../icons/Linkedin";
+import GooglePlusIcon from "../../../icons/GooglePlus";
+import FacebookIcon from "../../../icons/Facebook";
+import TwitterIcon from "../../../icons/Twitter";
 
 interface TestimonialsProps {
   list: {

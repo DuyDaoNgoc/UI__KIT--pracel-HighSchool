@@ -1,11 +1,11 @@
 // src/Components/Home/ContactPhone.tsx
 import React from "react";
 
-import LinkedinIcon from "../../icons/Linkedin";
-import GooglePlusIcon from "../../icons/GooglePlus";
-import FacebookIcon from "../../icons/Facebook";
-import TwitterIcon from "../../icons/Twitter";
-import PinterestIcon from "../../icons/Pinterest";
+import LinkedinIcon from "../../../icons/Linkedin";
+import GooglePlusIcon from "../../../icons/GooglePlus";
+import FacebookIcon from "../../../icons/Facebook";
+import TwitterIcon from "../../../icons/Twitter";
+import PinterestIcon from "../../../icons/Pinterest";
 
 interface ContactProps {
   list: {
