@@ -8,19 +8,22 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "baseUrl": "./src",
+
+    "baseUrl": ".",
+
     "paths": {
-      "@server/*": ["../server/*"],
-      "@/*": ["*"]
+      "@/*": ["node_modules/*"],
+      "@/*": ["src/*"],
+      "@server/*": ["server/*"]
     },
+
     "typeRoots": ["./node_modules/@types", "./src/types"],
 
-    /* ✅ Thêm dòng này để ngăn lỗi trùng định nghĩa (react-native vs web) */
     "skipLibCheck": true,
 
-    /* ✅ Khai báo lib phù hợp cho web */
     "lib": ["esnext", "dom"]
   },
+
   "include": ["src", "src/types", "server/serviceWorker.ts"],
   "exclude": ["node_modules/react-native", "node_modules/@types/react-native"]
 }
