@@ -151,9 +151,9 @@ export default function AuthButtons() {
       </button>
       <button
         className="creater__user--btn text__content--size-18 border-register"
-        onClick={() => navigate("/register")}
+        onClick={() => navigate("#")}
       >
-        Đăng ký
+        Tìm hiểu thêm
       </button>
     </div>
   );

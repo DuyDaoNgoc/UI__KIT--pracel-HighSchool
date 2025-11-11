@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "../types/auth";
 import { motion } from "framer-motion";
+
 import { pageVariants } from "../configs/animations/pageVariants";
 
 // Định nghĩa kiểu cho context Auth (như user, token, login, logout)

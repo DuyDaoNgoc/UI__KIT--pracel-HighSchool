@@ -1,14 +1,14 @@
-import http from "../../../../../api/axiosConfig";
-
-export interface CreateClassResponse {
-  success: boolean;
-  message?: string;
-  data?: any;
-}
+import axios from "@/api/axiosConfig";
+import type { ApiResponse, ClassType } from "./getClassesAPI";
 
 export const createClass = async (
-  formData: Record<string, any>,
-): Promise<CreateClassResponse> => {
-  const { data } = await http.post<CreateClassResponse>("/classes", formData);
-  return data;
+  payload: Omit<ClassType, "_id">,
+): Promise<ApiResponse<ClassType>> => {
+  try {
+    const res = await axios.post("/classes", payload);
+    return res.data as ApiResponse<ClassType>; // ✅ ép kiểu
+  } catch (err: any) {
+    console.error("createClass error:", err);
+    return { success: false, message: err.message };
+  }
 };

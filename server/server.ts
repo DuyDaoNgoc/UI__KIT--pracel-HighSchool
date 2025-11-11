@@ -79,7 +79,7 @@ app.patch("/api/users/:id/block", async (req, res) => {
 });
 
 // ================== API Routes ==================
-app.use("/api/admin/classes", classRouter);
+app.use("/api/classes", classRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
@@ -214,4 +214,3 @@ function getLocalIP() {
     process.exit(1);
   }
 })();
-

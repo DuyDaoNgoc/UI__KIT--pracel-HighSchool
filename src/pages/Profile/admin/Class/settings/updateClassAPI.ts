@@ -1,18 +1,15 @@
-import http from "../../../../../api/axiosConfig";
-
-export interface UpdateClassResponse {
-  success: boolean;
-  message?: string;
-  data?: any;
-}
+import axios from "@/api/axiosConfig";
+import type { ApiResponse, ClassType } from "./getClassesAPI";
 
 export const updateClass = async (
   id: string,
-  updates: Record<string, any>,
-): Promise<UpdateClassResponse> => {
-  const { data } = await http.put<UpdateClassResponse>(
-    `/classes/${id}`,
-    updates,
-  );
-  return data;
+  payload: Partial<ClassType>,
+): Promise<ApiResponse<ClassType>> => {
+  try {
+    const res = await axios.put(`/classes/${id}`, payload);
+    return res.data as ApiResponse<ClassType>; // ✅ ép kiểu
+  } catch (err: any) {
+    console.error("updateClass error:", err);
+    return { success: false, message: err.message };
+  }
 };

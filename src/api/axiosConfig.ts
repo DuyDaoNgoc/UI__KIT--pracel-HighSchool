@@ -37,19 +37,24 @@ const getBaseURL = async (): Promise<string> => {
   );
 };
 
-const API_URL = getBaseURL();
+// ===== Tạo instance trước để tránh lỗi “used before declaration”
+let resolvedBaseURL = `http://localhost:${BACKEND_PORT}/api`;
 
-// ===== Axios instance chuẩn
-// ===== Axios instance chuẩn với baseURL async
 const http = axios.create({
-  baseURL: undefined, // sẽ set sau
+  baseURL: resolvedBaseURL, // tạm thời, sẽ được cập nhật sau
   headers: { "Content-Type": "application/json" },
   timeout: 15000,
 });
 
-// Lấy URL động + set baseURL
+// ===== Đồng bộ hoá baseURL động sau khi khởi tạo
 (async () => {
-  http.defaults.baseURL = await getBaseURL();
+  try {
+    resolvedBaseURL = await getBaseURL();
+    http.defaults.baseURL = resolvedBaseURL;
+    console.log("✅ BaseURL set:", resolvedBaseURL);
+  } catch (err) {
+    console.error("⚠️ Lỗi khi lấy baseURL:", err);
+  }
 })();
 
 // ===== Interceptor tự động thêm token

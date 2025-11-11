@@ -37,9 +37,10 @@ import {
   useGlobalLoading,
 } from "./Components/settings/hook/IOserver/loading/LoadingContext";
 
-import { register } from "../server/serviceWorker"; // ✅ nhúng SW
-
-const Airlines = () => <h2>Airlines Page</h2>;
+import { register } from "../server/serviceWorker";
+// page
+import Introduce from "./pages/Contents/Introduce/index";
+const Introduces = () => <Introduce />;
 const Vacation = () => <h2>Vacation Page</h2>;
 const FindMore = () => <h2>Find More Page</h2>;
 const Admin = () => <AdminProfile />;
@@ -176,7 +177,7 @@ function Layout() {
         >
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
-            <Route path="/airlines" element={<Airlines />} />
+            <Route path="/airlines" element={<Introduce />} />
             <Route path="/vacation" element={<Vacation />} />
             <Route path="/find-more" element={<FindMore />} />
             <Route path="/login" element={<Login />} />

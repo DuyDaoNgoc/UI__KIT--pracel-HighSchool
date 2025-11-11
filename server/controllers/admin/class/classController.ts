@@ -4,7 +4,7 @@ import ClassModel from "../../../models/Class";
 import UserModel from "../../../models/User";
 import TeacherModel from "../../../models/teacherModel";
 import { IUserDocument } from "../../../types/user";
-import { IStudent } from "../../../models/Student";
+
 interface IClassWithPopulate {
   _id: mongoose.Types.ObjectId;
   classCode: string;
@@ -27,18 +27,11 @@ interface IClassWithPopulate {
     subject?: string;
     majors?: string[];
   };
-  IStudent?:
-    | IStudent
-    | {
-        _id: mongoose.Types.ObjectId;
-        studentId: string;
-        username: string;
-        major: string[];
-        schoolYear: string;
-        classLetter: string;
-      };
 }
 
+/* =============================
+ * 📘 LẤY DANH SÁCH TOÀN BỘ LỚP
+ * ============================= */
 export const getAllClasses = async (req: Request, res: Response) => {
   try {
     const classes = await ClassModel.find()
@@ -78,33 +71,52 @@ export const getAllClasses = async (req: Request, res: Response) => {
     }
 
     return res.status(200).json(groupedByMajor);
-  } catch (err) {
+  } catch (err: any) {
     console.error("⚠️ getAllClasses error:", err);
-    return res.status(500).json({ message: "Lấy danh sách lớp thất bại" });
+    return res
+      .status(500)
+      .json({ message: "Lấy danh sách lớp thất bại", error: err.message });
   }
 };
-
-export const createOrGetClass = async (req: Request, res: Response) => {
+// =====================================
+// 🏫 TẠO HOẶC LẤY LỚP NẾU ĐÃ TỒN TẠI
+// =====================================
+export const createClass = async (req: Request, res: Response) => {
   try {
     const { schoolYear, classLetter, major, teacherId } = req.body;
 
     if (!major || !schoolYear || !classLetter) {
-      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin bắt buộc (schoolYear, classLetter, major)",
+      });
     }
+
+    // ✅ grade luôn có giá trị (ép kiểu chuẩn)
+    const grade =
+      typeof schoolYear === "number"
+        ? schoolYear.toString()
+        : String(schoolYear).trim();
 
     const majorAbbrev = major
       .split(/\s+/)
       .map((w: string) => w[0]?.toUpperCase() || "")
       .join("");
 
-    const classCode = `${schoolYear}${classLetter}${majorAbbrev}`;
-    const className = `${schoolYear}${classLetter} - ${major}`;
+    const classCode = `${grade}${classLetter}${majorAbbrev}`;
+    const className = `${grade}${classLetter} - ${major}`;
 
-    let cls = await ClassModel.findOne({ classCode, schoolYear, major });
+    // 🔍 Tìm lớp nếu đã tồn tại
+    let cls = await ClassModel.findOne({
+      classCode,
+      schoolYear: grade,
+      major,
+    });
 
     if (!cls) {
       cls = new ClassModel({
-        schoolYear,
+        grade,
+        schoolYear: grade,
         classLetter,
         major,
         classCode,
@@ -115,50 +127,65 @@ export const createOrGetClass = async (req: Request, res: Response) => {
         teacherName: "",
         studentIds: [],
       });
+
       await cls.save();
     }
 
-    if (
-      teacherId &&
-      (!cls.teacherId ||
-        !cls.teacherId.equals(new mongoose.Types.ObjectId(String(teacherId))))
-    ) {
+    // 👩‍🏫 Nếu có teacherId → cập nhật thêm
+    if (teacherId) {
       const teacher = await TeacherModel.findById(teacherId);
-      cls.teacherId = new mongoose.Types.ObjectId(String(teacherId));
-      cls.teacherName = teacher?.name || "";
-      await cls.save();
+      if (teacher) {
+        cls.teacherId = new mongoose.Types.ObjectId(String(teacherId));
+        cls.teacherName = teacher.name;
+        await cls.save();
 
-      if (cls.studentIds.length > 0) {
-        await UserModel.updateMany(
-          { _id: { $in: cls.studentIds } },
-          { $set: { teacherId: cls.teacherId } },
-        );
+        if (cls.studentIds?.length > 0) {
+          await UserModel.updateMany(
+            { _id: { $in: cls.studentIds } },
+            { $set: { teacherId: cls.teacherId } },
+          );
+        }
       }
     }
 
-    return res.status(200).json(cls);
+    return res.status(201).json({ success: true, data: cls });
   } catch (err: any) {
-    if (err.code === 11000) {
-      return res
-        .status(409)
-        .json({ message: "Lớp đã tồn tại (duplicate index)" });
+    console.error("⚠️ createClass error:", err.message);
+
+    if (err.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Dữ liệu không hợp lệ: " + err.message,
+      });
     }
-    console.error("⚠️ createOrGetClass error:", err);
-    return res.status(500).json({ message: "Tạo hoặc lấy lớp thất bại" });
+
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Lớp đã tồn tại (duplicate index)",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Tạo lớp thất bại",
+      error: err.message,
+    });
   }
 };
 
+/* ==================================
+ * 👨‍🎓 THÊM HỌC SINH VÀO LỚP
+ * ================================== */
 export const addStudentToClass = async (req: Request, res: Response) => {
   try {
     const { studentId } = req.body;
-    if (!studentId) {
+    if (!studentId)
       return res.status(400).json({ message: "Thiếu thông tin học sinh" });
-    }
 
     const student = await UserModel.findById(studentId).lean<IUserDocument>();
-    if (!student) {
+    if (!student)
       return res.status(404).json({ message: "Không tìm thấy học sinh" });
-    }
 
     const majorAbbrev = (student.major || "")
       .split(/\s+/)
@@ -176,6 +203,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
 
     if (!cls) {
       cls = new ClassModel({
+        grade: student.schoolYear,
         schoolYear: student.schoolYear,
         classLetter: student.classLetter,
         major: student.major,
@@ -189,6 +217,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
     }
 
     const studentObjectId = new mongoose.Types.ObjectId(String(studentId));
+
     if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
       cls.studentIds.push(studentObjectId);
       await cls.save();
@@ -212,25 +241,28 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       });
 
     return res.status(200).json(populated);
-  } catch (err) {
-    console.error("⚠️ addStudentToClass error:", err);
-    return res.status(500).json({ message: "Thêm học sinh thất bại" });
+  } catch (err: any) {
+    console.error("⚠️ addStudentToClass error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Thêm học sinh thất bại", error: err.message });
   }
 };
 
+/* ==================================
+ * 👩‍🏫 GÁN GIÁO VIÊN CHO LỚP
+ * ================================== */
 export const assignTeacher = async (req: Request, res: Response) => {
   try {
     const { classCode } = req.params;
     const { teacherId } = req.body;
 
-    if (!teacherId) {
+    if (!teacherId)
       return res.status(400).json({ message: "teacherId là bắt buộc" });
-    }
 
     const teacher = await TeacherModel.findById(teacherId);
-    if (!teacher) {
+    if (!teacher)
       return res.status(404).json({ message: "Không tìm thấy giáo viên" });
-    }
 
     const match = classCode.match(/^(\d{4})([A-Za-z])([A-Z]+)$/);
     let schoolYear = "";
@@ -247,6 +279,7 @@ export const assignTeacher = async (req: Request, res: Response) => {
 
     if (!cls) {
       cls = new ClassModel({
+        grade: schoolYear,
         schoolYear,
         classLetter,
         major,
@@ -260,13 +293,13 @@ export const assignTeacher = async (req: Request, res: Response) => {
     } else {
       cls.teacherId = teacherObjectId;
       cls.teacherName = teacher.name;
-      cls.schoolYear ||= schoolYear;
-      cls.classLetter ||= classLetter;
-      cls.major ||= major;
+      if (!cls.schoolYear) cls.schoolYear = schoolYear;
+      if (!cls.classLetter) cls.classLetter = classLetter;
+      if (!cls.major) cls.major = major;
       await cls.save();
     }
 
-    if (cls.studentIds.length > 0) {
+    if (cls.studentIds?.length > 0) {
       await UserModel.updateMany(
         { _id: { $in: cls.studentIds } },
         { $set: { teacherId: teacherObjectId } },
@@ -274,8 +307,10 @@ export const assignTeacher = async (req: Request, res: Response) => {
     }
 
     return res.status(200).json(cls);
-  } catch (err) {
-    console.error("⚠️ assignTeacher error:", err);
-    return res.status(500).json({ message: "Gán giáo viên thất bại" });
+  } catch (err: any) {
+    console.error("⚠️ assignTeacher error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Gán giáo viên thất bại", error: err.message });
   }
 };

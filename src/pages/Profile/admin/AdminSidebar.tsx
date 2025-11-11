@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import HomeIcon from "@/icons/HomeIcon";
 import { motion } from "framer-motion";
 import { pageVariants } from "../../../configs/animations/pageVariants";
-
+import { useNavigate } from "react-router-dom";
 interface Props {
   activeTab: string;
   locked: boolean;
@@ -26,6 +26,7 @@ export default function AdminSidebar({
   setActiveTab,
 }: Props) {
   const { logout } = useAuth() as { logout: () => void };
+  const navigate = useNavigate();
 
   return (
     <motion.aside
@@ -94,6 +95,14 @@ export default function AdminSidebar({
           className={activeTab === "users" ? "active" : ""}
         >
           <Users size={18} /> Quản lý người dùng
+        </li>
+        <li>
+          <button
+            className="creater__user--btn text__content--size-18 border-register"
+            onClick={() => navigate("/register")}
+          >
+            Đăng ký
+          </button>
         </li>
       </ul>
 

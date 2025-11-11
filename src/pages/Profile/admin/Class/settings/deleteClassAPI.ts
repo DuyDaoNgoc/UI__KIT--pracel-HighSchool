@@ -1,11 +1,12 @@
-import http from "../../../../../api/axiosConfig";
+import axios from "@/api/axiosConfig";
+import type { ApiResponse } from "./getClassesAPI";
 
-export interface DeleteClassResponse {
-  success: boolean;
-  message?: string;
-}
-
-export const deleteClass = async (id: string): Promise<DeleteClassResponse> => {
-  const { data } = await http.delete<DeleteClassResponse>(`/classes/${id}`);
-  return data;
+export const deleteClass = async (id: string): Promise<ApiResponse<null>> => {
+  try {
+    const res = await axios.delete(`/classes/${id}`);
+    return res.data as ApiResponse<null>; // ✅ ép kiểu
+  } catch (err: any) {
+    console.error("deleteClass error:", err);
+    return { success: false, message: err.message };
+  }
 };
