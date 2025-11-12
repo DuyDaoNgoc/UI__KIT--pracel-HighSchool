@@ -6,6 +6,7 @@ import {
   Users,
   BookOpen, // ✅ thêm icon cho lớp học
   BarChart2,
+  LogIn,
 } from "lucide-react";
 import Logout from "@/Components/settings/logout/logout";
 import { useAuth } from "../../../context/AuthContext";
@@ -14,6 +15,7 @@ import HomeIcon from "@/icons/HomeIcon";
 import { motion } from "framer-motion";
 import { pageVariants } from "../../../configs/animations/pageVariants";
 import { useNavigate } from "react-router-dom";
+import { Socket } from "socket.io-client";
 interface Props {
   activeTab: string;
   locked: boolean;
@@ -97,6 +99,7 @@ export default function AdminSidebar({
           <Users size={18} /> Quản lý người dùng
         </li>
         <li>
+          <LogIn />
           <button
             className="creater__user--btn text__content--size-18 border-register"
             onClick={() => navigate("/register")}
@@ -105,7 +108,6 @@ export default function AdminSidebar({
           </button>
         </li>
       </ul>
-
       <li>
         <Logout />
       </li>

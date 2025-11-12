@@ -1,4 +1,3 @@
-// src/api/axiosConfig.ts
 import axios from "axios";
 
 // ===== Lấy port backend từ env
@@ -23,9 +22,9 @@ const getBaseURL = async (): Promise<string> => {
       try {
         const res = await fetch("/socket-url");
         const data = await res.json();
-        return `${data.url}/api`; // http://<LAN_IP>:PORT/api
+        return `${data.url}/api`;
       } catch {
-        return `http://localhost:${BACKEND_PORT}/api`; // fallback
+        return `http://localhost:${BACKEND_PORT}/api`;
       }
     }
 
@@ -37,11 +36,12 @@ const getBaseURL = async (): Promise<string> => {
   );
 };
 
-// ===== Tạo instance trước để tránh lỗi “used before declaration”
+// ===== Tạo instance trước để tránh lỗi "used before declaration"
 let resolvedBaseURL = `http://localhost:${BACKEND_PORT}/api`;
+let isBaseURLReady = false;
 
 const http = axios.create({
-  baseURL: resolvedBaseURL, // tạm thời, sẽ được cập nhật sau
+  baseURL: resolvedBaseURL,
   headers: { "Content-Type": "application/json" },
   timeout: 15000,
 });
@@ -51,15 +51,22 @@ const http = axios.create({
   try {
     resolvedBaseURL = await getBaseURL();
     http.defaults.baseURL = resolvedBaseURL;
+    isBaseURLReady = true;
     console.log("✅ BaseURL set:", resolvedBaseURL);
   } catch (err) {
     console.error("⚠️ Lỗi khi lấy baseURL:", err);
+    isBaseURLReady = true;
   }
 })();
 
-// ===== Interceptor tự động thêm token
+// ===== Interceptor thêm token
 http.interceptors.request.use(
   (config) => {
+    // ✅ Luôn cập nhật baseURL để đảm bảo nó đúng
+    if (resolvedBaseURL) {
+      config.baseURL = resolvedBaseURL;
+    }
+
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       if (token) {
@@ -67,6 +74,7 @@ http.interceptors.request.use(
         (config.headers as any).Authorization = `Bearer ${token}`;
       }
     }
+    console.log("📤 Request URL:", config.baseURL + config.url);
     return config;
   },
   (error) => Promise.reject(error),

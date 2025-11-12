@@ -16,21 +16,18 @@ export interface IClass extends Document {
 
 const ClassSchema = new Schema<IClass>(
   {
-    grade: { type: String, required: true },
-    classLetter: { type: String, required: true },
-    schoolYear: { type: String, required: true },
-    major: { type: String, required: true },
-    classCode: { type: String, required: true, trim: true },
+    grade: { type: String, required: true, trim: true }, // ✅ required: true
+    classLetter: { type: String, required: true, trim: true },
+    schoolYear: { type: String, required: true, trim: true },
+    major: { type: String, required: true, trim: true },
+    classCode: { type: String, required: true, trim: true, unique: true },
     teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
     teacherName: { type: String, default: "" },
     studentIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     className: {
       type: String,
-      required: true,
+      required: false, // ✅ Đổi thành false
       trim: true,
-      default: function (this: IClass) {
-        return `${this.grade}${this.classLetter} - ${this.major}`;
-      },
     },
   },
   {
@@ -38,9 +35,6 @@ const ClassSchema = new Schema<IClass>(
     collection: "classes",
   },
 );
-
-// Unique index
-ClassSchema.index({ classCode: 1, schoolYear: 1, major: 1 }, { unique: true });
 
 // Index event
 ClassSchema.on("index", (err) => {

@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { join } from "node:path";
 
 export interface IClass {
   _id?: ObjectId | string;

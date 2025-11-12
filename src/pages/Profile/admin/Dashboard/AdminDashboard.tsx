@@ -63,7 +63,6 @@ const AdminDashboard: React.FC = () => {
       const [students, teachers, classesResponse] = await Promise.all([
         get<IStudent[]>("/admin/students"),
         get<ITeacher[]>("/admin/teachers"),
-
         get<Record<string, IClass[]>>("/admin/classes"),
       ]);
 
