@@ -8,6 +8,7 @@ import ReportsTab from "./ReportsTab";
 import SettingsTab from "./SettingsTab";
 import { useStudents, useReports, useLockStatus } from "./hooks";
 import axiosInstance from "../../../api/axiosConfig";
+import toast from "react-hot-toast";
 
 export default function TeacherProfile() {
   const { user: ctxUser, token: ctxToken, logout } = useAuth() as any;
@@ -68,7 +69,7 @@ export default function TeacherProfile() {
     newScore: number,
   ) {
     if (gradesLocked) {
-      alert("❌ Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
+      toast.error("❌ Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
       return;
     }
     setSendingRequest(true);
@@ -78,7 +79,9 @@ export default function TeacherProfile() {
         "/api/grades/request-update",
         payload,
       );
-      alert(res.data?.message || "✅ Yêu cầu cập nhật đã gửi cho admin.");
+      toast.success(
+        res.data?.message || "✅ Yêu cầu cập nhật đã gửi cho admin.",
+      );
     } catch (err: any) {
       if (err?.response?.status === 401) {
         logout?.();
@@ -86,7 +89,7 @@ export default function TeacherProfile() {
         return;
       }
       console.error("❌ Lỗi gửi yêu cầu:", err?.response || err);
-      alert(err?.response?.data?.message || "Gửi yêu cầu thất bại");
+      toast.error(err?.response?.data?.message || "Gửi yêu cầu thất bại");
     } finally {
       setSendingRequest(false);
     }

@@ -17,6 +17,7 @@ import CreateTeacher from "./createrRole/CreateTeacher";
 import UserManagement from "./UserManagement";
 import AdminDashboard from "./Dashboard/AdminDashboard";
 import CreateClass from "./Class/CreateClass";
+import { toast, Toaster } from "react-hot-toast";
 
 // ======================== INTERFACES ========================
 interface ILockResp {
@@ -33,6 +34,7 @@ interface IStudentForm {
   classLetter: string;
   schoolYear: string;
   major: string;
+  gender: string;
 }
 
 // ======================== COMPONENT ========================
@@ -55,6 +57,7 @@ const AdminProfile: FC = () => {
     classLetter: "",
     schoolYear: "",
     major: "",
+    gender: "",
   });
 
   const [creating, setCreating] = useState<boolean>(false);
@@ -107,18 +110,22 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Toggle khóa/mở khóa ====
-  const toggleLock = async (): Promise<void> => {
+  // AdminProfile.tsx
+  // AdminProfile.tsx
+  const toggleLock = async (): Promise<boolean> => {
     try {
       if (locked) {
         await axiosInstance.post("/admin/grades/unlock", {}, authHeaders);
         setLocked(false);
+        return false; // trạng thái mới: mở khóa
       } else {
         await axiosInstance.post("/admin/grades/lock", {}, authHeaders);
         setLocked(true);
+        return true; // trạng thái mới: khóa
       }
     } catch (err) {
       console.warn("⚠️ toggleLock error:", err);
-      alert("Không thể thay đổi trạng thái khóa điểm!");
+      throw err; // để LockTab bắt và toast
     }
   };
 
@@ -173,17 +180,23 @@ const AdminProfile: FC = () => {
   // ==== Create student ====
   const createStudent = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    const { name, dob, grade, classLetter, major } = studentForm;
+    const { name, dob, grade, classLetter, gender } = studentForm;
 
-    if (!name || !dob || !grade || !classLetter) {
-      alert("Vui lòng nhập đủ: Họ tên, Ngày sinh, Khối, Lớp.");
+    if (!name || !dob || !grade || !classLetter || !gender) {
+      toast.error(
+        "Vui lòng nhập đủ: Họ tên, Ngày sinh, Khối, Lớp và Giới tính.",
+      );
       return;
     }
 
     setCreating(true);
     try {
       const studentId = generateStudentId(grade, classLetter);
-      const classCode = generateClassCode(grade, classLetter, major);
+      const classCode = generateClassCode(
+        grade,
+        classLetter,
+        studentForm.major,
+      );
       const payload = { ...studentForm, studentId, classCode };
 
       await axiosInstance.post<ICreatedStudent>(
@@ -193,7 +206,7 @@ const AdminProfile: FC = () => {
       );
 
       await fetchCreatedStudents();
-      alert(`✅ Tạo học sinh thành công! Mã: ${studentId}`);
+      toast.success(`✅ Tạo học sinh thành công! Mã: ${studentId}`);
 
       setStudentForm({
         name: "",
@@ -205,10 +218,11 @@ const AdminProfile: FC = () => {
         classLetter: "",
         schoolYear: "",
         major: "",
+        gender: "", // reset gender
       });
     } catch (err) {
       console.error("⚠️ createStudent error:", err);
-      alert("Không thể tạo học sinh!");
+      toast.error("Không thể tạo học sinh!");
     } finally {
       setCreating(false);
     }
@@ -226,10 +240,10 @@ const AdminProfile: FC = () => {
         setSelectedStudent(null);
         setViewing(false);
       }
-      alert("✅ Đã xóa học sinh.");
+      toast.success("✅ Đã xóa học sinh.");
     } catch (err) {
       console.error("⚠️ deleteStudent error:", err);
-      alert("Xóa học sinh thất bại.");
+      toast.error("Xóa học sinh thất bại.");
     } finally {
       setActionLoading(null);
     }
@@ -248,10 +262,10 @@ const AdminProfile: FC = () => {
         authHeaders,
       );
       await fetchCreatedStudents();
-      alert("✅ Gán giáo viên thành công.");
+      toast.success("✅ Gán giáo viên thành công.");
     } catch (err) {
       console.error("⚠️ assignTeacher error:", err);
-      alert("Gán giáo viên thất bại.");
+      toast.error("Gán giáo viên thất bại.");
     } finally {
       setActionLoading(null);
     }
@@ -330,6 +344,7 @@ const AdminProfile: FC = () => {
           generateClassCode={generateClassCode}
         />
       )}
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 // src/pages/Profile/TeacherProfile/StudentRow.tsx
 import React from "react";
 import type { IStudent } from "./types";
+import toast from "react-hot-toast";
 
 interface Props {
   s: IStudent;
@@ -62,7 +63,7 @@ export default function StudentRow({
               if (!scoreStr) return;
               const score = Number(scoreStr);
               if (Number.isNaN(score)) {
-                alert("Điểm không hợp lệ");
+                toast.error("Điểm không hợp lệ");
                 return;
               }
               requestUpdateGrade(s._id, subject, score);

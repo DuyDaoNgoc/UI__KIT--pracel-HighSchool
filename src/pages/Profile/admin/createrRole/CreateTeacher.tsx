@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../../api/axiosConfig";
+import { toast, Toaster } from "react-hot-toast";
 
 interface ITeacher {
   _id: string;
@@ -120,16 +121,16 @@ export default function CreateTeacherWithTable() {
     try {
       if (editingId) {
         await axiosInstance.put(`/teachers/${editingId}`, payload);
-        alert("✅ Cập nhật giáo viên thành công!");
+        toast.success("✅ Cập nhật giáo viên thành công!");
       } else {
         await axiosInstance.post("/teachers", payload);
-        alert("✅ Thêm giáo viên thành công!");
+        toast.success("✅ Thêm giáo viên thành công!");
       }
       resetForm();
       fetchTeachers();
     } catch (error) {
       console.error("❌ Lỗi khi gửi dữ liệu:", error);
-      alert("❌ Lỗi khi gửi dữ liệu. Xem console để biết chi tiết.");
+      toast.error("❌ Vui lòng nhập đầy đủ thông tin.");
     }
   };
 
@@ -137,11 +138,11 @@ export default function CreateTeacherWithTable() {
     if (!window.confirm("Bạn có chắc muốn xoá giáo viên này?")) return;
     try {
       await axiosInstance.delete(`/teachers/${id}`);
-      alert("✅ Xoá giáo viên thành công!");
+      toast.success("✅ Xoá giáo viên thành công!");
       fetchTeachers();
     } catch (err) {
       console.error("❌ Lỗi xoá giáo viên:", err);
-      alert("❌ Lỗi khi xoá giáo viên.");
+      toast.error("❌ Lỗi khi xoá giáo viên.");
     }
   };
 
@@ -169,7 +170,7 @@ export default function CreateTeacherWithTable() {
         {editingId ? "Cập nhật giáo viên" : "Tạo giáo viên mới"}
       </h2>
 
-      <form className="teacher-form" onSubmit={handleSubmit}>
+      <form className="teacher-form" onSubmit={handleSubmit} noValidate>
         {form.teacherId && (
           <input
             className="teacher-form__input"
@@ -320,6 +321,7 @@ export default function CreateTeacherWithTable() {
           ))}
         </tbody>
       </table>
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }

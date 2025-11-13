@@ -5,7 +5,7 @@ import { RegisterResponse } from "../../types/auth";
 
 export default function Register() {
   const [accountType, setAccountType] = useState<"student" | "teacher">(
-    "student"
+    "student",
   );
   const [code, setCode] = useState(""); // studentCode hoặc teacherCode
   const [email, setEmail] = useState("");
@@ -45,7 +45,6 @@ export default function Register() {
   return (
     <form className="login-form" onSubmit={handleRegister}>
       <h2 className="login-form__h2">Register</h2>
-
       <label className="login-form__label" htmlFor="accountType">
         Account Type
       </label>
@@ -60,7 +59,6 @@ export default function Register() {
         <option value="student">Student</option>
         <option value="teacher">Teacher</option>
       </select>
-
       <label className="login-form__label" htmlFor="code">
         {accountType === "student" ? "Student Code" : "Teacher Code"}
       </label>
@@ -75,7 +73,6 @@ export default function Register() {
         required
         className="login-form__input"
       />
-
       <label className="login-form__label" htmlFor="email">
         Email
       </label>
@@ -119,7 +116,6 @@ export default function Register() {
           {showPassword ? "Hide" : "Show"}
         </button>
       </div>
-
       <label className="login-form__label" htmlFor="confirmPassword">
         Confirm Password
       </label>
@@ -132,11 +128,9 @@ export default function Register() {
         required
         className="login-form__input"
       />
-
       <button type="submit" className="login-form__button">
         Register
       </button>
-
       {message && <p className="login-form__message">{message}</p>}
     </form>
   );

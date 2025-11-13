@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../api/axiosConfig";
+import { toast, Toaster } from "react-hot-toast";
 
 // ================= INTERFACE =================
 interface IUser {
@@ -47,7 +48,7 @@ export default function UserManagement() {
       !window.confirm(
         `Bạn có chắc muốn ${
           currentStatus ? "mở khoá" : "đình chỉ"
-        } tài khoản này?`
+        } tài khoản này?`,
       )
     )
       return;
@@ -55,7 +56,7 @@ export default function UserManagement() {
       await axiosInstance.patch(`/users/${id}/block`, {
         isBlocked: !currentStatus,
       });
-      alert(`✅ ${currentStatus ? "Mở khoá" : "Đình chỉ"} thành công!`);
+      toast.success(`✅ ${currentStatus ? "Mở khoá" : "Đình chỉ"} thành công!`);
       fetchUsers();
     } catch (err) {
       console.error("❌ Lỗi khi cập nhật trạng thái:", err);
@@ -64,19 +65,19 @@ export default function UserManagement() {
 
   const deleteSelectedUsers = async () => {
     if (selectedUsers.length === 0)
-      return alert("⚠️ Chưa chọn tài khoản nào để xoá.");
+      return toast.error("⚠️ Chưa chọn tài khoản nào để xoá.");
     if (
       !window.confirm(
-        `Bạn có chắc muốn xoá ${selectedUsers.length} tài khoản này?`
+        `Bạn có chắc muốn xoá ${selectedUsers.length} tài khoản này?`,
       )
     )
       return;
 
     try {
       await Promise.all(
-        selectedUsers.map((id) => axiosInstance.delete(`/users/${id}`))
+        selectedUsers.map((id) => axiosInstance.delete(`/users/${id}`)),
       );
-      alert("🗑️ Xoá thành công!");
+      toast.success("🗑️ Xoá thành công!");
       setSelectedUsers([]);
       fetchUsers();
     } catch (err) {
@@ -94,7 +95,7 @@ export default function UserManagement() {
 
   const toggleSelectUser = (id: string) => {
     setSelectedUsers((prev) =>
-      prev.includes(id) ? prev.filter((uid) => uid !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((uid) => uid !== id) : [...prev, id],
     );
   };
 
@@ -102,7 +103,7 @@ export default function UserManagement() {
     setSelectedUsers(
       selectedUsers.length === displayedUsers.length
         ? []
-        : displayedUsers.map((u) => u._id)
+        : displayedUsers.map((u) => u._id),
     );
   };
 
@@ -191,7 +192,6 @@ export default function UserManagement() {
             <th>Hành động</th>
           </tr>
         </thead>
-
         <tbody>
           {displayedUsers.length > 0 ? (
             displayedUsers.map((u) => (
@@ -213,15 +213,15 @@ export default function UserManagement() {
                   {typeof u.classCode === "string"
                     ? u.classCode
                     : u.classCode
-                    ? `${u.classCode.className} (${u.classCode.grade})`
-                    : "---"}
+                      ? `${u.classCode.className} (${u.classCode.grade})`
+                      : "---"}
                 </td>
                 <td>
                   {typeof u.major === "string"
                     ? u.major
                     : u.major
-                    ? `${u.major.name} (${u.major.code})`
-                    : "---"}
+                      ? `${u.major.name} (${u.major.code})`
+                      : "---"}
                 </td>
                 <td>{u.phone || "---"}</td> {/* ✅ render SĐT */}
                 <td>{u.address || "---"}</td> {/* ✅ render địa chỉ */}
@@ -249,6 +249,7 @@ export default function UserManagement() {
           )}
         </tbody>
       </table>
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }

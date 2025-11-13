@@ -65,8 +65,12 @@ export default function AdminSidebar({
           onClick={() => setActiveTab("lock")}
           className={activeTab === "lock" ? "active" : ""}
         >
-          {locked ? <Lock size={18} /> : <Unlock size={18} />} Trạng thái khóa
-          điểm
+          {locked ? (
+            <Lock size={18} className="locked" />
+          ) : (
+            <Unlock size={18} className="unlocked" />
+          )}{" "}
+          Trạng thái khóa điểm
         </li>
         <li
           onClick={() => setActiveTab("students")}
@@ -98,13 +102,13 @@ export default function AdminSidebar({
         >
           <Users size={18} /> Quản lý người dùng
         </li>
-        <li>
+        <li className="  border-register">
           <LogIn />
           <button
-            className="creater__user--btn text__content--size-18 border-register"
             onClick={() => navigate("/register")}
+            className="text__content--size-18 creater__user--btn "
           >
-            Đăng ký
+            Đăng ký Học viên
           </button>
         </li>
       </ul>

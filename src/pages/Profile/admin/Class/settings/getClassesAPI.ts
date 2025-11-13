@@ -18,7 +18,7 @@ export interface ApiResponse<T> {
 export const getClasses = async (): Promise<ApiResponse<ClassType[]>> => {
   try {
     const res = await axios.get("/classes");
-    return res.data as ApiResponse<ClassType[]>; // ✅ ép kiểu
+    return res.data as ApiResponse<ClassType[]>;
   } catch (err: any) {
     console.error("getClasses error:", err);
     return { success: false, message: err.message };

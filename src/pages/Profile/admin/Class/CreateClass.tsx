@@ -219,6 +219,7 @@ const CreateClass: React.FC = () => {
           ))}
         </ul>
       )}
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 };

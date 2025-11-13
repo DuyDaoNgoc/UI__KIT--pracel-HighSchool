@@ -26,7 +26,7 @@ const ClassSchema = new Schema<IClass>(
     studentIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     className: {
       type: String,
-      required: false, // ✅ Đổi thành false
+      required: false,
       trim: true,
     },
   },

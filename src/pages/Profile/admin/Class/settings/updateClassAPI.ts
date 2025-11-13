@@ -7,7 +7,7 @@ export const updateClass = async (
 ): Promise<ApiResponse<ClassType>> => {
   try {
     const res = await axios.put(`/classes/${id}`, payload);
-    return res.data as ApiResponse<ClassType>; // ✅ ép kiểu
+    return res.data as ApiResponse<ClassType>;
   } catch (err: any) {
     console.error("updateClass error:", err);
     return { success: false, message: err.message };
