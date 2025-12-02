@@ -56,7 +56,7 @@ export default function UserManagement() {
       await axiosInstance.patch(`/users/${id}/block`, {
         isBlocked: !currentStatus,
       });
-      toast.success(`✅ ${currentStatus ? "Mở khoá" : "Đình chỉ"} thành công!`);
+      toast.success(` ${currentStatus ? "Mở khoá" : "Đình chỉ"} thành công!`);
       fetchUsers();
     } catch (err) {
       console.error("❌ Lỗi khi cập nhật trạng thái:", err);
@@ -65,7 +65,7 @@ export default function UserManagement() {
 
   const deleteSelectedUsers = async () => {
     if (selectedUsers.length === 0)
-      return toast.error("⚠️ Chưa chọn tài khoản nào để xoá.");
+      return toast.error(" Chưa chọn tài khoản nào để xoá.");
     if (
       !window.confirm(
         `Bạn có chắc muốn xoá ${selectedUsers.length} tài khoản này?`,
@@ -154,14 +154,13 @@ export default function UserManagement() {
           Tất cả
         </button>
       </div>
-
       <div className="teacher-form__actions">
         <button
           className="teacher-form__button teacher-form__button--cancel"
           onClick={deleteSelectedUsers}
           disabled={selectedUsers.length === 0}
         >
-          🗑️ Xoá tài khoản đã chọn ({selectedUsers.length})
+          Xoá tài khoản đã chọn ({selectedUsers.length})
         </button>
       </div>
 
@@ -186,8 +185,8 @@ export default function UserManagement() {
             <th>Mã PH</th>
             <th>Lớp</th>
             <th>Ngành</th>
-            <th> SĐT</th> {/* ✅ thêm cột SĐT */}
-            <th> Địa chỉ</th> {/* ✅ thêm cột Địa chỉ */}
+            <th> SĐT</th>
+            <th> Địa chỉ</th>
             <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>

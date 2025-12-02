@@ -1,9 +1,7 @@
 import { Router } from "express";
 import Teacher from "../../models/teacherModel";
 import { createTeacher } from "../../controllers/admin/teacher/createTeacher";
-
 const router = Router();
-
 // 📌 Lấy danh sách giáo viên
 router.get("/", async (req, res, next) => {
   try {
@@ -13,7 +11,6 @@ router.get("/", async (req, res, next) => {
     next(err);
   }
 });
-
 // 📌 Thêm giáo viên mới (dùng controller có auto teacherId)
 router.post("/", createTeacher);
 
@@ -31,8 +28,7 @@ router.put("/:id", async (req, res, next) => {
     next(err);
   }
 });
-
-// 📌 Xóa giáo viên
+//  Xóa giáo viên
 router.delete("/:id", async (req, res, next) => {
   try {
     const teacher = await Teacher.findByIdAndDelete(req.params.id);

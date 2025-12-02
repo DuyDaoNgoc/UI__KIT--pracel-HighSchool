@@ -1,6 +1,6 @@
 // src/pages/Profile/TeacherProfile/SettingsTab.tsx
 import React from "react";
-
+import montion from "framer-motion";
 interface Props {
   gradesLocked: boolean | null;
   loadingLock: boolean;
@@ -28,10 +28,10 @@ export default function SettingsTab({
             {loadingLock
               ? "Đang kiểm tra..."
               : gradesLocked === null
-              ? "Không rõ"
-              : gradesLocked
-              ? "KHÓA"
-              : "MỞ"}
+                ? "Không rõ"
+                : gradesLocked
+                  ? "KHÓA"
+                  : "MỞ"}
           </div>
         </div>
         <div style={{ marginLeft: "auto" }}>
@@ -45,7 +45,7 @@ export default function SettingsTab({
       </div>
       <div style={{ marginTop: 12, color: "#666" }}>
         Lưu ý: trạng thái khóa do admin/quản trị viên điều khiển. Nếu điểm bị
-        khóa, giáo viên không thể gửi yêu cầu cập nhật hoặc chỉnh sửa trực tiếp.
+        khóa, giáo viên không thể cập nhật hoặc chỉnh sửa trực tiếp.
       </div>
     </section>
   );

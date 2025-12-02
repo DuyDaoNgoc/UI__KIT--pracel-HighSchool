@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axiosInstance from "../../../api/axiosConfig";
 import { ITeacher } from "../../../types/teacherTypes";
+import toast from "react-hot-toast";
 
 export default function useTeachers() {
   const [teachers, setTeachers] = useState<ITeacher[]>([]);
@@ -17,6 +18,7 @@ export default function useTeachers() {
       } catch (err) {
         console.error("⚠️ fetchTeachers error:", err);
         setError("Không thể tải danh sách giáo viên.");
+        toast.error("Không thể tải danh sách giáo viên.");
       } finally {
         setLoading(false);
       }

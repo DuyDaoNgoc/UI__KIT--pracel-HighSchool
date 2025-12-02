@@ -166,7 +166,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
       await User.updateOne(
         { _id: user._id },
-        { loginAttempts: user.loginAttempts, lockUntil: user.lockUntil }
+        { loginAttempts: user.loginAttempts, lockUntil: user.lockUntil },
       );
 
       return res.status(401).json({
@@ -188,7 +188,7 @@ export const loginUser = async (req: Request, res: Response) => {
         teacherId: user.teacherId,
         parentId: user.parentId,
       },
-      process.env.JWT_SECRET as string
+      process.env.JWT_SECRET as string,
     );
 
     return res.json({
@@ -311,13 +311,13 @@ export const getAllUsers = async (req: Request, res: Response) => {
           major: majorObj,
           role: u.role,
         };
-      })
+      }),
     );
 
     res.status(200).json(result);
   } catch (err) {
     console.error("GetAllUsers error:", err);
-    res.status(500).json({ success: false, message: "❌ Server error" });
+    res.status(500).json({ success: false, message: " Server error" });
   }
 };
 
@@ -326,21 +326,21 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "❌ Invalid ID" });
+      return res.status(400).json({ success: false, message: " Invalid ID" });
     }
 
     const deletedUser = await User.findByIdAndDelete(new ObjectId(id));
     if (!deletedUser) {
       return res
         .status(404)
-        .json({ success: false, message: "❌ User not found" });
+        .json({ success: false, message: " User not found" });
     }
 
     res
       .status(200)
-      .json({ success: true, message: "✅ User deleted successfully" });
+      .json({ success: true, message: " User deleted successfully" });
   } catch (err) {
     console.error("DeleteUser error:", err);
-    res.status(500).json({ success: false, message: "❌ Server error" });
+    res.status(500).json({ success: false, message: " Server error" });
   }
 };

@@ -16,10 +16,9 @@ export interface ICreatedStudent {
   major?: string;
   teacherName?: string;
   classCode?: string; // frontend generate
-  gender?: "Nam" | "Nữ" | "other"; // <-- thêm đây
+  gender?: "Nam" | "Nữ" | "other";
   createdAt?: string;
 }
-
 // Kiểu response khi tạo học sinh
 export interface ICreateStudentResp {
   student?: ICreatedStudent;

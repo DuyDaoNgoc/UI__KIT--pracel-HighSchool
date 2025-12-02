@@ -32,35 +32,42 @@ Hướng dẫn này giúp clone, cài đặt và chạy demo / phát triển nha
 - Git
 - MongoDB (local) hoặc MongoDB Atlas (connection string dùng trong `.env`)
 - (Tuỳ chọn) `cloudflared` nếu muốn expose server ra internet
-<img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/d25df88f-eb47-4812-81d9-b9168aa925f9" />
+  <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/d25df88f-eb47-4812-81d9-b9168aa925f9" />
 
 --
+
 ## 🚀 Clone & cài đặt nhanh-
 
-# 0. Sao chép đường dẫn về 
+# 0. Sao chép đường dẫn về
+
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/29be8e1d-2be5-4dbe-a01d-19bf40478fba" /></br>
+
 ```bash
 # 0.1 bật phần mềm git vào mục bất kì
 ```
+
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/5befa9fc-d3d8-4636-bb30-a8ba01cf34c8" /></br>
+
 # 1. Clone repo từ GitHub
+
 ```bash
 git clone <đường_dẫn_repo>
 ```
 
-<b>  dán phải ấn chuột phải </b>
+<b> dán phải ấn chuột phải </b>
 </br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/05696579-797a-44c0-983d-ddc94d853a14" />
 </br>
-<b>  và dán xong ấn tải </b>
+<b> và dán xong ấn tải </b>
 </br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/6dec581e-d69f-4efc-b66f-3c73f715e83f" />
 </br>
-<b>  và khi tải xong nó sẽ như này </b>
+<b> và khi tải xong nó sẽ như này </b>
 </br>
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/e46e2522-39fd-48db-8593-5af40e9926ab" />
 </br>
-<b>2. Vào thư mục dự án </b> 
+<b>2. Vào thư mục dự án </b>
+
 ```bash
 cd UI-KIT-pracel
 ```
@@ -72,6 +79,7 @@ cd UI-KIT-pracel
 <img width="284" height="177" alt="cloua" src="https://github.com/user-attachments/assets/df49c580-bd6a-4094-9d5c-2c10a3f28ea8" />
 
 # 4. Cài dependencies cho phần client (gốc)
+
 ```bash
 npm install
 ```
@@ -87,7 +95,7 @@ Tạo file `.env` trong folder `server/` gộp tất cả nội dung trong **1 b
 
 ```bash
 cat > server/.env <<EOL
-MONGO_URI=mongodb+srv://pracelJS:duypro0478@duy04.wdkexkx.mongodb.net/?retryWrites=true&w=majority&appName=Duy04
+MONGO_URI= none
 PORT=8000
 JWT_SECRET=supersecret
 ADMIN_EMAIL=kinbingo18@gmail.com
@@ -97,7 +105,7 @@ EOL
 
 ---
 
-Những lệnh chính bạn sẽ dùng (theo `package.json` của repo):  
+Những lệnh chính bạn sẽ dùng (theo `package.json` của repo):
 
 ```bash
 npm run client      # khởi động frontend bằng Parcel
@@ -130,10 +138,10 @@ npm run tunnel:run  # helper Cloudflare tunnel (nếu có)
 **Mở 2 terminal riêng** để chạy client và server — không chạy cả hai trên cùng một port.
 
 ### Terminal 1 — Frontend (Parcel)
+
 ```bash
 npm run client
 ```
-
 
 ```
 
@@ -147,12 +155,13 @@ npm run client
 cd server
 npm run server
 
-````
+```
 
-* Server sẽ lắng nghe port theo biến `PORT` trong `.env` (ví dụ `5001`).
-* Nếu cần gọi API từ client tới server, hãy cấu hình proxy hoặc gọi thẳng tới `http://localhost:5001/api` (hoặc endpoint server của bạn).
+- Server sẽ lắng nghe port theo biến `PORT` trong `.env` (ví dụ `5001`).
+- Nếu cần gọi API từ client tới server, hãy cấu hình proxy hoặc gọi thẳng tới `http://localhost:5001/api` (hoặc endpoint server của bạn).
 
 ---
+
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/383c001c-f345-413b-9d01-7e56542db43b" />
 <br>
 
@@ -191,7 +200,7 @@ npm run server
 
 ```bash
 npm run build
-````
+```
 
 - Parcel sẽ build frontend vào thư mục `dist/`.
 - Deploy `dist/` cùng backend lên môi trường hosting hoặc VPS.
@@ -254,22 +263,26 @@ khi bật lên thì chạy lệnh: </br>
 </br>
 
 ## Điều kiện là phải path đường dẫn (cloud vào path var)
+
 </br>
 <img width="706" height="377" alt="image" src="https://github.com/user-attachments/assets/5e0382f3-63b8-446e-b1ec-b601fce70088" />
 
 </br>
 
-##  VỀ CẤU TRÚC ĐỂ PATH THÌ LIÊN HỆ TÔI , TÔI SẼ CUNG CẤP
-   <a href="0905536704">0905536704 ZALO  </a>
+## VỀ CẤU TRÚC ĐỂ PATH THÌ LIÊN HỆ TÔI , TÔI SẼ CUNG CẤP
+
+<a href="0905536704">0905536704 ZALO </a>
 
 ## Còn cách khác để dùng cloud chỉ với 2 terminal
-## ĐÂY LÀ TERMIANL TRONG SERVER 
+
+## ĐÂY LÀ TERMIANL TRONG SERVER
+
 <img width="422" height="216" alt="image" src="https://github.com/user-attachments/assets/4883a459-5be6-4688-85d3-55c8778bb0e1" /> </br>
 
 <ul>
   <li>Khi build trong server sẽ có 2 đường dẫn chính được tạo ngầu nhiên đó là :</li>
      <li>   → Local:   http://localhost:8000</li>
-     <li> → LAN:     http://192.168.10.28:5000 </li>  
+     <li> → LAN:     http://192.168.10.28:5000 </li>
 </ul>
 <li> Local: Cục bộ: Chỉ sự tác động hoặc phạm vi hẹp, không lan rộng ra bên ngoài. </li>
 <li>LAN: là mạng cục bộ, là một hệ thống mạng nội bộ cho phép các thiết bị như máy tính, máy in kết nối và chia sẻ tài nguyên, dữ liệu trong một phạm vi địa lý giới hạn như nhà riêng, văn phòng hoặc trường học </li>

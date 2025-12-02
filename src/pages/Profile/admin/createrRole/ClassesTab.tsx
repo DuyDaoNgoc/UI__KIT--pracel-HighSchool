@@ -1,197 +1,332 @@
-// ...existing code...
-import React, { useState, useEffect, useRef } from "react";
-import { ICreatedStudent } from "../../../../types/student";
+import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../../api/axiosConfig";
 
-interface ClassesTabProps {
-  students: ICreatedStudent[];
+interface ICreatedStudent {
+  _id: string;
+  studentId?: string;
+  name: string;
+  dob?: string;
+  gender?: string;
+  address?: string;
+  residence?: string;
+  grade?: string | number;
+  classLetter?: string;
+  major?: string;
+  classCode?: string;
+  teacherName?: string;
 }
 
 interface ClassData {
-  students: ICreatedStudent[];
-  teacherName?: string;
+  _id: string;
   classCode: string;
+  teacherName?: string;
+  students: ICreatedStudent[];
 }
 
-export default function ClassesTab({ students }: ClassesTabProps) {
+export default function ClassesTab() {
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [teachers, setTeachers] = useState<{ _id: string; name: string }[]>([]);
   const [openClassKey, setOpenClassKey] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] =
     useState<ICreatedStudent | null>(null);
-  const [studentList, setStudentList] = useState<ICreatedStudent[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [reloadClasses, setReloadClasses] = useState<boolean>(false);
 
-  // track which students we've already attempted to sync (avoid duplicates)
-  const syncedRef = useRef<Set<string>>(new Set());
-
-  // ===== Cập nhật danh sách students từ props =====
+  // ========================= FETCH DANH SÁCH GIÁO VIÊN =========================
   useEffect(() => {
-    setStudentList(Array.isArray(students) ? students : []);
-  }, [students]);
+    const fetchTeachers = async () => {
+      try {
+        const res = await axiosInstance.get("/teachers");
+        if (res.data && Array.isArray(res.data.data)) {
+          setTeachers(res.data.data);
+        } else {
+          setTeachers([]);
+        }
+      } catch (err) {
+        console.error("⚠️ fetch teachers error:", err);
+        setTeachers([]);
+      }
+    };
+    fetchTeachers();
+  }, []);
 
-  // helper: build correct endpoint to avoid double "/api" when axios baseURL already has it
-  const buildAddStudentPath = (axiosInst: any) => {
+  // ========================= FETCH DANH SÁCH HỌC SINH =========================
+  const fetchAllStudents = async () => {
     try {
-      const base = axiosInst?.defaults?.baseURL || "";
-      const hasApi = base.includes("/api");
-      return `${hasApi ? "" : "/api"}/admin/classes/add-student`;
-    } catch {
-      return "/api/admin/classes/add-student";
+      const res = await axiosInstance.get("/students");
+      if (res.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      return [];
+    } catch (err) {
+      console.error("⚠️ fetch students error:", err);
+      return [];
     }
   };
 
-  // ===== Đồng bộ học sinh lên MongoDB classes (idempotent, skip already-synced) =====
+  // ========================= FETCH DANH SÁCH LỚP =========================
   useEffect(() => {
-    const path = buildAddStudentPath(axiosInstance);
+    const fetchClasses = async () => {
+      setLoading(true);
+      try {
+        const res = await axiosInstance.get("/classes");
+        const allStudents = await fetchAllStudents(); // fetch tất cả học sinh
+        const studentMap = new Map(allStudents.map((s: any) => [s._id, s]));
 
-    const syncStudentsToClasses = async () => {
-      for (const s of studentList) {
-        if (!s.grade || !s.classLetter || !s.major || !s._id) continue;
-        if (syncedRef.current.has(s._id)) continue; // already synced
+        if (res.data && Array.isArray(res.data.data)) {
+          const mapped: ClassData[] = res.data.data.map((cls: any) => {
+            const teacher = teachers.find(
+              (t) => String(t._id) === String(cls.teacherId),
+            );
+            const teacherName = teacher?.name || cls.teacherName || "Chưa gán";
 
-        try {
-          await axiosInstance.post(path, {
-            studentId: s._id,
-            grade: s.grade,
-            classLetter: s.classLetter,
-            major: s.major,
+            const students: ICreatedStudent[] = (cls.studentIds || []).map(
+              (sid: any) => {
+                const st = typeof sid === "object" ? sid : studentMap.get(sid);
+                return st
+                  ? {
+                      _id: st._id,
+                      studentId: st.studentId,
+                      name: st.name,
+                      dob: st.dob,
+                      gender: st.gender,
+                      address: st.address,
+                      residence: st.residence,
+                      grade: cls.grade,
+                      classLetter: cls.classLetter,
+                      major: cls.major,
+                      classCode: cls.classCode,
+                      teacherName,
+                    }
+                  : {
+                      _id: typeof sid === "string" ? sid : sid._id,
+                      name: "-",
+                      teacherName,
+                      classCode: cls.classCode,
+                      grade: cls.grade,
+                      classLetter: cls.classLetter,
+                      major: cls.major,
+                    };
+              },
+            );
+
+            return {
+              _id: cls._id || cls.classCode,
+              classCode: cls.classCode,
+              teacherName,
+              students,
+            };
           });
-          // mark as synced only on success
-          syncedRef.current.add(s._id);
-        } catch (err) {
-          // log but do not break the loop; will retry next time studentList changes
-          console.error("⚠️ sync student to class error:", err);
+
+          setClasses(mapped);
+        } else {
+          setClasses([]);
         }
+      } catch (err) {
+        console.error("⚠️ fetch classes error:", err);
+        setClasses([]);
+      } finally {
+        setLoading(false);
       }
     };
 
-    if (studentList.length > 0) syncStudentsToClasses();
-    // do not include buildAddStudentPath in deps to avoid recalculating; axiosInstance is stable import
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentList]);
+    fetchClasses();
+  }, [teachers, reloadClasses]);
 
-  // ===== Gom nhóm theo ngành → trong ngành theo khối (grade) → trong khối theo lớp =====
-  const groupedByMajor = studentList.reduce<
-    Record<string, Record<string, Record<string, ClassData>>>
-  >((acc, s) => {
-    const major = s.major || "Chưa có ngành";
-    const grade = s.grade?.toString() || "Chưa rõ khối";
-
-    if (!acc[major]) acc[major] = {};
-    if (!acc[major][grade]) acc[major][grade] = {};
-
-    const majorAbbrev = major
-      .split(/\s+/)
-      .map((w: string) => (w ? w[0].toUpperCase() : ""))
-      .join("");
-    const code =
-      s.classCode || `${s.grade || "X"}${s.classLetter || "X"}${majorAbbrev}`;
-
-    if (!acc[major][grade][code]) {
-      acc[major][grade][code] = {
-        students: [],
-        teacherName: s.teacherName,
-        classCode: code,
-      };
-    }
-    acc[major][grade][code].students.push(s);
-
-    return acc;
-  }, {});
-
+  // ========================= TOGGLE LỚP =========================
   const toggleClass = (key: string) => {
     setOpenClassKey(openClassKey === key ? null : key);
     setSelectedStudent(null);
   };
 
-  const formatDate = (dob?: string) => {
-    if (!dob) return "-";
-    const d = new Date(dob);
-    return d.toLocaleDateString("vi-VN");
-  };
+  // ========================= FORMAT NGÀY =========================
+  const formatDate = (dob?: string) =>
+    dob ? new Date(dob).toLocaleDateString("vi-VN") : "-";
 
+  // ========================= REFRESH LỚP =========================
+  const refreshClasses = () => setReloadClasses((prev) => !prev);
+
+  // ========================= LẮNG NGHE SỰ KIỆN GÁN GV =========================
+  useEffect(() => {
+    const handleAssigned = async () => {
+      setLoading(true);
+      try {
+        const res = await axiosInstance.get("/classes");
+        const allStudents = await fetchAllStudents();
+        const studentMap = new Map(allStudents.map((s: any) => [s._id, s]));
+
+        if (res.data && Array.isArray(res.data.data)) {
+          const mapped: ClassData[] = res.data.data.map((cls: any) => {
+            const teacher = teachers.find(
+              (t) => String(t._id) === String(cls.teacherId),
+            );
+            const teacherName = teacher?.name || cls.teacherName || "Chưa gán";
+
+            const students: ICreatedStudent[] = (cls.studentIds || []).map(
+              (sid: any) => {
+                const st = typeof sid === "object" ? sid : studentMap.get(sid);
+                return st
+                  ? {
+                      _id: st._id,
+                      studentId: st.studentId,
+                      name: st.name,
+                      dob: st.dob,
+                      gender: st.gender,
+                      address: st.address,
+                      residence: st.residence,
+                      grade: cls.grade,
+                      classLetter: cls.classLetter,
+                      major: cls.major,
+                      classCode: cls.classCode,
+                      teacherName,
+                    }
+                  : {
+                      _id: typeof sid === "string" ? sid : sid._id,
+                      name: "-",
+                      teacherName,
+                      classCode: cls.classCode,
+                      grade: cls.grade,
+                      classLetter: cls.classLetter,
+                      major: cls.major,
+                    };
+              },
+            );
+
+            return {
+              _id: cls._id || cls.classCode,
+              classCode: cls.classCode,
+              teacherName,
+              students,
+            };
+          });
+
+          setClasses(mapped);
+        }
+      } catch (err) {
+        console.error("⚠️ fetch classes error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener("teacherAssigned", handleAssigned);
+    return () => window.removeEventListener("teacherAssigned", handleAssigned);
+  }, [teachers]);
+
+  // ========================= LẮNG NGHE HỌC SINH MỚI VÀ XOÁ =========================
+  useEffect(() => {
+    const handleNewStudent = (e: any) => {
+      const student: ICreatedStudent = e.detail;
+
+      setClasses((prev) =>
+        prev.map((cls) => {
+          if (cls.classCode === student.classCode) {
+            const exists = cls.students.some((s) => s._id === student._id);
+            if (exists) return cls;
+            return {
+              ...cls,
+              students: [
+                ...cls.students,
+                { ...student, teacherName: cls.teacherName },
+              ],
+            };
+          }
+          return cls;
+        }),
+      );
+    };
+
+    const handleDeletedStudent = (e: any) => {
+      const studentId: string = e.detail._id;
+
+      setClasses((prev) =>
+        prev.map((cls) => ({
+          ...cls,
+          students: cls.students.filter((s) => s._id !== studentId),
+        })),
+      );
+    };
+
+    window.addEventListener("studentAddedToClass", handleNewStudent);
+    window.addEventListener("studentDeletedFromClass", handleDeletedStudent);
+
+    return () => {
+      window.removeEventListener("studentAddedToClass", handleNewStudent);
+      window.removeEventListener(
+        "studentDeletedFromClass",
+        handleDeletedStudent,
+      );
+    };
+  }, []);
+
+  // ========================= RENDER =========================
   return (
     <div className="profile__card">
       <h2 className="profile__title">Quản lý lớp</h2>
 
-      {studentList.length === 0 ? (
+      {loading ? (
+        <p>Đang tải lớp...</p>
+      ) : classes.length === 0 ? (
         <p className="no-class">Chưa có lớp nào.</p>
       ) : (
-        Object.entries(groupedByMajor).map(([major, grades]) => (
-          <div key={major} className="major-block">
-            <h3 className="profile__subtitle">Ngành {major}</h3>
-            {Object.entries(grades).map(([grade, classes]) => (
-              <div key={grade} className="grade-block">
-                <h4 className="profile__subtitle2">Khóa {grade}</h4>
+        classes.map((cls) => {
+          const isOpen = openClassKey === cls.classCode;
+          return (
+            <div key={cls._id} className="class-block">
+              <button
+                onClick={() => toggleClass(cls.classCode)}
+                className="class-btn"
+              >
+                {cls.classCode} ({cls.students.length} HS) - GV:{" "}
+                {cls.teacherName || "Chưa gán"}
+              </button>
 
-                {Object.entries(classes).map(([classKey, clsData]) => {
-                  const {
-                    students: studentsInClass,
-                    teacherName,
-                    classCode,
-                  } = clsData;
-                  const isOpen = openClassKey === classKey;
-
-                  return (
-                    <div key={classKey} className="class-block">
-                      <button
-                        onClick={() => toggleClass(classKey)}
-                        className="class-btn"
-                      >
-                        {classCode} ({studentsInClass.length} HS) - GV:{" "}
-                        {teacherName || "Chưa gán"}
-                      </button>
-
-                      {isOpen && (
-                        <table className="profile__table mt-2">
-                          <thead>
-                            <tr>
-                              <th>Mã HS</th>
-                              <th>Tên</th>
-                              <th>Ngày sinh</th>
-                              <th>Địa chỉ</th>
-                              <th>Hộ khẩu</th>
-                              <th>GV phụ trách</th>
-                              <th>Hành động</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {studentsInClass.map((s: ICreatedStudent) => (
-                              <tr key={s.studentId || s._id}>
-                                <td>{s.studentId}</td>
-                                <td>{s.name}</td>
-                                <td>{formatDate(s.dob)}</td>
-                                <td>{s.address || "-"}</td>
-                                <td>{s.residence || "-"}</td>
-                                <td>{teacherName || "Chưa gán"}</td>
-                                <td>
-                                  <button
-                                    className="view-btn"
-                                    onClick={() =>
-                                      setSelectedStudent(
-                                        selectedStudent?.studentId ===
-                                          s.studentId
-                                          ? null
-                                          : s,
-                                      )
-                                    }
-                                  >
-                                    Xem
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        ))
+              {isOpen && (
+                <table className="profile__table mt-2">
+                  <thead>
+                    <tr>
+                      <th>Mã HS</th>
+                      <th>Tên</th>
+                      <th>Ngày sinh</th>
+                      <th>Địa chỉ</th>
+                      <th>Hộ khẩu</th>
+                      <th>GV phụ trách</th>
+                      <th>Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cls.students.map((s) => (
+                      <tr key={s.studentId || s._id}>
+                        <td>{s.studentId}</td>
+                        <td>{s.name}</td>
+                        <td>{formatDate(s.dob)}</td>
+                        <td>{s.address || "-"}</td>
+                        <td>{s.residence || "-"}</td>
+                        <td>{s.teacherName || "Chưa gán"}</td>
+                        <td>
+                          <button
+                            className="view-btn"
+                            onClick={() =>
+                              setSelectedStudent(
+                                selectedStudent?.studentId === s.studentId
+                                  ? null
+                                  : s,
+                              )
+                            }
+                          >
+                            Xem
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })
       )}
 
-      {/* Modal hiển thị thông tin học sinh */}
       {selectedStudent && (
         <div className="modal-overlay" onClick={() => setSelectedStudent(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -220,10 +355,7 @@ export default function ClassesTab({ students }: ClassesTabProps) {
                 </tr>
                 <tr>
                   <td>Lớp:</td>
-                  <td>
-                    {selectedStudent.classCode ||
-                      `${selectedStudent.grade}${selectedStudent.classLetter}`}
-                  </td>
+                  <td>{selectedStudent.classCode || "-"}</td>
                 </tr>
                 <tr>
                   <td>GV phụ trách:</td>
@@ -231,6 +363,7 @@ export default function ClassesTab({ students }: ClassesTabProps) {
                 </tr>
               </tbody>
             </table>
+
             <button
               className="modal-close"
               onClick={() => setSelectedStudent(null)}

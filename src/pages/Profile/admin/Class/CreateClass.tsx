@@ -1,14 +1,17 @@
 // src/pages/Profile/admin/Class/CreateClass.tsx
 import React, { useState, useEffect } from "react";
+import { ICreatedStudent } from "../../../../types/student";
+import axiosInstance from "../../../../api/axiosConfig";
 import { createClass } from "./settings/createClassAPI";
 import { updateClass } from "./settings/updateClassAPI";
 import { getClasses } from "./settings/getClassesAPI";
 import { deleteClass } from "./settings/deleteClassAPI";
 import { toast, Toaster } from "react-hot-toast";
-import { generateClassCode } from "../../../../../server/helpers/classCode"; // helper tự sinh mã lớp
+import { generateClassCode } from "../../../../../server/helpers/classCode";
+import { ObjectId } from "mongodb";
 
 interface ClassType {
-  _id: string;
+  _id: string | ObjectId;
   grade: string;
   schoolYear: string;
   classLetter: string;
@@ -33,7 +36,9 @@ const CreateClass: React.FC = () => {
   const fetchClasses = async () => {
     try {
       const res = await getClasses();
-      if (res?.success) setClasses(res.data || []);
+      if (res && res.success && Array.isArray(res.data)) {
+        setClasses(res.data);
+      }
     } catch (error) {
       toast.error("Không thể tải danh sách lớp!");
       console.error(error);
@@ -69,7 +74,7 @@ const CreateClass: React.FC = () => {
       !formData.classLetter.trim() ||
       !formData.classCode.trim()
     ) {
-      toast.error("⚠️ Vui lòng nhập đủ thông tin!");
+      toast.error(" Vui lòng nhập đủ thông tin!");
       return;
     }
 
@@ -77,13 +82,14 @@ const CreateClass: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = editingId
-        ? await updateClass(editingId, payload)
-        : await createClass(payload);
+      const res =
+        editingId !== null
+          ? await updateClass(editingId, payload)
+          : await createClass(payload);
 
-      if (res?.success) {
+      if (res && res.success) {
         toast.success(
-          editingId ? "✅ Cập nhật thành công!" : "✅ Tạo lớp thành công!",
+          editingId ? "Cập nhật thành công!" : "Tạo lớp thành công!",
         );
         await fetchClasses();
         setFormData({
@@ -106,15 +112,15 @@ const CreateClass: React.FC = () => {
   };
 
   // Xóa lớp
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | ObjectId) => {
     if (!window.confirm("Xóa lớp này?")) return;
     try {
-      const res = await deleteClass(id);
+      const res = await deleteClass(id.toString());
       if (res?.success) {
         toast.success("🗑️ Đã xóa lớp");
         fetchClasses();
       } else {
-        toast.error("❌ Xóa thất bại!");
+        toast.error("Xóa thất bại!");
       }
     } catch (error) {
       toast.error("Lỗi khi xóa lớp!");
@@ -184,7 +190,7 @@ const CreateClass: React.FC = () => {
         <ul className="space-y-2">
           {classes.map((cls) => (
             <li
-              key={cls._id}
+              key={cls._id?.toString()}
               className="border rounded p-3 flex justify-between items-center"
             >
               <span>
@@ -202,7 +208,7 @@ const CreateClass: React.FC = () => {
                       major: cls.major,
                       classCode: cls.classCode,
                     });
-                    setEditingId(cls._id);
+                    setEditingId(cls._id?.toString() || null);
                   }}
                   className="bg-yellow-500 text-white px-3 py-1 rounded"
                 >
@@ -219,7 +225,6 @@ const CreateClass: React.FC = () => {
           ))}
         </ul>
       )}
-      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 };

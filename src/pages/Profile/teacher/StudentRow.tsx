@@ -49,7 +49,6 @@ export default function StudentRow({
           Lớp: {s.class} • Năm: {s.schoolYear}
         </div>
       </div>
-
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontWeight: 700 }}>{latest ?? "—"}</div>

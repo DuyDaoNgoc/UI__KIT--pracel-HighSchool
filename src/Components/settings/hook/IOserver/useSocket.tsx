@@ -1,6 +1,7 @@
 // src/Components/settings/hook/IOserver/useSocket.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import toast, { Toaster } from "react-hot-toast";
 
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
 const getSocketURL = async (): Promise<string> => {
@@ -112,6 +113,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       s.on("connect", () => {
         console.log("✅ Socket connected:", s.id);
+        toast.success("Đã kết nối");
         setLoading(false);
         setError(null);
       });
@@ -123,7 +125,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       s.on("connect_error", (err: any) => {
         console.error("❌ Socket connect_error:", err.message || err);
-        setError("Không thể kết nối server");
+        toast.error("Không có kết nối internet");
         setLoading(false);
       });
 
@@ -131,7 +133,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       s.io.on("reconnect_attempt", () => setLoading(true));
       s.io.on("reconnect_failed", () => {
         setLoading(false);
-        setError("Không thể kết nối server");
+        toast.error("Không có kết nối internet");
       });
 
       return () => {
@@ -150,6 +152,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{ socket, data, loading: loading || isOffline, error }}
     >
       {children}
+      <Toaster position="top-right" reverseOrder={false} />
     </SocketContext.Provider>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../../api/axiosConfig";
 import { toast, Toaster } from "react-hot-toast";
-
+import toastr from "toastr";
 interface ITeacher {
   _id: string;
   teacherId?: string;
@@ -46,7 +46,12 @@ export default function CreateTeacherWithTable() {
     certificates: "",
     research: "",
   });
-
+  toastr.options = {
+    closeButton: true,
+    progressBar: true,
+    timeOut: 3000,
+    positionClass: "toast-bottom-right", // góc dưới phải
+  };
   const [teachers, setTeachers] = useState<ITeacher[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -64,7 +69,7 @@ export default function CreateTeacherWithTable() {
       }));
       setTeachers(normalized);
     } catch (err) {
-      console.error("❌ Lỗi lấy danh sách giáo viên:", err);
+      console.error("❌Lỗi lấy danh sách giáo viên:", err);
     }
   };
 
@@ -121,16 +126,16 @@ export default function CreateTeacherWithTable() {
     try {
       if (editingId) {
         await axiosInstance.put(`/teachers/${editingId}`, payload);
-        toast.success("✅ Cập nhật giáo viên thành công!");
+        toast.success(" Cập nhật giáo viên thành công!");
       } else {
         await axiosInstance.post("/teachers", payload);
-        toast.success("✅ Thêm giáo viên thành công!");
+        toast.success(" Thêm giáo viên thành công!");
       }
       resetForm();
       fetchTeachers();
     } catch (error) {
       console.error("❌ Lỗi khi gửi dữ liệu:", error);
-      toast.error("❌ Vui lòng nhập đầy đủ thông tin.");
+      toast.error("Vui lòng nhập đầy đủ.");
     }
   };
 
@@ -138,11 +143,11 @@ export default function CreateTeacherWithTable() {
     if (!window.confirm("Bạn có chắc muốn xoá giáo viên này?")) return;
     try {
       await axiosInstance.delete(`/teachers/${id}`);
-      toast.success("✅ Xoá giáo viên thành công!");
+      toast.success("Xoá giáo viên thành công!");
       fetchTeachers();
     } catch (err) {
       console.error("❌ Lỗi xoá giáo viên:", err);
-      toast.error("❌ Lỗi khi xoá giáo viên.");
+      toast.error(" Lỗi khi xoá giáo viên.");
     }
   };
 

@@ -56,7 +56,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
             studentIds: new ObjectId(student._id) as unknown as any,
             // ✅ ép kiểu để TS chấp nhận
           },
-        }
+        },
       );
     }
 

@@ -15,7 +15,7 @@
   height: 100vh; // chiếm toàn bộ chiều cao màn hình
   width: 220px; // chiều rộng sidebar
   background: #f5f5f5;
-  padding: 20px;
+  padding: 5px;
   list-style: none;
   border-radius: 0; // bỏ bo góc để dính vào cạnh
   border-right: 1px solid #ddd;
@@ -28,8 +28,8 @@
 }
 
 .profile__user h3 {
-  margin: 0 0 4px;
-  font-size: 18px;
+  margin: 15px 0px 1px;
+  font-size: 24px;
 }
 
 .profile__user p {

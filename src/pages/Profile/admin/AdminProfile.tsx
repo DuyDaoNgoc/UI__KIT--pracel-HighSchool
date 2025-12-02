@@ -18,7 +18,7 @@ import UserManagement from "./UserManagement";
 import AdminDashboard from "./Dashboard/AdminDashboard";
 import CreateClass from "./Class/CreateClass";
 import { toast, Toaster } from "react-hot-toast";
-
+import ScheduleTeachers from "./Class/ScheduleTeachers";
 // ======================== INTERFACES ========================
 interface ILockResp {
   locked: boolean;
@@ -35,6 +35,20 @@ interface IStudentForm {
   schoolYear: string;
   major: string;
   gender: string;
+}
+
+interface ITeacher {
+  _id: string;
+  name: string;
+}
+
+interface IClass {
+  _id: string;
+  grade: string;
+  classLetter: string;
+  major: string;
+  schoolYear: string;
+  classCode: string;
 }
 
 // ======================== COMPONENT ========================
@@ -59,6 +73,9 @@ const AdminProfile: FC = () => {
     major: "",
     gender: "",
   });
+
+  const [teachers, setTeachers] = useState<ITeacher[]>([]);
+  const [classes, setClasses] = useState<IClass[]>([]);
 
   const [creating, setCreating] = useState<boolean>(false);
   const [createdStudents, setCreatedStudents] = useState<ICreatedStudent[]>([]);
@@ -110,22 +127,20 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Toggle khóa/mở khóa ====
-  // AdminProfile.tsx
-  // AdminProfile.tsx
   const toggleLock = async (): Promise<boolean> => {
     try {
       if (locked) {
         await axiosInstance.post("/admin/grades/unlock", {}, authHeaders);
         setLocked(false);
-        return false; // trạng thái mới: mở khóa
+        return false;
       } else {
         await axiosInstance.post("/admin/grades/lock", {}, authHeaders);
         setLocked(true);
-        return true; // trạng thái mới: khóa
+        return true;
       }
     } catch (err) {
       console.warn("⚠️ toggleLock error:", err);
-      throw err; // để LockTab bắt và toast
+      throw err;
     }
   };
 
@@ -206,7 +221,7 @@ const AdminProfile: FC = () => {
       );
 
       await fetchCreatedStudents();
-      toast.success(`✅ Tạo học sinh thành công! Mã: ${studentId}`);
+      toast.success(`Tạo học sinh thành công! Mã: ${studentId}`);
 
       setStudentForm({
         name: "",
@@ -218,7 +233,7 @@ const AdminProfile: FC = () => {
         classLetter: "",
         schoolYear: "",
         major: "",
-        gender: "", // reset gender
+        gender: "",
       });
     } catch (err) {
       console.error("⚠️ createStudent error:", err);
@@ -240,7 +255,7 @@ const AdminProfile: FC = () => {
         setSelectedStudent(null);
         setViewing(false);
       }
-      toast.success("✅ Đã xóa học sinh.");
+      toast.success("Đã xóa học sinh.");
     } catch (err) {
       console.error("⚠️ deleteStudent error:", err);
       toast.error("Xóa học sinh thất bại.");
@@ -262,7 +277,7 @@ const AdminProfile: FC = () => {
         authHeaders,
       );
       await fetchCreatedStudents();
-      toast.success("✅ Gán giáo viên thành công.");
+      toast.success("Gán giáo viên thành công.");
     } catch (err) {
       console.error("⚠️ assignTeacher error:", err);
       toast.error("Gán giáo viên thất bại.");
@@ -283,15 +298,161 @@ const AdminProfile: FC = () => {
     setViewing(false);
   };
 
+  // ==== Fetch teachers & classes ====
+  const fetchTeachersAndClasses = async () => {
+    try {
+      const tRes = await axiosInstance.get<ITeacher[]>(
+        "/admin/teachers",
+        authHeaders,
+      );
+      setTeachers(Array.isArray(tRes.data) ? tRes.data : []);
+
+      const cRes = await axiosInstance.get<IClass[]>(
+        "/admin/classes",
+        authHeaders,
+      );
+      setClasses(Array.isArray(cRes.data) ? cRes.data : []);
+    } catch (err) {
+      console.warn("⚠️ fetchTeachersAndClasses error:", err);
+    }
+  };
+
   // ==== useEffect init ====
   useEffect(() => {
     fetchNews();
     fetchLockStatus();
     fetchCreatedStudents();
+    fetchTeachersAndClasses();
+
     const iv = setInterval(fetchLockStatus, 30000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ==== ScheduleTeachers Component ====
+  const ScheduleTeachersComp: FC<{
+    teachers: ITeacher[];
+    classes: IClass[];
+  }> = ({ teachers, classes }) => {
+    const [selectedTeacher, setSelectedTeacher] = useState<string>("");
+    const [selectedClasses, setSelectedClasses] = useState<
+      { classCode: string; type: "homeroom" | "subject" }[]
+    >([]);
+
+    const handleClassChange = (
+      classCode: string,
+      type: "homeroom" | "subject",
+      checked: boolean,
+    ) => {
+      setSelectedClasses((prev) => {
+        const filtered = prev.filter(
+          (c) => !(c.classCode === classCode && c.type === type),
+        );
+        return checked ? [...filtered, { classCode, type }] : filtered;
+      });
+    };
+
+    const handleSubmit = async () => {
+      if (!selectedTeacher || selectedClasses.length === 0) {
+        return toast.error("Vui lòng chọn giáo viên và ít nhất 1 lớp");
+      }
+      try {
+        const res = await axiosInstance.post(
+          "/admin/class/schedule",
+          { teacherId: selectedTeacher, assignments: selectedClasses },
+          authHeaders,
+        );
+        toast.success(res.data?.message || "Xếp lớp thành công!");
+        setSelectedTeacher("");
+        setSelectedClasses([]);
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err?.message || "Lỗi server");
+      }
+    };
+
+    return (
+      <div style={{ padding: 12 }}>
+        <h2>Xếp giáo viên vào lớp</h2>
+
+        <div style={{ marginTop: 10 }}>
+          <label>Chọn giáo viên:</label>
+          <select
+            value={selectedTeacher}
+            onChange={(e) => setSelectedTeacher(e.target.value)}
+            style={{ marginLeft: 8 }}
+          >
+            <option value="">-- Chọn giáo viên --</option>
+            {teachers.map((t) => (
+              <option key={t._id} value={t._id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginTop: 20 }}>
+          {classes.length > 0 ? (
+            classes.map((cls) => {
+              const isHomeroom = selectedClasses.some(
+                (c) => c.classCode === cls.classCode && c.type === "homeroom",
+              );
+              const isSubject = selectedClasses.some(
+                (c) => c.classCode === cls.classCode && c.type === "subject",
+              );
+              return (
+                <div key={cls._id} style={{ marginTop: 6 }}>
+                  <span>
+                    {cls.grade}
+                    {cls.classLetter} - {cls.major} ({cls.schoolYear})
+                  </span>
+
+                  <label style={{ marginLeft: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={isHomeroom}
+                      onChange={(e) =>
+                        handleClassChange(
+                          cls.classCode,
+                          "homeroom",
+                          e.target.checked,
+                        )
+                      }
+                    />{" "}
+                    Chủ nhiệm
+                  </label>
+
+                  <label style={{ marginLeft: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={isSubject}
+                      onChange={(e) =>
+                        handleClassChange(
+                          cls.classCode,
+                          "subject",
+                          e.target.checked,
+                        )
+                      }
+                    />{" "}
+                    Bộ môn
+                  </label>
+                </div>
+              );
+            })
+          ) : (
+            <p>Chưa có lớp nào.</p>
+          )}
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          style={{ marginTop: 20, padding: "6px 12px", cursor: "pointer" }}
+        >
+          Xếp giáo viên
+        </button>
+      </div>
+    );
+  };
 
   // ==== Render ====
   if (!token || user?.role !== "admin") {
@@ -308,7 +469,6 @@ const AdminProfile: FC = () => {
 
       <main className="profile__content">
         {errorMsg && <p className="error-msg">❌ {errorMsg}</p>}
-
         {activeTab === "news" && <NewsTab pendingNews={pendingNews} />}
         {activeTab === "lock" && (
           <LockTab locked={locked} toggleLock={toggleLock} />
@@ -330,6 +490,9 @@ const AdminProfile: FC = () => {
         {activeTab === "classes" && <ClassesTab students={createdStudents} />}
         {activeTab === "create-class" && <CreateClass />}
         {activeTab === "create-teacher" && <CreateTeacher />}
+        {activeTab === "schedule-teachers" && (
+          <ScheduleTeachers teachers={teachers} classes={classes} />
+        )}
         {activeTab === "users" && <UserManagement />}
         {activeTab === "dashboard" && <AdminDashboard />}
       </main>

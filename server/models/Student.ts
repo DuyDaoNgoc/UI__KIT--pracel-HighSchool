@@ -1,18 +1,18 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types, CallbackError } from "mongoose";
+import ClassModel from "./Class"; // import model Class
 
-// Interface Mongoose + TS
 export interface IStudent extends Document {
   name: string;
   dob?: Date;
   address?: string;
   residence?: string;
   phone?: string;
-  grade: string; // Khối
-  classLetter: string; // Lớp
-  major: string; // Ngành
-  schoolYear: string; // Niên khóa
-  studentId: string; // Mã học sinh
-  classCode?: string; // 💡 để truy cập classCode
+  grade: string;
+  classLetter: string;
+  major: string;
+  schoolYear: string;
+  studentId: string;
+  classCode?: string;
   className: string;
   teacherId?: Types.ObjectId | null;
   parentId?: Types.ObjectId | null;
@@ -22,7 +22,6 @@ export interface IStudent extends Document {
   updatedAt?: Date;
 }
 
-// Schema
 const StudentSchema: Schema<IStudent> = new Schema(
   {
     name: { type: String, required: true },
@@ -45,33 +44,54 @@ const StudentSchema: Schema<IStudent> = new Schema(
   { timestamps: true },
 );
 
-// 📌 Middleware: tự sinh studentId nếu chưa có
 StudentSchema.pre<IStudent>("save", async function (next) {
-  if (!this.studentId) {
-    const lastStudent = await Student.findOne(
-      {},
-      {},
-      { sort: { studentId: -1 } },
-    );
-
-    let newId = "HS00001"; // default
-    if (lastStudent?.studentId) {
-      const num = parseInt(lastStudent.studentId.replace("HS", ""), 10) + 1;
-      newId = "HS" + num.toString().padStart(5, "0");
+  try {
+    // 🔹 Sinh studentId nếu chưa có
+    if (!this.studentId) {
+      const StudentModel = mongoose.model<IStudent>("Student");
+      const lastStudent = await StudentModel.findOne(
+        {},
+        {},
+        { sort: { studentId: -1 } },
+      );
+      let newId = "HS00001";
+      if (lastStudent?.studentId) {
+        const num = parseInt(lastStudent.studentId.replace("HS", ""), 10) + 1;
+        newId = "HS" + num.toString().padStart(5, "0");
+      }
+      this.studentId = newId;
     }
 
-    this.studentId = newId;
-  }
+    // 🔹 Tự sinh className nếu chưa có
+    if (!this.className) {
+      this.className = `${this.grade}${this.classLetter} - ${this.major}`;
+    }
 
-  // Tự động sinh className nếu chưa có
-  if (!this.className) {
-    this.className = `${this.grade}${this.classLetter} - ${this.major}`;
-  }
+    // 🔹 Sinh classCode để xác định lớp
+    this.classCode = `${this.grade}${this.classLetter}${this.major
+      .split(/\s+/)
+      .map((w) => w[0]?.toUpperCase() || "")
+      .join("")}`;
 
-  next();
+    // 🔹 Thêm học sinh vào lớp đúng classCode
+    const cls = await ClassModel.findOne({ classCode: this.classCode });
+
+    if (cls) {
+      const studentObjectId = this._id;
+
+      const exists = cls.studentIds.some((id) => id.equals(studentObjectId));
+      if (!exists) {
+        cls.studentIds.push(studentObjectId);
+        await cls.save();
+      }
+    }
+
+    next();
+  } catch (err: unknown) {
+    console.error("⚠️ StudentSchema pre-save error:", err);
+    next(err as CallbackError);
+  }
 });
 
-// Model
 const Student = mongoose.model<IStudent>("Student", StudentSchema);
-
 export default Student;

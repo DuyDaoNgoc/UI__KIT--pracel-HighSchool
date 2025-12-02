@@ -28,7 +28,7 @@ export interface AuthRequest extends Request {
 export const verifyToken: RequestHandler = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
@@ -41,13 +41,12 @@ export const verifyToken: RequestHandler = (
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET as string
+      process.env.JWT_SECRET as string,
     ) as AuthPayload;
 
     if (!decoded.id || !decoded.role || !decoded.email) {
       return res.status(403).json({ message: "Invalid token payload" });
     }
-
     // Gán trực tiếp vào req.user
     (req as AuthRequest).user = decoded;
 
@@ -63,13 +62,11 @@ export const checkRole = (roles: UserRole[]): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = (req as AuthRequest).user;
     if (!user) return res.status(401).json({ message: "Unauthorized" });
-
     if (!roles.includes(user.role)) {
       return res
         .status(403)
         .json({ message: "Forbidden: Insufficient permissions" });
     }
-
     next();
   };
 };

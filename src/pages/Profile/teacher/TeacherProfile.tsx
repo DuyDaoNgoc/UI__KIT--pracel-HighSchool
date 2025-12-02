@@ -13,7 +13,6 @@ import toast from "react-hot-toast";
 export default function TeacherProfile() {
   const { user: ctxUser, token: ctxToken, logout } = useAuth() as any;
   const [teacher, setTeacher] = useState<FEUser | null>(ctxUser);
-
   const [activeTab, setActiveTab] = useState<
     "info" | "students" | "reports" | "settings"
   >("students");
@@ -59,9 +58,7 @@ export default function TeacherProfile() {
       }
     }
   }, [ctxUser]);
-
   if (!teacher) return <p>Vui lòng đăng nhập.</p>;
-
   // ---------- Request update grade ----------
   async function requestUpdateGrade(
     studentId: string,
@@ -69,7 +66,7 @@ export default function TeacherProfile() {
     newScore: number,
   ) {
     if (gradesLocked) {
-      toast.error("❌ Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
+      toast.error(" Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
       return;
     }
     setSendingRequest(true);
@@ -79,9 +76,7 @@ export default function TeacherProfile() {
         "/api/grades/request-update",
         payload,
       );
-      toast.success(
-        res.data?.message || "✅ Yêu cầu cập nhật đã gửi cho admin.",
-      );
+      toast.success(res.data?.message || " Yêu cầu cập nhật đã gửi cho admin.");
     } catch (err: any) {
       if (err?.response?.status === 401) {
         logout?.();

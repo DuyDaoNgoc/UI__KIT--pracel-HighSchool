@@ -1,6 +1,7 @@
 // server/controllers/admin/createStudent.ts
 import { Request, Response } from "express";
 import { connectDB } from "../../../configs/db";
+import { ObjectId } from "mongodb"; // <<< THÊM DÒNG NÀY
 
 export const createStudent = async (req: Request, res: Response) => {
   try {
@@ -61,10 +62,10 @@ export const createStudent = async (req: Request, res: Response) => {
       });
     }
 
-    // Tạo classCode an toàn nếu chưa có
+    // Tạo classCode an toàn nếu chưa có (🔥 Chỉnh sửa duy nhất ở đây)
     const safeClassCode =
       classCode ??
-      `${grade}${classLetter}${(major || "")
+      `${String(grade)}${String(classLetter)}-${(major ?? "")
         .split(/\s+/)
         .map((w: string) => w[0]?.toUpperCase() || "")
         .join("")}`;
@@ -76,13 +77,13 @@ export const createStudent = async (req: Request, res: Response) => {
       role: "student",
       dob: parsedDob,
       gender: String(gender ?? ""),
-      address: address ?? "",
-      residence: residence ?? "",
-      phone: phone ?? "",
+      address: String(address ?? ""),
+      residence: String(residence ?? ""),
+      phone: String(phone ?? ""),
       grade: String(grade),
       classLetter: String(classLetter),
       schoolYear: String(schoolYear),
-      major: major ?? "",
+      major: String(major ?? ""),
       classCode: String(safeClassCode),
       teacherId: "",
       parentId: "",
@@ -94,6 +95,31 @@ export const createStudent = async (req: Request, res: Response) => {
 
     // Insert student
     const result = await students.insertOne(newStudent);
+
+    // 🔥 Thêm học sinh vào lớp tương ứng
+    try {
+      const classes = db.collection("classes");
+
+      const classDoc = await classes.findOne({
+        classCode: newStudent.classCode,
+      });
+
+      if (classDoc) {
+        await classes.updateOne(
+          { classCode: newStudent.classCode },
+          {
+            $addToSet: {
+              // ❗SỬA ĐÚNG FIELD THEO MODEL
+              studentIds: new ObjectId(result.insertedId),
+            },
+          },
+        );
+      } else {
+        console.warn("⚠️ Không tìm thấy lớp:", newStudent.classCode);
+      }
+    } catch (err) {
+      console.error("❌ Lỗi khi thêm học sinh vào lớp:", err);
+    }
 
     // Lấy danh sách tất cả students mới nhất
     const allStudents = await students.find().sort({ createdAt: -1 }).toArray();

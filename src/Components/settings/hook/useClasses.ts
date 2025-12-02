@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axiosInstance from "../../../api/axiosConfig";
 import { IClass } from "../../../types/class";
+import toast from "react-hot-toast";
 
 export default function useClasses() {
   const [classesByMajor, setClassesByMajor] = useState<
@@ -14,13 +15,15 @@ export default function useClasses() {
       setLoading(true);
       setError(null);
       try {
-        const res = await axiosInstance.get<Record<string, IClass[]>>(
-          "/api/admin/classes"
-        );
+        const res =
+          await axiosInstance.get<Record<string, IClass[]>>(
+            "/api/admin/classes",
+          );
         setClassesByMajor(res.data);
       } catch (err) {
         console.error("⚠️ fetchClasses error:", err);
         setError("Không thể tải danh sách lớp.");
+        toast.error("Không thể tải danh sách lớp.");
       } finally {
         setLoading(false);
       }

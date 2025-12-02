@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import avatar from "../../../../public/assets/imgs/avatar/avatar.jpg";
 import Logout from "../../settings/logout/logout";
+import { toast, Toaster } from "react-hot-toast";
+
 interface User {
   username: string;
   role: string;
@@ -131,12 +133,19 @@ export default function AuthButtons() {
               {/* Menu admin */}
               {user.role === "admin" && <></>}
 
-              <li className="dropdown-menu--list-logout" onClick={logout}>
+              <li
+                className="dropdown-menu--list-logout"
+                onClick={() => {
+                  logout();
+                  toast.success("Đã đăng xuất tài khoản.");
+                }}
+              >
                 Đăng xuất
               </li>
             </ul>
           </div>
         )}
+        <Toaster position="top-right" reverseOrder={false} />
       </div>
     );
   }

@@ -78,9 +78,10 @@ export const getAllClasses = async (req: Request, res: Response) => {
       .json({ message: "Lấy danh sách lớp thất bại", error: err.message });
   }
 };
-// =====================================
-// 🏫 TẠO HOẶC LẤY LỚP NẾU ĐÃ TỒN TẠI
-// =====================================
+
+/* =====================================
+ * 🏫 TẠO HOẶC LẤY LỚP NẾU ĐÃ TỒN TẠI
+ * ===================================== */
 export const createClass = async (req: Request, res: Response) => {
   try {
     const { schoolYear, classLetter, major, teacherId } = req.body;
@@ -92,7 +93,6 @@ export const createClass = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ grade luôn có giá trị (ép kiểu chuẩn)
     const grade =
       typeof schoolYear === "number"
         ? schoolYear.toString()
@@ -104,9 +104,8 @@ export const createClass = async (req: Request, res: Response) => {
       .join("");
 
     const classCode = `${grade}${classLetter}${majorAbbrev}`;
-    const className = `${grade}${classLetter} - ${major}`;
+    const className = `${grade}${classLetter}  ${major}`;
 
-    // 🔍 Tìm lớp nếu đã tồn tại
     let cls = await ClassModel.findOne({
       classCode,
       schoolYear: grade,
@@ -131,7 +130,6 @@ export const createClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
-    // 👩‍🏫 Nếu có teacherId → cập nhật thêm
     if (teacherId) {
       const teacher = await TeacherModel.findById(teacherId);
       if (teacher) {
@@ -173,20 +171,30 @@ export const createClass = async (req: Request, res: Response) => {
     });
   }
 };
-
 /* ==================================
  * 👨‍🎓 THÊM HỌC SINH VÀO LỚP
  * ================================== */
 export const addStudentToClass = async (req: Request, res: Response) => {
   try {
     const { studentId } = req.body;
+
+    // Bắt buộc studentId phải có
     if (!studentId)
       return res.status(400).json({ message: "Thiếu thông tin học sinh" });
 
+    // Tìm học sinh theo _id MongoDB
     const student = await UserModel.findById(studentId).lean<IUserDocument>();
     if (!student)
       return res.status(404).json({ message: "Không tìm thấy học sinh" });
 
+    // Đảm bảo các thông tin cần thiết có sẵn
+    if (!student.schoolYear || !student.classLetter || !student.major) {
+      return res
+        .status(400)
+        .json({ message: "Học sinh thiếu thông tin lớp hoặc ngành" });
+    }
+
+    // Sinh classCode chuẩn: <schoolYear><classLetter><majorAbbrev>
     const majorAbbrev = (student.major || "")
       .split(/\s+/)
       .map((w: string) => w[0]?.toUpperCase() || "")
@@ -195,6 +203,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
     const classCode = `${student.schoolYear}${student.classLetter}${majorAbbrev}`;
     const className = `${student.schoolYear}${student.classLetter} - ${student.major}`;
 
+    // Tìm class, nếu chưa có thì tạo mới
     let cls = await ClassModel.findOne({
       classCode,
       schoolYear: student.schoolYear,
@@ -216,6 +225,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
+    // Push học sinh vào studentIds nếu chưa có
     const studentObjectId = new mongoose.Types.ObjectId(String(studentId));
 
     if (!cls.studentIds.some((id) => id.equals(studentObjectId))) {
@@ -223,6 +233,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       await cls.save();
     }
 
+    // Nếu class đã có giáo viên, gán teacherId cho học sinh
     if (cls.teacherId) {
       await UserModel.updateOne(
         { _id: studentObjectId },
@@ -230,6 +241,7 @@ export const addStudentToClass = async (req: Request, res: Response) => {
       );
     }
 
+    // Populate studentIds và teacherId trước khi trả về
     const populated = await ClassModel.findById(cls._id)
       .populate({
         path: "studentIds",
@@ -240,12 +252,14 @@ export const addStudentToClass = async (req: Request, res: Response) => {
         select: "name subject majors",
       });
 
-    return res.status(200).json(populated);
+    return res.status(200).json({ success: true, data: populated });
   } catch (err: any) {
     console.error("⚠️ addStudentToClass error:", err.message);
-    return res
-      .status(500)
-      .json({ message: "Thêm học sinh thất bại", error: err.message });
+    return res.status(500).json({
+      success: false,
+      message: "Thêm học sinh vào lớp thất bại",
+      error: err.message,
+    });
   }
 };
 

@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 import { pageVariants } from "../../../configs/animations/pageVariants";
 import { useNavigate } from "react-router-dom";
 import { Socket } from "socket.io-client";
+import { toast, Toaster } from "react-hot-toast";
 interface Props {
   activeTab: string;
   locked: boolean;
@@ -46,9 +47,11 @@ export default function AdminSidebar({
           </Link>
           <h3 className="titlecolor">Admin Panel</h3>
         </div>
-        <p>Quản trị viên</p>
       </div>
       <ul className="profile__menu">
+        <li>
+          <input type="text" name="" id="" />
+        </li>
         <li
           onClick={() => setActiveTab("dashboard")}
           className={activeTab === "dashboard" ? "active" : ""}
@@ -97,6 +100,13 @@ export default function AdminSidebar({
           <UserPlus size={18} /> Tạo giáo viên
         </li>
         <li
+          onClick={() => setActiveTab("schedule-teachers")}
+          className={activeTab === "schedule-teachers" ? "active" : ""}
+        >
+          <BookOpen size={18} /> Xếp giáo viên vào lớp
+        </li>
+
+        <li
           onClick={() => setActiveTab("users")}
           className={activeTab === "users" ? "active" : ""}
         >
@@ -112,9 +122,11 @@ export default function AdminSidebar({
           </button>
         </li>
       </ul>
-      <li>
-        <Logout />
-      </li>
+      <ul className="profile__menu">
+        <li className={activeTab === "logout" ? "active" : ""}>
+          <Logout />
+        </li>
+      </ul>
     </motion.aside>
   );
 }

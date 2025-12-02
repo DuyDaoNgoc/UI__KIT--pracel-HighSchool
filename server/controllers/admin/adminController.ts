@@ -36,7 +36,7 @@ export async function lockGrades(req: Request, res: Response) {
     await settings.updateOne(
       { key: "grades_locked" },
       { $set: { value: true, updatedAt: new Date() } },
-      { upsert: true }
+      { upsert: true },
     );
     return res.json({ locked: true });
   } catch (err) {
@@ -56,7 +56,7 @@ export async function unlockGrades(req: Request, res: Response) {
     await settings.updateOne(
       { key: "grades_locked" },
       { $set: { value: false, updatedAt: new Date() } },
-      { upsert: true }
+      { upsert: true },
     );
     return res.json({ locked: false });
   } catch (err) {

@@ -121,7 +121,6 @@ function Layout() {
     vacation: "Đội ngũ",
     find_more: "Tuyển sinh",
   };
-
   return (
     <div id="app" style={{ position: "relative" }}>
       {showLoading && (
@@ -142,7 +141,6 @@ function Layout() {
           <Loading />
         </div>
       )}
-
       {error && (
         <div
           style={{
