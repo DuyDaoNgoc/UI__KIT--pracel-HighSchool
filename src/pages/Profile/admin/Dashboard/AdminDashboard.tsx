@@ -15,7 +15,6 @@ import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
 import { get } from "../../../../api/axiosConfig";
-import { IParent } from "../../../../types/parent";
 import { IClass } from "../../../../types/class";
 
 interface IStudent {
@@ -60,35 +59,63 @@ const AdminDashboard: React.FC = () => {
   // ===== FETCH DATA =====
   const fetchData = async () => {
     try {
-      const [students, teachers, classesResponse] = await Promise.all([
+      const [studentsRes, teachersRes, classesRes] = await Promise.all([
         get<IStudent[]>("/admin/students"),
         get<ITeacher[]>("/admin/teachers"),
-        get<Record<string, IClass[]>>("/admin/classes"),
+        get("/classes"),
       ]);
 
-      // 🧩 Làm phẳng dữ liệu lớp từ { major: IClass[] } → IClass[]
-      const allClasses: IClass[] = Object.values(classesResponse).flat();
+      // ===== LOG DEBUG =====
+      console.log("📌 Students raw response:", studentsRes);
+      console.log("📌 Teachers raw response:", teachersRes);
+      console.log("📌 Classes raw response:", classesRes);
 
+      // students & teachers (axios trả data trực tiếp hoặc trong data)
+      const students = Array.isArray(studentsRes)
+        ? studentsRes
+        : (studentsRes.data ?? []);
+      const teachers = Array.isArray(teachersRes)
+        ? teachersRes
+        : (teachersRes.data ?? []);
+
+      // classes phải chắc chắn là mảng JSON
+      let classesArray: IClass[] = [];
+      if (Array.isArray(classesRes.data)) {
+        classesArray = classesRes.data;
+      } else if (Array.isArray(classesRes.data?.data)) {
+        classesArray = classesRes.data.data;
+      } else {
+        console.warn(
+          "⚠️ Classes API không trả mảng. Kiểm tra endpoint /admin/classes",
+        );
+      }
+
+      console.log("📌 Students array:", students);
+      console.log("📌 Teachers array:", teachers);
+      console.log("📌 Classes array:", classesArray);
+
+      // ===== SET STATE =====
       setStudentsData(students);
       setTeachersData(teachers);
-      setClassesData(allClasses);
+      setClassesData(classesArray);
 
       setStats({
         totalStudents: students.length,
         totalTeachers: teachers.length,
-        totalClasses: allClasses.length,
+        totalClasses: classesArray.length,
       });
 
       setChartData([
         { name: "Học sinh", so_luong: students.length },
         { name: "Giáo viên", so_luong: teachers.length },
-        { name: "Lớp học", so_luong: allClasses.length },
+        { name: "Lớp học", so_luong: classesArray.length },
       ]);
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu thống kê:", err);
     }
   };
 
+  // ===== Khởi chạy lần đầu =====
   useEffect(() => {
     fetchData();
   }, []);
