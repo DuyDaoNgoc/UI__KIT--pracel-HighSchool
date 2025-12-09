@@ -1,14 +1,19 @@
 // src/pages/Profile/admin/StudentModal.tsx
 import React from "react";
 import { UserPlus2, Trash2 } from "lucide-react";
+import { ICreatedStudent } from "../../../types/student";
 
 interface Props {
   viewing: boolean;
-  selectedStudent: any | null;
+  selectedStudent: ICreatedStudent | null;
   closeView: () => void;
   assignTeacher: (studentId: string) => void;
   deleteStudent: (studentId: string) => void;
-  generateClassCode: (grade?: string, cls?: string, major?: string) => string;
+  generateClassCode: (
+    grade?: string,
+    classLetter?: string,
+    major?: string,
+  ) => string;
 }
 
 export default function StudentModal({
@@ -20,6 +25,32 @@ export default function StudentModal({
   generateClassCode,
 }: Props) {
   if (!viewing || !selectedStudent) return null;
+
+  const infoMap: { [key: string]: string } = {
+    "Mã HS": selectedStudent.studentId || "-",
+    "Họ tên": selectedStudent.name || "-",
+    "Ngày sinh": selectedStudent.dob
+      ? new Date(selectedStudent.dob).toLocaleDateString()
+      : "-",
+    Khối: selectedStudent.grade?.toString() || "-",
+    Lớp: selectedStudent.classLetter || "-",
+    Ngành: selectedStudent.major || "-",
+    "Class Code":
+      selectedStudent.classCode ||
+      generateClassCode(
+        selectedStudent.grade?.toString(),
+        selectedStudent.classLetter,
+        selectedStudent.major,
+      ),
+    "Niên khóa": selectedStudent.schoolYear || "-",
+    SĐT: selectedStudent.phone || "-",
+    "Nơi ở": selectedStudent.residence || "-",
+    "Địa chỉ": selectedStudent.address || "-",
+    "Ngày tạo": selectedStudent.createdAt
+      ? new Date(selectedStudent.createdAt).toLocaleString()
+      : "-",
+  };
+
   return (
     <div className="profile-modal" onClick={closeView}>
       <div
@@ -29,30 +60,7 @@ export default function StudentModal({
         <h3>Chi tiết học sinh</h3>
         <table className="modal-table">
           <tbody>
-            {Object.entries({
-              "Mã HS": selectedStudent.studentId,
-              "Họ tên": selectedStudent.name,
-              "Ngày sinh": selectedStudent.dob
-                ? new Date(selectedStudent.dob).toLocaleDateString()
-                : "N/A",
-              Khối: selectedStudent.grade,
-              Lớp: selectedStudent.classLetter,
-              Ngành: selectedStudent.major || "N/A",
-              ClassCode:
-                selectedStudent.classCode ||
-                generateClassCode(
-                  selectedStudent.grade,
-                  selectedStudent.classLetter,
-                  selectedStudent.major
-                ),
-              "Niên khóa": selectedStudent.schoolYear,
-              SĐT: selectedStudent.phone || "N/A",
-              "Nơi ở": selectedStudent.residence || "N/A",
-              "Địa chỉ": selectedStudent.address || "N/A",
-              "Ngày tạo": selectedStudent.createdAt
-                ? new Date(selectedStudent.createdAt).toLocaleString()
-                : "N/A",
-            }).map(([label, value]) => (
+            {Object.entries(infoMap).map(([label, value]) => (
               <tr key={label}>
                 <td className="modal-label">{label}</td>
                 <td>{value}</td>
@@ -60,10 +68,12 @@ export default function StudentModal({
             ))}
           </tbody>
         </table>
+
         <div className="profile-modal__actions">
           <button
             onClick={() =>
-              selectedStudent && assignTeacher(selectedStudent.studentId)
+              selectedStudent.studentId &&
+              assignTeacher(selectedStudent.studentId)
             }
             className="button action-btn"
           >
@@ -71,7 +81,8 @@ export default function StudentModal({
           </button>
           <button
             onClick={() =>
-              selectedStudent && deleteStudent(selectedStudent.studentId)
+              selectedStudent.studentId &&
+              deleteStudent(selectedStudent.studentId)
             }
             className="button action-btn"
           >

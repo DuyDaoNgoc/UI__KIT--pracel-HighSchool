@@ -14,8 +14,9 @@ export interface ClassType {
   classLetter: string;
   major: string;
   classCode: string;
+  teacherId?: string;
   teacherName?: string;
-  studentIds: string[]; // đây là _id của học sinh
+  studentIds: string[];
 }
 
 export interface SelectedClass {
@@ -25,46 +26,41 @@ export interface SelectedClass {
 
 export interface ScheduleTeachersProps {
   teachers: Teacher[];
+  classes?: ClassType[];
   onAssign?: () => void;
 }
 
 const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
   teachers,
+  classes: initialClasses = [],
   onAssign,
 }) => {
-  const [classes, setClasses] = useState<ClassType[]>([]);
+  const [classes, setClasses] = useState<ClassType[]>(initialClasses);
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // ========================= FETCH LỚP VÀ MAP TÊN GV =========================
   useEffect(() => {
     const fetchClasses = async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get("/classes");
-
+        const res = await axiosInstance.get<{ data: ClassType[] }>("/classes");
         const contentType =
           res.headers?.["content-type"] ||
           res.headers?.get?.("content-type") ||
           "";
-
         if (contentType.includes("text/html")) {
           toast.error("API trả HTML — sai URL backend!");
           setClasses([]);
           return;
         }
-
         if (!res.data || !Array.isArray(res.data.data)) {
           toast.error("Dữ liệu lớp không hợp lệ!");
           setClasses([]);
           return;
         }
-
-        // 🔹 Map teacherId sang teacherName dựa trên danh sách teachers
-        const mappedClasses = res.data.data.map((cls: any) => {
+        const mappedClasses = res.data.data.map((cls) => {
           let teacherName = cls.teacherName;
-
           if (!teacherName && cls.teacherId) {
             const teacher = teachers.find(
               (t) => String(t._id) === String(cls.teacherId),
@@ -73,26 +69,21 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
           } else if (!cls.teacherId && !teacherName) {
             teacherName = "Chưa gán";
           }
-
-          return {
-            ...cls,
-            teacherName,
-          };
+          return { ...cls, teacherName };
         });
-
         setClasses(mappedClasses);
-      } catch (err) {
-        toast.error("Không thể load danh sách lớp");
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể load danh sách lớp",
+        );
         setClasses([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchClasses();
   }, [teachers]);
 
-  // ========================= CHỌN LỚP =========================
   const handleClassChange = (
     classCode: string,
     type: "homeroom" | "subject",
@@ -106,34 +97,22 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
     });
   };
 
-  // ========================= SUBMIT =========================
   const handleSubmit = async () => {
-    if (!selectedTeacher) {
-      return toast.error("Chưa chọn giáo viên!");
-    }
-
-    if (selectedClasses.length === 0) {
-      return toast.error("Chọn ít nhất 1 lớp");
-    }
-
+    if (!selectedTeacher) return toast.error("Chưa chọn giáo viên!");
+    if (selectedClasses.length === 0) return toast.error("Chọn ít nhất 1 lớp");
     try {
       const payload = {
         teacherId: selectedTeacher,
         assignments: selectedClasses,
       };
-
-      const res = await axiosInstance.post(
+      const res = await axiosInstance.post<{ message: string }>(
         "/classes/assign-teacher-bulk",
         payload,
       );
-
-      toast.success(res.data?.message || "Gán giáo viên thành công!");
+      toast.success(res.data.message || "Gán giáo viên thành công!");
       setSelectedTeacher("");
       setSelectedClasses([]);
-
       if (onAssign) onAssign();
-
-      // 🔹 Phát sự kiện toàn cục để component khác (ClassesTab) lắng nghe và refresh
       window.dispatchEvent(new Event("teacherAssigned"));
     } catch (err: any) {
       console.error("Assign error:", err);
@@ -144,8 +123,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
   return (
     <div style={{ padding: 12 }}>
       <h2>Xếp giáo viên vào lớp</h2>
-
-      {/* CHỌN GIÁO VIÊN */}
       <div style={{ marginTop: 10 }}>
         <label>Chọn giáo viên:</label>
         <select
@@ -161,8 +138,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
           ))}
         </select>
       </div>
-
-      {/* DANH SÁCH LỚP */}
       <div style={{ marginTop: 20 }}>
         {loading ? (
           <p>Đang tải lớp...</p>
@@ -174,7 +149,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
             const isSubject = selectedClasses.some(
               (c) => c.classCode === cls.classCode && c.type === "subject",
             );
-
             return (
               <div key={cls._id} style={{ marginTop: 6 }}>
                 <span>
@@ -182,7 +156,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
                   {cls.classLetter} - {cls.major} ({cls.schoolYear}) —{" "}
                   {cls.teacherName}
                 </span>
-
                 <label style={{ marginLeft: 12 }}>
                   <input
                     type="checkbox"
@@ -197,7 +170,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
                   />{" "}
                   Chủ nhiệm
                 </label>
-
                 <label style={{ marginLeft: 12 }}>
                   <input
                     type="checkbox"
@@ -219,7 +191,6 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
           <p>Chưa có lớp.</p>
         )}
       </div>
-
       <button
         onClick={handleSubmit}
         style={{ marginTop: 20, padding: "6px 12px", cursor: "pointer" }}

@@ -12,10 +12,67 @@ const router = Router();
  * 🏫 GET: Lấy toàn bộ lớp
  * Route: GET /api/classes
  */
+// Chỉ sửa đoạn GET /
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const classes = await ClassModel.find();
-    return res.status(200).json({ success: true, data: classes });
+    // Lấy tất cả lớp
+    const classes = await ClassModel.find().lean();
+
+    // Lấy tất cả studentIds
+    const allStudentRefs = classes.flatMap((cls) =>
+      (cls.studentIds || []).map((s: any) => s._id),
+    );
+
+    // Query tất cả học sinh
+    const students = await StudentModel.find({
+      _id: { $in: allStudentRefs },
+    })
+      .select("_id studentId username dob address grade class major")
+      .lean();
+
+    // Map học sinh vào lớp
+    const classesWithStudents = classes.map((cls) => {
+      const clsStudents = (cls.studentIds || []).map((s: any) => {
+        const student = students.find((st) => String(st._id) === String(s._id));
+        if (student) {
+          return {
+            _id: student._id,
+            studentId: student.studentId || "-",
+            name: student.username || "-",
+            dob: student.dob || "-",
+            address: student.address || "-",
+            grade: student.grade || cls.grade,
+            classLetter: student.class || cls.classLetter,
+            major: student.major || cls.major,
+            teacherName: cls.teacherName || "Chưa gán",
+          };
+        } else {
+          return {
+            _id: s._id,
+            studentId: s.studentId || "-",
+            name: "-",
+            dob: "-",
+            address: "-",
+            grade: cls.grade,
+            classLetter: cls.classLetter,
+            major: cls.major,
+            teacherName: cls.teacherName || "Chưa gán",
+          };
+        }
+      });
+
+      return {
+        _id: cls._id,
+        classCode: cls.classCode,
+        grade: cls.grade,
+        classLetter: cls.classLetter,
+        major: cls.major,
+        teacherName: cls.teacherName || "Chưa gán",
+        students: clsStudents,
+      };
+    });
+
+    return res.status(200).json({ success: true, data: classesWithStudents });
   } catch (err) {
     console.error("⚠️ fetch classes error:", err);
     return res.status(500).json({
@@ -32,15 +89,14 @@ router.get("/", async (req: Request, res: Response) => {
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    const cls = await ClassModel.findByIdAndDelete(id);
+    const classId = id as string;
+    const cls = await ClassModel.findByIdAndDelete(classId);
     if (!cls) {
       return res.status(404).json({
         success: false,
         message: "Lớp không tồn tại",
       });
     }
-
     return res.json({ success: true, message: "Đã xóa lớp" });
   } catch (err: any) {
     console.error(" delete class error:", err);
@@ -64,14 +120,11 @@ router.post(
         console.error("⚠️ MongoDB connection db is undefined");
         return res.status(500).json({ success: false, error: "DB not ready" });
       }
-
-      // remove validator (one-time)
       await db.command({
         collMod: "classes",
         validator: {},
-        validationLevel: "off", // changed to off để bypass hoàn toàn
+        validationLevel: "off",
       });
-
       console.log(" classes validator cleared via collMod");
       return res.json({ success: true, message: "Validator cleared" });
     } catch (err: any) {
@@ -86,18 +139,16 @@ router.post(
 router.put("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    const updated = await ClassModel.findByIdAndUpdate(id, req.body, {
+    const classId = id as string;
+    const updated = await ClassModel.findByIdAndUpdate(classId, req.body, {
       new: true,
     });
-
     if (!updated) {
       return res.status(404).json({
         success: false,
         message: "Lớp không tồn tại",
       });
     }
-
     return res.json({ success: true, data: updated });
   } catch (err: any) {
     console.error(" update class error:", err);
@@ -115,9 +166,7 @@ router.put("/:id", async (req: Request, res: Response) => {
 router.post("/create", async (req: Request, res: Response) => {
   try {
     const { grade, schoolYear, classLetter, major } = req.body;
-
     console.log("📥 Request body:", req.body);
-
     if (!grade || !schoolYear || !classLetter || !major) {
       console.warn(" Thiếu dữ liệu đầu vào:", req.body);
       return res.status(400).json({
@@ -125,24 +174,18 @@ router.post("/create", async (req: Request, res: Response) => {
         message: "Thiếu thông tin lớp (grade, schoolYear, classLetter, major)",
       });
     }
-
     const majorAbbrev = major
       .split(/\s+/)
       .map((w: string) => w[0]?.toUpperCase() || "")
       .join("");
-    // 🔹 Fix classCode đúng format giống student
     const classCode = `${grade}${classLetter}${majorAbbrev}`;
-
     console.log(" Generated classCode:", classCode);
-
     const existed = await ClassModel.findOne({ classCode });
     if (existed) {
-      return res.status(400).json({
-        success: false,
-        message: "Lớp đã tồn tại (trùng classCode)",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Lớp đã tồn tại (trùng classCode)" });
     }
-
     const cls = new ClassModel({
       grade,
       schoolYear,
@@ -153,9 +196,7 @@ router.post("/create", async (req: Request, res: Response) => {
       teacherName: "",
       studentIds: [],
     });
-
     try {
-      // Thử lưu bình thường
       await cls.save();
       console.log(" Class created:", cls);
       return res.status(201).json({ success: true, data: cls });
@@ -163,7 +204,6 @@ router.post("/create", async (req: Request, res: Response) => {
       const msg = (saveErr && saveErr.message) || "";
       const isValidationFailure =
         msg.includes("Document failed validation") || saveErr.code === 121;
-
       if (isValidationFailure) {
         console.warn(
           " Validation blocked insert, retrying with bypassDocumentValidation",
@@ -187,7 +227,6 @@ router.post("/create", async (req: Request, res: Response) => {
         console.log(" Class created via bypass:", created);
         return res.status(201).json({ success: true, data: created });
       }
-
       throw saveErr;
     }
   } catch (err: any) {
@@ -210,37 +249,26 @@ router.post(
     try {
       const { classCode } = req.params;
       const { teacherId } = req.body;
-
-      if (!teacherId) {
-        return res.status(400).json({
-          success: false,
-          message: "Thiếu teacherId",
-        });
-      }
-
+      if (!teacherId)
+        return res
+          .status(400)
+          .json({ success: false, message: "Thiếu teacherId" });
       const cls = await ClassModel.findOne({ classCode });
-      if (!cls) {
-        return res.status(404).json({
-          success: false,
-          message: "Lớp không tồn tại",
-        });
-      }
-
-      // Lấy teacherName từ TeacherModel
-      const teacher = await TeacherModel.findById(teacherId);
-      cls.teacherId = new mongoose.Types.ObjectId(teacherId);
+      if (!cls)
+        return res
+          .status(404)
+          .json({ success: false, message: "Lớp không tồn tại" });
+      const teacher = await TeacherModel.findById(teacherId as string);
+      cls.teacherId = new mongoose.Types.ObjectId(teacherId as string);
       cls.teacherName = teacher?.name || "";
-
       await cls.save();
-
       console.log("Teacher assigned:", classCode, cls.teacherName);
       return res.status(200).json({ success: true, data: cls });
     } catch (err: any) {
       console.error("⚠️ assign teacher error:", err);
-      return res.status(500).json({
-        success: false,
-        message: "Gán giáo viên thất bại",
-      });
+      return res
+        .status(500)
+        .json({ success: false, message: "Gán giáo viên thất bại" });
     }
   },
 );
@@ -250,47 +278,42 @@ router.post("/:classCode/add-student", async (req: Request, res: Response) => {
     const { classCode } = req.params;
     const { studentId } = req.body;
 
-    if (!studentId) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu studentId",
-      });
-    }
+    if (!studentId)
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu studentId" });
 
     const cls = await ClassModel.findOne({ classCode });
-    if (!cls) {
-      return res.status(404).json({
-        success: false,
-        message: "Lớp chưa tồn tại, không thể thêm học sinh",
-      });
-    }
+    if (!cls)
+      return res
+        .status(404)
+        .json({ success: false, message: "Lớp chưa tồn tại" });
 
-    // 🔹 Fix: lấy _id của student từ studentId string
+    // Tìm học sinh theo studentId
     const student = await StudentModel.findOne({ studentId });
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: "Học sinh không tồn tại",
-      });
-    }
-    const studentObjectId = student._id;
+    if (!student)
+      return res
+        .status(404)
+        .json({ success: false, message: "Học sinh không tồn tại" });
 
-    // Kiểm tra học sinh đã tồn tại trong lớp chưa
-    const alreadyInClass = cls.studentIds.some((id) =>
-      id.equals(studentObjectId),
+    // Kiểm tra đã có trong lớp chưa
+    const alreadyInClass = cls.studentIds.some(
+      (s: any) => s._id?.equals(student._id) || s.studentId === studentId,
     );
-    if (alreadyInClass) {
-      return res.status(400).json({
-        success: false,
-        message: "Học sinh đã có trong lớp",
-      });
-    }
 
-    // Thêm học sinh vào mảng studentIds
-    cls.studentIds.push(studentObjectId);
+    if (alreadyInClass)
+      return res
+        .status(400)
+        .json({ success: false, message: "Học sinh đã có trong lớp" });
+
+    // Push cả _id và studentId
+    cls.studentIds.push({
+      _id: student._id,
+      studentId: student.studentId,
+    });
+
     await cls.save();
 
-    console.log("✅ Student added:", classCode, studentId);
     return res.status(200).json({ success: true, data: cls });
   } catch (err: any) {
     console.error("⚠️ add student error:", err);
@@ -316,23 +339,16 @@ router.post("/:classCode/add-student", async (req: Request, res: Response) => {
 router.post("/assign-teacher-bulk", async (req: Request, res: Response) => {
   try {
     const { teacherId, assignments } = req.body;
-
-    if (!teacherId || !Array.isArray(assignments) || assignments.length === 0) {
+    if (!teacherId || !Array.isArray(assignments) || assignments.length === 0)
       return res.status(400).json({
         success: false,
         message: "Thiếu teacherId hoặc danh sách lớp",
       });
-    }
-
-    // Lấy teacherName từ TeacherModel
-    const teacher = await TeacherModel.findById(teacherId);
+    const teacher = await TeacherModel.findById(teacherId as string);
     const teacherName = teacher?.name || "";
-
     const results: any[] = [];
-
     for (const assign of assignments) {
       const { classCode, type } = assign;
-
       const cls = await ClassModel.findOne({ classCode });
       if (!cls) {
         results.push({
@@ -342,33 +358,29 @@ router.post("/assign-teacher-bulk", async (req: Request, res: Response) => {
         });
         continue;
       }
-
       if (type === "homeroom") {
-        cls.teacherId = new mongoose.Types.ObjectId(teacherId);
+        cls.teacherId = new mongoose.Types.ObjectId(teacherId as string);
         cls.teacherName = teacherName;
       } else if (type === "subject") {
         if (!cls.subjectTeachers) cls.subjectTeachers = [];
         if (
           !cls.subjectTeachers.some(
-            (t: any) => String(t.teacherId) === String(teacherId),
+            (t) => String(t.teacherId) === String(teacherId),
           )
         ) {
           cls.subjectTeachers.push({
-            teacherId: new mongoose.Types.ObjectId(teacherId),
+            subject: (assign.subject as string) || "unknown",
+            teacherId: new mongoose.Types.ObjectId(teacherId as string),
             teacherName,
           });
         }
       }
-
       await cls.save();
       results.push({ classCode, success: true });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Xếp giáo viên hoàn tất",
-      results,
-    });
+    return res
+      .status(200)
+      .json({ success: true, message: "Xếp giáo viên hoàn tất", results });
   } catch (err: any) {
     console.error("⚠️ assign teachers bulk error:", err);
     return res.status(500).json({

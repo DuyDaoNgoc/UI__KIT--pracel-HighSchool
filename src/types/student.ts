@@ -19,6 +19,19 @@ export interface ICreatedStudent {
   gender?: "Nam" | "Nữ" | "other"; // <-- thêm đây
   createdAt?: string;
 }
+// Form tạo học sinh phía client
+export interface IStudentForm {
+  name: string;
+  dob: string;
+  address: string;
+  residence: string;
+  phone: string;
+  grade: string;
+  classLetter: string;
+  schoolYear: string;
+  major: string;
+  gender: string;
+}
 
 // Kiểu response khi tạo học sinh
 export interface ICreateStudentResp {

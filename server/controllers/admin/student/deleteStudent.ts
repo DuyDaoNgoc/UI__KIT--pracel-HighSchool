@@ -17,12 +17,9 @@ export const deleteStudent = async (req: Request, res: Response) => {
       });
     }
 
-    let filter;
-    if (ObjectId.isValid(id)) {
-      filter = { _id: new ObjectId(id) };
-    } else {
-      filter = { studentId: id };
-    }
+    const filter = ObjectId.isValid(id)
+      ? { _id: new ObjectId(id) }
+      : { studentId: id };
 
     const student = await students.findOne(filter);
     if (!student) {
@@ -32,15 +29,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await students.deleteOne(filter);
-    if (result.deletedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "❌ Không tìm thấy học sinh để xóa",
-      });
-    }
-
-    // ✅ Gỡ học sinh khỏi lớp nếu thông tin lớp đầy đủ
+    // ✅ Gỡ học sinh khỏi lớp nếu có đầy đủ thông tin
     if (student.schoolYear && student.classLetter && student.major) {
       const majorAbbrev = (student.major || "")
         .split(/\s+/)
@@ -53,11 +42,20 @@ export const deleteStudent = async (req: Request, res: Response) => {
         { classCode, schoolYear: student.schoolYear, major: student.major },
         {
           $pull: {
-            studentIds: new ObjectId(student._id) as unknown as any,
-            // ✅ ép kiểu để TS chấp nhận
+            studentIds: ObjectId.isValid(student._id)
+              ? new ObjectId(student._id)
+              : student._id,
           },
         },
       );
+    }
+
+    const result = await students.deleteOne(filter);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "❌ Không tìm thấy học sinh để xóa",
+      });
     }
 
     const allStudents = await students
@@ -67,7 +65,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: "✅ Xóa học sinh thành công (lớp vẫn giữ nguyên)",
+      message: "✅ Xóa học sinh thành công và gỡ khỏi lớp",
       students: allStudents,
     });
   } catch (error) {

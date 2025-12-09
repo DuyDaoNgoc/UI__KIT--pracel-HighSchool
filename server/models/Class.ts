@@ -11,13 +11,18 @@ export interface IClass extends Document {
   teacherName?: string;
   studentIds: Types.ObjectId[];
   className?: string;
+  subjectTeachers?: {
+    subject: string;
+    teacherId: Types.ObjectId;
+    teacherName: string;
+  }[];
+
   createdAt: Date;
   updatedAt: Date;
 }
-
 const ClassSchema = new Schema<IClass>(
   {
-    grade: { type: String, required: true, trim: true }, // ✅ bắt buộc
+    grade: { type: String, required: true, trim: true },
     classLetter: { type: String, required: true, trim: true },
     schoolYear: { type: String, required: true, trim: true },
     major: { type: String, required: true, trim: true },
@@ -25,13 +30,28 @@ const ClassSchema = new Schema<IClass>(
     teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
     teacherName: { type: String, default: "" },
 
-    // ✅ CHỈ SỬA DUY NHẤT 1 ĐIỂM NÀY — ĐỂ THÊM HỌC SINH VÀO LỚP KHÔNG BỊ LỖI
     studentIds: {
       type: [{ type: Schema.Types.ObjectId, ref: "User" }],
-      default: [], // ⬅️ **BẮT BUỘC** PHẢI CÓ
+      default: [],
     },
 
     className: { type: String, required: false, trim: true },
+
+    // ✅ Thêm đây
+    subjectTeachers: {
+      type: [
+        {
+          subject: { type: String, required: true },
+          teacherId: {
+            type: Schema.Types.ObjectId,
+            ref: "Teacher",
+            required: true,
+          },
+          teacherName: { type: String, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

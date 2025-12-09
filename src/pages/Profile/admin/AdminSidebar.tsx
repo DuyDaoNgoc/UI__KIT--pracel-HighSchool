@@ -17,6 +17,7 @@ import { pageVariants } from "../../../configs/animations/pageVariants";
 import { useNavigate } from "react-router-dom";
 import { Socket } from "socket.io-client";
 import { toast, Toaster } from "react-hot-toast";
+
 interface Props {
   activeTab: string;
   locked: boolean;

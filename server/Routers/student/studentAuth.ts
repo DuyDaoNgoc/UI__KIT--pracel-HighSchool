@@ -16,12 +16,53 @@ type IUserDocument = IUser & Document;
 const router = Router();
 
 /**
+ * 🏫 GET: Lấy danh sách tất cả học sinh
+ * Route: GET /api/admin/students
+ */
+router.get(
+  "/",
+  verifyToken,
+  checkRole(["admin"]),
+  async (req: Request, res: Response) => {
+    try {
+      // ✅ Chỉ select những field cần thiết và đổi username thành name
+      const students = await User.find({ role: "student" })
+        .sort({ createdAt: -1 })
+        .select(
+          "_id studentId username dob address residence phone grade class major schoolYear",
+        );
+
+      // Map username -> name để frontend nhận đúng
+      const mappedStudents = students.map((s) => ({
+        _id: s._id,
+        studentId: s.studentId,
+        name: s.username, // ✅ đây là điểm quan trọng
+        dob: s.dob,
+        address: s.address,
+        residence: s.residence,
+        phone: s.phone,
+        grade: s.grade,
+        classLetter: s.class,
+        major: s.major,
+        schoolYear: s.schoolYear,
+      }));
+
+      return res.status(200).json({ success: true, data: mappedStudents });
+    } catch (err: any) {
+      console.error("students/fetch-all error:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Không thể lấy danh sách học sinh" });
+    }
+  },
+);
+
+/**
  * 🏫 DELETE: Xóa học sinh
- * Route: DELETE /api/admin/students/:studentId
- * Middleware: verifyToken, checkRole(admin)
+ * Route: DELETE /api/admin/students/delete/:studentId
  */
 router.delete(
-  "/:studentId",
+  "/delete/:studentId",
   verifyToken,
   checkRole(["admin"]),
   async (req: Request, res: Response) => {
@@ -96,7 +137,7 @@ router.post(
         return res.status(400).json({ message: "Mã học sinh đã tồn tại" });
 
       const student: IUserDocument = new User({
-        username: name,
+        username: name, // ✅ lưu tên vào username
         dob,
         address,
         residence,
@@ -130,22 +171,39 @@ router.post(
         { upsert: true, new: true },
       );
 
-      return res
-        .status(201)
-        .json({ message: "Tạo học sinh thành công", studentId, classCode });
+      // Trả dữ liệu đầy đủ học sinh vừa tạo
+      return res.status(201).json({
+        success: true,
+        data: {
+          _id: student._id,
+          studentId: student.studentId,
+          name: student.username,
+          dob: student.dob,
+          address: student.address,
+          residence: student.residence,
+          phone: student.phone,
+          grade: student.grade,
+          classLetter: student.class,
+          major: student.major,
+          schoolYear: student.schoolYear,
+          classCode: student.classCode,
+        },
+      });
     } catch (err: any) {
       console.error("students/create error:", err);
-      return res.status(500).json({ message: "Không thể tạo học sinh" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Không thể tạo học sinh" });
     }
   },
 );
 
 /**
  * 🏫 GET: Lấy danh sách học sinh theo lớp
- * Route: GET /api/admin/students/:classCode
+ * Route: GET /api/admin/students/by-class/:classCode
  */
 router.get(
-  "/:classCode",
+  "/by-class/:classCode",
   verifyToken,
   checkRole(["admin"]),
   async (req: Request, res: Response) => {
@@ -153,7 +211,22 @@ router.get(
 
     try {
       const students = await User.find({ classCode, role: "student" });
-      return res.status(200).json({ success: true, data: students });
+      const mappedStudents = students.map((s) => ({
+        _id: s._id,
+        studentId: s.studentId,
+        name: s.username,
+        dob: s.dob,
+        address: s.address,
+        residence: s.residence,
+        phone: s.phone,
+        grade: s.grade,
+        classLetter: s.class,
+        major: s.major,
+        schoolYear: s.schoolYear,
+        classCode: s.classCode,
+      }));
+
+      return res.status(200).json({ success: true, data: mappedStudents });
     } catch (err: any) {
       console.error("students/fetch error:", err);
       return res
@@ -165,10 +238,10 @@ router.get(
 
 /**
  * 🏫 PUT: Cập nhật thông tin học sinh
- * Route: PUT /api/admin/students/:studentId
+ * Route: PUT /api/admin/students/update/:studentId
  */
 router.put(
-  "/:studentId",
+  "/update/:studentId",
   verifyToken,
   checkRole(["admin"]),
   async (req: Request, res: Response) => {
@@ -186,7 +259,23 @@ router.put(
           .json({ success: false, message: "Học sinh không tồn tại" });
       }
 
-      return res.status(200).json({ success: true, data: student });
+      return res.status(200).json({
+        success: true,
+        data: {
+          _id: student._id,
+          studentId: student.studentId,
+          name: student.username,
+          dob: student.dob,
+          address: student.address,
+          residence: student.residence,
+          phone: student.phone,
+          grade: student.grade,
+          classLetter: student.class,
+          major: student.major,
+          schoolYear: student.schoolYear,
+          classCode: student.classCode,
+        },
+      });
     } catch (err: any) {
       console.error("students/update error:", err);
       return res

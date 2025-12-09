@@ -19,6 +19,7 @@ import AdminDashboard from "./Dashboard/AdminDashboard";
 import CreateClass from "./Class/CreateClass";
 import { toast, Toaster } from "react-hot-toast";
 import ScheduleTeachers from "./Class/ScheduleTeachers";
+
 // ======================== INTERFACES ========================
 interface ILockResp {
   locked: boolean;
@@ -362,7 +363,8 @@ const AdminProfile: FC = () => {
           { teacherId: selectedTeacher, assignments: selectedClasses },
           authHeaders,
         );
-        toast.success(res.data?.message || "Xếp lớp thành công!");
+        toast.success((res.data as any)?.message || "Xếp lớp thành công!");
+
         setSelectedTeacher("");
         setSelectedClasses([]);
       } catch (err: any) {
@@ -478,7 +480,11 @@ const AdminProfile: FC = () => {
             studentForm={studentForm}
             handleStudentChange={handleStudentChange}
             creating={creating}
-            createStudent={createStudent}
+            createStudent={
+              createStudent as unknown as (
+                e: React.FormEvent<Element>,
+              ) => Promise<{ data: ICreatedStudent }>
+            }
             createdStudents={createdStudents}
             generateClassCode={generateClassCode}
             actionLoading={actionLoading}
@@ -487,12 +493,17 @@ const AdminProfile: FC = () => {
             deleteStudent={deleteStudent}
           />
         )}
-        {activeTab === "classes" && <ClassesTab students={createdStudents} />}
+        {activeTab === "classes" && (
+          <ClassesTab students={createdStudents as ICreatedStudent[]} />
+        )}
+
         {activeTab === "create-class" && <CreateClass />}
         {activeTab === "create-teacher" && <CreateTeacher />}
         {activeTab === "schedule-teachers" && (
-          <ScheduleTeachers teachers={teachers} classes={classes} />
+          <ScheduleTeachers teachers={teachers} />
         )}
+        {activeTab === "add-student-class" && <AddStudentToClass />}
+
         {activeTab === "users" && <UserManagement />}
         {activeTab === "dashboard" && <AdminDashboard />}
       </main>

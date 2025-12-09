@@ -62,7 +62,7 @@ const getStudents: RequestHandler = async (req, res) => {
   }
 };
 
-router.get("/students", verifyToken, requireTeacher, getStudents);
+router.get("/admin/students", verifyToken, requireTeacher, getStudents);
 
 // ===== Lấy trạng thái khóa điểm =====
 const getGradesLockStatus: RequestHandler = async (_req, res) => {
