@@ -10,6 +10,7 @@ import { useAuth } from "../../../context/AuthContext";
 import AdminSidebar from "./AdminSidebar";
 import NewsTab from "./News/NewsTab";
 import LockTab from "./Lock/LockTab";
+import AdminGradeLockTab from "./Lock/AdminGradeLockTab";
 import StudentsTab from "./StudentsTab";
 import ClassesTab from "./createrRole/ClassesTab";
 import StudentModal from "./StudentModal";
@@ -17,6 +18,9 @@ import CreateTeacher from "./createrRole/CreateTeacher";
 import UserManagement from "./UserManagement";
 import AdminDashboard from "./Dashboard/AdminDashboard";
 import CreateClass from "./Class/CreateClass";
+import SubjectTab from "./Subject/SubjectTab";
+import PaymentTab from "./Payment/PaymentTab";
+import TimetableTab from "./Timetable/TimetableTab";
 import { toast, Toaster } from "react-hot-toast";
 import ScheduleTeachers from "./Class/ScheduleTeachers";
 
@@ -194,7 +198,9 @@ const AdminProfile: FC = () => {
   };
 
   // ==== Create student ====
-  const createStudent = async (e: React.FormEvent): Promise<void> => {
+  const createStudent = async (
+    e: React.FormEvent,
+  ): Promise<{ data?: ICreatedStudent; success?: boolean } | void> => {
     e.preventDefault();
     const { name, dob, grade, classLetter, gender } = studentForm;
 
@@ -215,12 +221,20 @@ const AdminProfile: FC = () => {
       );
       const payload = { ...studentForm, studentId, classCode };
 
-      await axiosInstance.post<ICreatedStudent>(
-        "/admin/students/create",
-        payload,
-        authHeaders,
-      );
+      // Gọi API tạo học sinh và lấy dữ liệu trả về
+      const res = await axiosInstance.post<{
+        success: boolean;
+        data: ICreatedStudent;
+      }>("/admin/students/create", payload, authHeaders);
 
+      const created = res.data?.data ?? null;
+
+      // Cập nhật danh sách local ngay lập tức nếu có
+      if (created) {
+        setCreatedStudents((prev) => [created, ...prev]);
+      }
+
+      // Đồng thời gọi fetch để đồng bộ server-side
       await fetchCreatedStudents();
       toast.success(`Tạo học sinh thành công! Mã: ${studentId}`);
 
@@ -236,6 +250,9 @@ const AdminProfile: FC = () => {
         major: "",
         gender: "",
       });
+
+      // Trả về dữ liệu để caller (StudentsTab) có thể tiếp tục xử lý
+      return { data: created, success: !!created };
     } catch (err) {
       console.error("⚠️ createStudent error:", err);
       toast.error("Không thể tạo học sinh!");
@@ -475,6 +492,7 @@ const AdminProfile: FC = () => {
         {activeTab === "lock" && (
           <LockTab locked={locked} toggleLock={toggleLock} />
         )}
+        {activeTab === "grade-lock" && <AdminGradeLockTab />}
         {activeTab === "students" && (
           <StudentsTab
             studentForm={studentForm}
@@ -486,6 +504,7 @@ const AdminProfile: FC = () => {
               ) => Promise<{ data: ICreatedStudent }>
             }
             createdStudents={createdStudents}
+            setCreatedStudents={setCreatedStudents}
             generateClassCode={generateClassCode}
             actionLoading={actionLoading}
             openView={openView}
@@ -493,16 +512,16 @@ const AdminProfile: FC = () => {
             deleteStudent={deleteStudent}
           />
         )}
-        {activeTab === "classes" && (
-          <ClassesTab students={createdStudents as ICreatedStudent[]} />
-        )}
+        {activeTab === "classes" && <ClassesTab />}
+        {activeTab === "subjects" && <SubjectTab />}
+        {activeTab === "payments" && <PaymentTab />}
+        {activeTab === "timetables" && <TimetableTab />}
 
         {activeTab === "create-class" && <CreateClass />}
         {activeTab === "create-teacher" && <CreateTeacher />}
         {activeTab === "schedule-teachers" && (
           <ScheduleTeachers teachers={teachers} />
         )}
-        {activeTab === "add-student-class" && <AddStudentToClass />}
 
         {activeTab === "users" && <UserManagement />}
         {activeTab === "dashboard" && <AdminDashboard />}

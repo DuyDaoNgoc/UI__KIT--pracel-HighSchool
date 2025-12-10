@@ -179,6 +179,55 @@ export const loginUser = async (req: Request, res: Response) => {
 
     await User.updateOne({ _id: user._id }, { loginAttempts: 0, lockUntil: 0 });
 
+    // ===== ENRICH USER DATA FROM STUDENTS/TEACHERS COLLECTION =====
+    let enrichedUser = user.toObject();
+
+    if (user.role === "student" && user.studentId) {
+      const db = await connectDB();
+      const studentDoc = await db
+        .collection("students")
+        .findOne({ studentId: user.studentId });
+
+      if (studentDoc) {
+        // Fill missing fields from student doc
+        enrichedUser = {
+          ...enrichedUser,
+          dob: enrichedUser.dob || studentDoc.dob,
+          phone: enrichedUser.phone || studentDoc.phone,
+          address: enrichedUser.address || studentDoc.address,
+          residence: enrichedUser.residence || studentDoc.residence,
+          schoolYear: enrichedUser.schoolYear || studentDoc.schoolYear,
+          gender: enrichedUser.gender || studentDoc.gender,
+          classCode:
+            enrichedUser.classCode ||
+            studentDoc.classCode ||
+            studentDoc.classLetter,
+          major: enrichedUser.major || studentDoc.major,
+          grade: enrichedUser.grade || studentDoc.grade,
+        };
+      }
+    }
+
+    if (user.role === "teacher" && user.teacherId) {
+      const db = await connectDB();
+      const teacherDoc = await db
+        .collection("teachers")
+        .findOne({ teacherId: user.teacherId });
+
+      if (teacherDoc) {
+        // Fill missing fields from teacher doc
+        enrichedUser = {
+          ...enrichedUser,
+          dob: enrichedUser.dob || teacherDoc.dob,
+          phone: enrichedUser.phone || teacherDoc.phone,
+          address: enrichedUser.address || teacherDoc.address,
+          schoolYear: enrichedUser.schoolYear || teacherDoc.schoolYear,
+          gender: enrichedUser.gender || teacherDoc.gender,
+          major: enrichedUser.major || teacherDoc.major || teacherDoc.majors,
+        };
+      }
+    }
+
     const token = jwt.sign(
       {
         id: user._id.toString(),
@@ -195,7 +244,7 @@ export const loginUser = async (req: Request, res: Response) => {
       success: true,
       message: "✅ Login successful",
       token,
-      user: toSafeUser(user),
+      user: toSafeUser(enrichedUser as any),
     });
   } catch (err) {
     console.error("Login error:", err);

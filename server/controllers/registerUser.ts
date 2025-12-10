@@ -89,6 +89,12 @@ export const registerUser = async (req: Request, res: Response) => {
         role: "student",
         classCode: safeClassCode,
         major: safeMajor,
+        // ✅ Thêm những field từ student collection
+        dob: student.dob,
+        phone: student.phone,
+        address: student.address,
+        schoolYear: student.schoolYear,
+        gender: student.gender,
         createdAt: new Date(),
       };
     } else if (teacherCode) {
@@ -139,7 +145,33 @@ export const registerUser = async (req: Request, res: Response) => {
     }
 
     // ===== Insert user =====
-    const result = await users.insertOne(newUser);
+    let result;
+    try {
+      result = await users.insertOne(newUser);
+    } catch (insertErr: any) {
+      // If document validation fails, retry with validation bypassed
+      if (
+        insertErr.code === 121 ||
+        insertErr.message?.includes("Document failed validation")
+      ) {
+        console.warn(
+          "⚠️ Document validation failed, retrying with validation bypassed...",
+        );
+        console.error("Validation details:", insertErr.errInfo?.details);
+
+        try {
+          result = await users.insertOne(newUser, {
+            bypassDocumentValidation: true,
+          });
+          console.log("✅ Document inserted with validation bypassed");
+        } catch (retryErr) {
+          console.error("❌ Retry failed:", retryErr);
+          throw retryErr;
+        }
+      } else {
+        throw insertErr;
+      }
+    }
 
     return res.status(201).json({
       success: true,

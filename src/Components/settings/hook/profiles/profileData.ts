@@ -9,61 +9,65 @@ import {
 // Fetch grades (điểm số)
 export const fetchGrades = async (userId: string): Promise<IGrade[]> => {
   try {
-    // id người dùng
     console.log("Fetching grades for userId:", userId);
-    // Gọi API để lấy điểm
-    const { data } = await axiosInstance.get<{ grades?: IGrade[] }>(
-      `/api/grades/${userId}`
-    );
-    // Trả về danh sách điểm hoặc mảng rỗng nếu không có
-    return data.grades ?? [];
-    // Xử lý lỗi
+    // Sử dụng query existing endpoint để lấy điểm theo studentId
+    const { data } = await axiosInstance.get<{ data?: any[] }>(`/api/grades`, {
+      params: { studentId: userId },
+    });
+
+    // Server trả về mảng grades trong `data` hoặc là các Grade documents
+    const grades = data?.data ?? [];
+
+    // Normalize về IGrade[] nếu cần (server có thể trả Grade documents)
+    return grades.map((g: any) => ({
+      subject: g.subject?.name || g.subject || g.subjectId || "Unknown",
+      score: typeof g.score === "number" ? g.score : Number(g.score) || 0,
+    }));
   } catch (err: any) {
     console.error("Error fetching grades:", err.response?.data || err.message);
     return [];
   }
 };
 
-// Fetch credits (điểm tích lũy) têng biến userId thay vì id để tránh nhầm với _id của credit object trong db
+// Fetch credits (điểm tích lũy)
 export const fetchCredits = async (userId: string): Promise<ICredit | null> => {
   try {
-    // id người dùng
     console.log("Fetching credits for userId:", userId);
-    // Gọi API để lấy điểm tích lũy
-    const { data } = await axiosInstance.get<ICredit>(`/api/credits/${userId}`);
-    // Trả về dữ liệu điểm tích lũy
-    return data;
-    // Xử lý lỗi
+
+    // Nếu server chưa có endpoint riêng, lấy user từ /api/users và trích fields credits
+    const { data } = await axiosInstance.get<any>(`/api/users`);
+    const users: any[] = Array.isArray(data) ? data : data?.data || [];
+    const user = users.find((u) => u._id === userId || u.studentId === userId);
+    if (!user) return null;
+
+    return {
+      total: user.creditsTotal ?? 0,
+      earned: user.creditsEarned ?? 0,
+    };
   } catch (err: any) {
     console.error("Error fetching credits:", err.response?.data || err.message);
-    // trả về null nếu có lỗi
     return null;
   }
 };
 
 // Fetch schedule (thời khóa biểu)
 export const fetchSchedule = async (
-  userId: string
-  // thuộc tính schedule trong data có thể undefined nên dùng ? để tránh lỗi
-  // trả về mảng rỗng nếu undefined
-  // nên kiểu trả về của hàm là Promise<IScheduleItem[]>
-   
+  userId: string,
 ): Promise<IScheduleItem[]> => {
   try {
-    // dùng console log để debug xem userId có đúng không
     console.log("Fetching schedule for userId:", userId);
-    // Gọi API để lấy thời khóa biểu
-    const { data } = await axiosInstance.get<{ schedule?: IScheduleItem[] }>(
-      `/api/schedule/${userId}`
-    );
-    // Trả về thời khóa biểu hoặc mảng rỗng nếu không có
-    return data.schedule ?? [];
+
+    // Lấy user từ /api/users và trả về user.schedule nếu có
+    const { data } = await axiosInstance.get<any>(`/api/users`);
+    const users: any[] = Array.isArray(data) ? data : data?.data || [];
+    const user = users.find((u) => u._id === userId || u.studentId === userId);
+    if (!user) return [];
+
+    return user.schedule ?? [];
   } catch (err: any) {
-    // Xử lý lỗi
     console.error(
       "Error fetching schedule:",
-       
-      err.response?.data || err.message
+      err.response?.data || err.message,
     );
     return [];
   }
@@ -71,20 +75,24 @@ export const fetchSchedule = async (
 
 // Fetch tuition (chi phí học tập)
 export const fetchTuition = async (
-  userId: string
-  // dùng kiểu trả về ITuition | null để dễ kiểm tra null khi có lỗi
+  userId: string,
 ): Promise<ITuition | null> => {
   try {
-    // id người dùng để debug nếu cần
     console.log("Fetching tuition for userId:", userId);
-    // Gọi API để lấy chi phí học tập
-    const { data } = await axiosInstance.get<ITuition>(
-      `/api/tuition/${userId}`
-    );
-    return data;
+
+    const { data } = await axiosInstance.get<any>(`/api/users`);
+    const users: any[] = Array.isArray(data) ? data : data?.data || [];
+    const user = users.find((u) => u._id === userId || u.studentId === userId);
+    if (!user) return null;
+
+    return {
+      total: user.tuitionTotal ?? 0,
+      paid: user.tuitionPaid ?? 0,
+      remaining: user.tuitionRemaining ?? 0,
+      daycare: user.daycare ?? null,
+      boarding: user.boarding ?? null,
+    };
   } catch (err: any) {
-    // Xử lý lỗi
-    // Xử lý lỗi và trả về null nếu có lỗi để dễ kiểm tra ở nơi gọi hàm này sau này (như trong component)
     console.error("Error fetching tuition:", err.response?.data || err.message);
     return null;
   }

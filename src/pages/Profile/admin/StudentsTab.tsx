@@ -22,6 +22,8 @@ interface StudentsTabProps {
   actionLoading: string | null;
   openView: (student: ICreatedStudent) => void;
   assignTeacher: (studentId: string) => void;
+  deleteStudent?: (studentId: string) => Promise<void>;
+  students?: ICreatedStudent[];
 }
 
 export default function StudentsTab({
@@ -68,9 +70,12 @@ export default function StudentsTab({
         return;
       }
 
-      const classesRes = await axiosInstance.get("/api/classes");
-      const classesData = classesRes.data as { success: boolean; data: any[] };
-      let cls = classesData.data.find((c) => c.classCode === classCode);
+      const classesRes = await axiosInstance.get<{
+        success: boolean;
+        data: any[];
+      }>("/api/classes");
+      const classesData = classesRes.data;
+      let cls = classesData?.data?.find((c: any) => c.classCode === classCode);
 
       if (!cls) {
         await axiosInstance.post("/api/classes/create", {
@@ -82,16 +87,20 @@ export default function StudentsTab({
         toast.success(`Lớp ${classCode} chưa tồn tại, đã tạo mới`);
       }
 
-      const response = await axiosInstance.post(
-        `/api/classes/${classCode}/add-student`,
-        { studentId: student.studentId },
-      );
-      if (response.data.success) {
+      const response = await axiosInstance.post<{
+        success: boolean;
+        message?: string;
+      }>(`/api/classes/${classCode}/add-student`, {
+        studentId: student.studentId,
+      });
+      if (response.data?.success) {
         toast.success(
           `Học sinh ${student.name} đã được thêm vào lớp ${classCode}`,
         );
       } else {
-        toast.error(response.data.message || "Không thể thêm học sinh vào lớp");
+        toast.error(
+          response.data?.message || "Không thể thêm học sinh vào lớp",
+        );
       }
     } catch (err: any) {
       console.error("addStudentToClass error:", err);
@@ -104,12 +113,15 @@ export default function StudentsTab({
     if (!window.confirm("Bạn có chắc chắn muốn xóa học sinh này?")) return;
 
     try {
-      const res = await axiosInstance.delete(`/admin/students/${studentId}`);
-      if (res.data.success) {
+      const res = await axiosInstance.delete<{
+        success: boolean;
+        message?: string;
+      }>(`/admin/students/${studentId}`);
+      if (res.data?.success) {
         setCreatedStudents((prev) =>
           prev.filter((s) => s.studentId !== studentId),
         );
-        toast.success(res.data.message || "Xóa học sinh thành công");
+        toast.success(res.data?.message || "Xóa học sinh thành công");
         // thông báo global event để ClassesTab cập nhật
         window.dispatchEvent(
           new CustomEvent("studentDeletedFromClass", {
@@ -117,7 +129,7 @@ export default function StudentsTab({
           }),
         );
       } else {
-        toast.error(res.data.message || "Xóa học sinh thất bại");
+        toast.error(res.data?.message || "Xóa học sinh thất bại");
       }
     } catch (err: any) {
       console.error("handleDeleteStudent error:", err);

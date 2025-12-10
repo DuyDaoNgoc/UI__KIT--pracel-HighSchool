@@ -20,11 +20,65 @@ export default function ClassesTab() {
   const [reloadClasses, setReloadClasses] = useState(false);
   const [search, setSearch] = useState(""); // ✅ state tìm kiếm
 
+  // ========================= HELPERS: normalizeMajor + extractMajorFromClassCode =========================
+  // Chuẩn hóa ngành -> Viết tắt theo chữ cái đầu (Công Nghệ Thông Tin -> CNTT)
+  const normalizeMajor = (major?: string): string => {
+    if (!major) return "Chưa xác định";
+
+    const clean = major.trim();
+
+    // Nếu đã là viết tắt (1 từ, không có khoảng trắng) -> giữ uppercase
+    if (/^[A-Za-zÀ-ỹ]+$/.test(clean) && !clean.includes(" ")) {
+      return clean.toUpperCase();
+    }
+
+    // Tách theo khoảng trắng -> lấy chữ cái đầu mỗi từ
+    const parts = clean.split(/\s+/);
+    const acronym = parts.map((w) => w[0]?.toUpperCase() ?? "").join("");
+
+    return acronym || "Chưa xác định";
+  };
+
+  // Tách ngành từ classCode
+  // Các dạng thông dụng:
+  //  - "26A-CNTT" -> "CNTT"
+  //  - "26ACNTT"  -> try fallback: lấy phần chữ in hoa cuối cùng
+  //  - nếu không có dấu '-' và không parse được -> "Chưa xác định"
+  const extractMajorFromClassCode = (code?: string): string => {
+    if (!code) return "Chưa xác định";
+
+    // Nếu có '-', phần sau '-' là ngành
+    if (code.includes("-")) {
+      const parts = code.split("-");
+      const last = parts[parts.length - 1].trim();
+      if (last) return last.toUpperCase();
+    }
+
+    // Nếu không có '-', thử match phần chữ in hoa cuối cùng (VD: 26ACNTT)
+    const match = code.match(/[A-Z]{2,}$/i);
+    if (match) return match[0].toUpperCase();
+
+    return "Chưa xác định";
+  };
+
+  // Utility: thêm class vào nhóm major mà không duplicate
+  const pushUnique = (
+    grouped: { [major: string]: ClassData[] },
+    major: string,
+    cls: ClassData,
+  ) => {
+    if (!grouped[major]) grouped[major] = [];
+    const exists = grouped[major].some((c) => c._id === cls._id);
+    if (!exists) grouped[major].push(cls);
+  };
+
   // ========================= FETCH DANH SÁCH GIÁO VIÊN =========================
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
-        const res = await axiosInstance.get("/teachers");
+        const res = await axiosInstance.get<{
+          data: { _id: string; name: string }[];
+        }>("/teachers");
         setTeachers(res.data?.data || []);
       } catch (err) {
         console.error("fetchTeachers error:", err);
@@ -38,7 +92,7 @@ export default function ClassesTab() {
     const fetchClasses = async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get("/classes");
+        const res = await axiosInstance.get<{ data: any[] }>("/classes");
 
         const mapped: ClassData[] = (res.data?.data || []).map((cls: any) => {
           let students: ICreatedStudent[] = (cls.students || []).map(
@@ -52,10 +106,7 @@ export default function ClassesTab() {
               classLetter: s.classLetter || cls.classLetter,
               classCode: cls.classCode,
               teacherName: cls.teacherName || "Chưa gán",
-              major:
-                s.major ||
-                cls.classCode.match(/[A-Z]+$/i)?.[0] ||
-                "Chưa xác định",
+              major: normalizeMajor(s.major),
             }),
           );
 
@@ -127,22 +178,42 @@ export default function ClassesTab() {
     };
   }, []);
 
+  // Rút gọn ngành thành viết tắt (CNTT, QTKD, etc.)
+  const majorAbbrev = (major?: string): string => {
+    if (!major) return "";
+    return major
+      .split(/\s+/)
+      .map((w) => (w ? w[0].toUpperCase() : ""))
+      .join("");
+  };
+
+  // Tạo class code từ khối, lớp, và ngành
+  const generateClassCode = (
+    grade?: string,
+    classLetter?: string,
+    major?: string,
+  ): string => {
+    const g = grade || "X";
+    const c = classLetter || "X";
+    const abbr = majorAbbrev(major || "");
+    return `${g}${c}${abbr}`;
+  };
+
   const formatDate = (dob?: string) =>
     dob ? new Date(dob).toLocaleDateString("vi-VN") : "-";
 
-  // ========================= PHÂN LOẠI THEO NGÀNH =========================
   const getClassesByMajor = () => {
     const grouped: { [major: string]: ClassData[] } = {};
 
     classes.forEach((cls) => {
-      // Lấy ngành từ học sinh đầu tiên
-      const major = cls.students[0]?.major || "Chưa xác định";
+      // Chỉ lấy ngành từ classCode — đúng yêu cầu
+      const classMajor = extractMajorFromClassCode(cls.classCode);
 
-      if (!grouped[major]) grouped[major] = [];
-      grouped[major].push(cls);
+      if (!grouped[classMajor]) grouped[classMajor] = [];
+      grouped[classMajor].push(cls);
     });
 
-    // ✅ Lọc theo search
+    // ========================= Lọc theo search =========================
     if (search.trim()) {
       const lower = search.trim().toLowerCase();
       Object.keys(grouped).forEach((major) => {
@@ -242,11 +313,13 @@ export default function ClassesTab() {
         selectedStudent={selectedStudent}
         closeView={() => setSelectedStudent(null)}
         assignTeacher={(id: string) => console.log("assignTeacher", id)}
-        deleteStudent={(id: string) =>
+        deleteStudent={(id: string) => {
           window.dispatchEvent(
             new CustomEvent("studentDeletedFromClass", { detail: { _id: id } }),
-          )
-        }
+          );
+          return true;
+        }}
+        generateClassCode={generateClassCode}
       />
     </div>
   );

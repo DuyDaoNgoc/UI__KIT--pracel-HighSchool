@@ -80,10 +80,10 @@ const AdminDashboard: React.FC = () => {
 
       // classes phải chắc chắn là mảng JSON
       let classesArray: IClass[] = [];
-      if (Array.isArray(classesRes.data)) {
+      if (Array.isArray(classesRes)) {
+        classesArray = classesRes;
+      } else if (Array.isArray(classesRes?.data)) {
         classesArray = classesRes.data;
-      } else if (Array.isArray(classesRes.data?.data)) {
-        classesArray = classesRes.data.data;
       } else {
         console.warn(
           "⚠️ Classes API không trả mảng. Kiểm tra endpoint /admin/classes",

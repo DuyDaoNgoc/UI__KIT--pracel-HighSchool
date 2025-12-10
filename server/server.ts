@@ -19,6 +19,12 @@ import teacherAdminRoutes from "./Routers/teacher/teacherRoutes";
 import teacherRoutes from "./Routers/teacher/teacherRoutes";
 import userRoutes from "./Routers/auth/userRoutes";
 import parentsRoutes from "./Routers/parent/parents";
+import studentRoutes from "./Routers/student/index";
+import subjectRoutes from "./Routers/Subject/index";
+import paymentRoutes from "./Routers/Payment/index";
+import timetableRoutes from "./Routers/Timetable/index";
+import gradeLockRoutes from "./Routers/grades/gradeLock";
+import gradeRoutes from "./Routers/grades/gradeRoutes";
 
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
@@ -85,10 +91,20 @@ app.use("/api/news", newsRoutes);
 app.use("/api/grades", checkGradesLock, gradesRoutes);
 app.use("/api/users", userRoutes);
 
-// Giáo viên
+// Học sinh, Giáo viên
+app.use("/api/students", studentRoutes);
 app.use("/api/teachers/auth", teacherAuthRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/admin/teachers", teacherAdminRoutes);
+
+// Subjects, Payments, Timetables
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/timetables", timetableRoutes);
+
+// Grades và Grade Locks
+app.use("/api/grades/lock", gradeLockRoutes);
+app.use("/api/grades", gradeRoutes);
 
 //  Admin
 app.use("/api/admin", adminRoutes);

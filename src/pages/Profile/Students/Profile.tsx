@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/AuthContext";
-import { User, Book, Calendar, CreditCard, GraduationCap } from "lucide-react";
+import {
+  User,
+  Book,
+  Calendar,
+  CreditCard,
+  GraduationCap,
+  BarChart3,
+} from "lucide-react";
 import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
 import { IUserProfile } from "../../../types/profiles";
 
@@ -9,6 +16,7 @@ import ProfileGrades from "./ProfileGrades";
 import ProfileCredits from "./ProfileCredits";
 import ProfileSchedule from "./ProfileSchedule";
 import ProfileTuition from "./ProfileTuition";
+import ProfileStatistics from "./ProfileStatistics";
 import useProfileData from "../../../Components/settings/hook/profiles/useProfileData";
 
 export default function Profile({
@@ -19,7 +27,7 @@ export default function Profile({
   const { user: authUser } = useAuth() as { user: IUserProfile | null };
   const [activeTab, setActiveTab] = useState("info");
   const [user, setUser] = useState<IUserProfile | null>(
-    overrideUser || authUser
+    overrideUser || authUser,
   );
 
   const { grades, credits, schedule, tuition, error, fetchAll } =
@@ -83,6 +91,12 @@ export default function Profile({
           >
             <CreditCard size={18} /> Học phí
           </li>
+          <li
+            onClick={() => setActiveTab("statistics")}
+            className={activeTab === "statistics" ? "active" : ""}
+          >
+            <BarChart3 size={18} /> Thống kê
+          </li>
         </ul>
       </aside>
 
@@ -95,6 +109,13 @@ export default function Profile({
         {activeTab === "credits" && <ProfileCredits credits={credits} />}
         {activeTab === "schedule" && <ProfileSchedule schedule={schedule} />}
         {activeTab === "tuition" && <ProfileTuition tuition={tuition} />}
+        {activeTab === "statistics" && (
+          <ProfileStatistics
+            grades={grades}
+            tuition={tuition}
+            schoolYear={user?.schoolYear}
+          />
+        )}
       </main>
     </div>
   );

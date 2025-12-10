@@ -4,9 +4,12 @@ import {
   Unlock,
   UserPlus,
   Users,
-  BookOpen, // ✅ thêm icon cho lớp học
+  BookOpen,
   BarChart2,
   LogIn,
+  BookMarked,
+  DollarSign,
+  Calendar,
 } from "lucide-react";
 import Logout from "@/Components/settings/logout/logout";
 import { useAuth } from "../../../context/AuthContext";
@@ -77,6 +80,12 @@ export default function AdminSidebar({
           Trạng thái khóa điểm
         </li>
         <li
+          onClick={() => setActiveTab("grade-lock")}
+          className={activeTab === "grade-lock" ? "active" : ""}
+        >
+          <Lock size={18} /> Khóa điểm theo môn
+        </li>
+        <li
           onClick={() => setActiveTab("students")}
           className={activeTab === "students" ? "active" : ""}
         >
@@ -105,6 +114,27 @@ export default function AdminSidebar({
           className={activeTab === "schedule-teachers" ? "active" : ""}
         >
           <BookOpen size={18} /> Xếp giáo viên vào lớp
+        </li>
+
+        <li
+          onClick={() => setActiveTab("subjects")}
+          className={activeTab === "subjects" ? "active" : ""}
+        >
+          <BookMarked size={18} /> Quản lý môn học
+        </li>
+
+        <li
+          onClick={() => setActiveTab("payments")}
+          className={activeTab === "payments" ? "active" : ""}
+        >
+          <DollarSign size={18} /> Quản lý học phí
+        </li>
+
+        <li
+          onClick={() => setActiveTab("timetables")}
+          className={activeTab === "timetables" ? "active" : ""}
+        >
+          <Calendar size={18} /> Thời khóa biểu
         </li>
 
         <li
