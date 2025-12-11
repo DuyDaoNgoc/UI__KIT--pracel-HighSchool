@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+import User from "../../../models/User";
 import TeacherModel, {
   IAssignedClass,
   ITeacher,
@@ -117,7 +120,7 @@ export const createTeacher = async (req: Request, res: Response) => {
         classLetter: "",
         major: "",
         schoolYear: "",
-        classCode: finalAssignedClassCode,
+        classCode: finalAssignedClassCode as string,
       };
     }
 
@@ -167,10 +170,103 @@ export const createTeacher = async (req: Request, res: Response) => {
     }
 
     // ✅ Thành công
+    // Nếu có email, auto tạo user cho giáo viên
+    let emailSent = false;
+    let rawPasswordToReturn: string | null = null;
+    if (teacherData.email) {
+      try {
+        const rawPassword = teacherData.teacherId;
+        rawPasswordToReturn = rawPassword;
+
+        const existing = await User.findOne({
+          $or: [
+            { email: teacherData.email },
+            { teacherId: teacherData.teacherId },
+          ],
+        });
+
+        // Nếu user chưa tồn tại, tạo mới
+        if (!existing) {
+          const hashed = await bcrypt.hash(rawPassword, 10);
+          await User.create({
+            username: teacherData.name,
+            email: teacherData.email,
+            password: hashed,
+            role: "teacher",
+            teacherId: teacherData.teacherId,
+            createdAt: new Date(),
+          } as any);
+          console.log(
+            `✅ Auto-created user for ${teacherData.email} with teacherId ${teacherData.teacherId}`,
+          );
+        } else {
+          console.log(
+            `ℹ️ User already exists for email/teacherId, reusing account`,
+          );
+        }
+
+        // 🔥 LUÔN gửi email mật khẩu dù user mới hay cũ
+        try {
+          console.log("📧 [EMAIL] SMTP_HOST:", process.env.SMTP_HOST);
+          console.log("📧 [EMAIL] SMTP_PORT:", process.env.SMTP_PORT);
+          console.log("📧 [EMAIL] SMTP_USER:", process.env.SMTP_USER);
+
+          if (process.env.SMTP_HOST) {
+            const transporter = nodemailer.createTransport({
+              host: process.env.SMTP_HOST,
+              port: Number(process.env.SMTP_PORT || 587),
+              secure: (process.env.SMTP_SECURE || "false") === "true",
+              auth: process.env.SMTP_USER
+                ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+                : undefined,
+            });
+
+            console.log(
+              "📧 [EMAIL] Attempting to send email to:",
+              teacherData.email,
+            );
+
+            await transporter.sendMail({
+              from:
+                process.env.SMTP_FROM ||
+                `no-reply@${process.env.DOMAIN || "local"}`,
+              to: teacherData.email,
+              subject: "[Hệ thống] Tài khoản giáo viên",
+              html: `<p>Tài khoản của bạn ${teacherData.name} đã được tạo:</p>
+<ul>
+<li><strong>Mã giáo viên:</strong> ${teacherData.teacherId}</li>
+<li><strong>Email:</strong> ${teacherData.email}</li>
+<li><strong>Mật khẩu:</strong> ${rawPassword}</li>
+</ul>
+<p>Vui lòng đăng nhập và đổi mật khẩu ngay.</p>`,
+            });
+            emailSent = true;
+            console.log(
+              `✅ [EMAIL] Password email sent to ${teacherData.email}`,
+            );
+          } else {
+            console.log(
+              `⚠️ [EMAIL] SMTP not configured. Password for ${teacherData.teacherId}: ${rawPassword}`,
+            );
+            emailSent = false;
+          }
+        } catch (mailErr) {
+          console.warn("⚠️ [EMAIL] Could not send password email:", mailErr);
+          emailSent = false;
+        }
+      } catch (err) {
+        console.error("❌ Error handling user for teacher:", err);
+      }
+    }
+
     return res.status(201).json({
       success: true,
       message: "Thêm giáo viên thành công",
-      teacher: teacherData,
+      data: {
+        teacher: teacherData,
+        emailSent,
+        rawPassword: rawPasswordToReturn,
+      },
     });
   } catch (error: any) {
     console.error("❌ Lỗi tạo giáo viên:", error);

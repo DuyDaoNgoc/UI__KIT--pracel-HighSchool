@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { connectDB } from "../configs/db";
 
 export const registerUser = async (req: Request, res: Response) => {
@@ -22,12 +23,16 @@ export const registerUser = async (req: Request, res: Response) => {
         message: "Email is required",
       });
     }
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        field: "password",
-        message: "Password is required",
-      });
+
+    // Mật khẩu mặc định: dùng mã học sinh / mã giáo viên nếu có, nếu client gửi password thì dùng client
+    let rawPassword = password;
+    if (studentCode) {
+      rawPassword = studentCode;
+    } else if (teacherCode) {
+      rawPassword = teacherCode;
+    } else if (!rawPassword) {
+      // fallback: tạo password ngẫu nhiên
+      rawPassword = crypto.randomBytes(4).toString("hex"); // 8 ký tự hex
     }
 
     const db = await connectDB();
@@ -71,7 +76,7 @@ export const registerUser = async (req: Request, res: Response) => {
       }
 
       // ===== Hash password =====
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
       // ===== Xử lý classCode & major cho student =====
       const safeClassCode =
@@ -121,7 +126,7 @@ export const registerUser = async (req: Request, res: Response) => {
       }
 
       // ===== Hash password =====
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
       // ===== Xử lý major của giáo viên =====
       let teacherMajor = "";
@@ -173,9 +178,42 @@ export const registerUser = async (req: Request, res: Response) => {
       }
     }
 
+    // ----- Gửi email chứa mật khẩu (nếu có cấu hình SMTP), nếu không thì log ra console -----
+    try {
+      const smtpHost = process.env.SMTP_HOST;
+      if (smtpHost) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT || 587),
+          secure: (process.env.SMTP_SECURE || "false") === "true",
+          auth: process.env.SMTP_USER
+            ? {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+              }
+            : undefined,
+        });
+
+        await transporter.sendMail({
+          from:
+            process.env.SMTP_FROM ||
+            `no-reply@${process.env.DOMAIN || "local"}`,
+          to: email,
+          subject: "[Hệ thống] Thông tin đăng nhập",
+          text: `Bạn đã được tạo tài khoản. Mã: ${newUser.studentId || newUser.teacherId || "-"}\nEmail: ${email}\nMật khẩu: ${rawPassword}`,
+        });
+      } else {
+        // Dev fallback
+        console.log(`Generated password for ${email}: ${rawPassword}`);
+      }
+    } catch (mailErr) {
+      console.warn("Could not send email:", mailErr);
+    }
+
     return res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message:
+        "User registered successfully. Password sent to email if SMTP configured.",
       user: {
         id: result.insertedId,
         username: newUser.username,

@@ -7,6 +7,7 @@ import {
   CreditCard,
   GraduationCap,
   BarChart3,
+  Home,
 } from "lucide-react";
 import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
 import { IUserProfile } from "../../../types/profiles";
@@ -96,6 +97,12 @@ export default function Profile({
             className={activeTab === "statistics" ? "active" : ""}
           >
             <BarChart3 size={18} /> Thống kê
+          </li>
+          <li>
+            <Home size={18} />{" "}
+            <a href="/" style={{ textDecoration: "none", color: "#4b4b4b" }}>
+              Quay về trang chủ
+            </a>
           </li>
         </ul>
       </aside>

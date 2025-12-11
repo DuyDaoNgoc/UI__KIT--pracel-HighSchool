@@ -5,6 +5,7 @@ import toastr from "toastr";
 interface ITeacher {
   _id: string;
   teacherId?: string;
+  email?: string;
   name: string;
   dob?: string;
   gender: "Nam" | "Nữ" | "other";
@@ -15,6 +16,7 @@ interface ITeacher {
   majors?: string[];
   certificates?: string[];
   research?: string;
+  createdAt?: Date | string;
 }
 
 // 👇 Form type: majors & certificates là string để bind input
@@ -30,6 +32,7 @@ interface ITeacherForm {
   majors: string;
   certificates: string;
   research: string;
+  email: string;
 }
 
 export default function CreateTeacherWithTable() {
@@ -45,6 +48,7 @@ export default function CreateTeacherWithTable() {
     majors: "",
     certificates: "",
     research: "",
+    email: "",
   });
   toastr.options = {
     closeButton: true,
@@ -99,6 +103,7 @@ export default function CreateTeacherWithTable() {
       majors: "",
       certificates: "",
       research: "",
+      email: "",
     });
     setEditingId(null);
   };
@@ -121,6 +126,7 @@ export default function CreateTeacherWithTable() {
         ? form.certificates.split(",").map((c) => c.trim())
         : [],
       research: form.research || undefined,
+      email: form.email || undefined,
     };
 
     try {
@@ -165,6 +171,7 @@ export default function CreateTeacherWithTable() {
       majors: teacher.majors?.join(", ") || "",
       certificates: teacher.certificates?.join(", ") || "",
       research: teacher.research || "",
+      email: teacher.email || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -217,6 +224,14 @@ export default function CreateTeacherWithTable() {
           placeholder="Số điện thoại"
           value={form.phone}
           onChange={handleChange}
+        />
+        <input
+          className="teacher-form__input"
+          name="email"
+          placeholder="Email (tùy chọn)"
+          value={form.email}
+          onChange={handleChange}
+          type="email"
         />
         <input
           className="teacher-form__input"
@@ -282,6 +297,7 @@ export default function CreateTeacherWithTable() {
           <tr>
             <th className="teacher-table__cell">Mã GV</th>
             <th className="teacher-table__cell">Tên</th>
+            <th className="teacher-table__cell">Email</th>
             <th className="teacher-table__cell">Ngày sinh</th>
             <th className="teacher-table__cell">Giới tính</th>
             <th className="teacher-table__cell">Bằng cấp</th>
@@ -289,6 +305,7 @@ export default function CreateTeacherWithTable() {
             <th className="teacher-table__cell">Chuyên ngành</th>
             <th className="teacher-table__cell">Chứng chỉ</th>
             <th className="teacher-table__cell">Nghiên cứu / Kinh nghiệm</th>
+            <th className="teacher-table__cell">Thời gian tạo</th>
             <th className="teacher-table__cell">Hành động</th>
           </tr>
         </thead>
@@ -297,6 +314,7 @@ export default function CreateTeacherWithTable() {
             <tr key={t._id} className="teacher-table__row">
               <td className="teacher-table__cell">{t.teacherId || "---"}</td>
               <td className="teacher-table__cell">{t.name}</td>
+              <td className="teacher-table__cell">{t.email || "-"}</td>
               <td className="teacher-table__cell">{t.dob}</td>
               <td className="teacher-table__cell">{t.gender}</td>
               <td className="teacher-table__cell">{t.degree}</td>
@@ -308,6 +326,9 @@ export default function CreateTeacherWithTable() {
                 {t.certificates?.join(", ") || ""}
               </td>
               <td className="teacher-table__cell">{t.research}</td>
+              <td className="teacher-table__cell">
+                {t.createdAt ? new Date(t.createdAt).toLocaleString() : "-"}
+              </td>
               <td className="teacher-table__cell">
                 <button
                   className="teacher-table__button teacher-table__button--edit"

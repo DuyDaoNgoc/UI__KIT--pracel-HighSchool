@@ -1,137 +1,119 @@
-// src/pages/Profile/TeacherProfile/index.tsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/AuthContext";
-import type { FEUser, IStudent, IDailyReport } from "./types";
-import InfoTab from "./InfoTab";
-import StudentsTab from "./StudentsTab";
+import { IUserProfile } from "../../../types/profiles";
+import {
+  User,
+  BookOpen,
+  Calendar,
+  BarChart3,
+  Settings,
+  FileText,
+} from "lucide-react";
+import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
+import TeacherInfo from "./InfoTab";
+import TeacherClasses from "./TeacherClasses";
+import TeacherSchedule from "./TeacherSchedule";
+import TeacherGrades from "./TeacherGrades";
+import TeacherStatistics from "./TeacherStatistics";
+import TeacherSettings from "./TeacherSettings";
 import ReportsTab from "./ReportsTab";
-import SettingsTab from "./SettingsTab";
-import { useStudents, useReports, useLockStatus } from "./hooks";
-import axiosInstance from "../../../api/axiosConfig";
-import toast from "react-hot-toast";
+import useTeacherData from "../../../Components/settings/hook/profiles/useTeacherData";
 
 export default function TeacherProfile() {
-  const { user: ctxUser, token: ctxToken, logout } = useAuth() as any;
-  const [teacher, setTeacher] = useState<FEUser | null>(ctxUser);
-  const [activeTab, setActiveTab] = useState<
-    "info" | "students" | "reports" | "settings"
-  >("students");
-  const [filterYear, setFilterYear] = useState("all");
-  const [filterClass, setFilterClass] = useState("all");
-  const [sendingRequest, setSendingRequest] = useState(false);
+  const { user: authUser } = useAuth() as { user: IUserProfile | null };
+  const [activeTab, setActiveTab] = useState("info");
+  const [user, setUser] = useState<IUserProfile | null>(authUser);
 
-  const {
-    students,
-    loading: loadingStudents,
-    error: studentsError,
-    fetchStudents,
-  } = useStudents();
+  const { classes, schedule, grades, statistics, error, fetchAll } =
+    useTeacherData();
 
-  const {
-    reports,
-    loading: loadingReports,
-    error: reportsError,
-    fetchReports,
-  } = useReports();
-
-  const { gradesLocked, loadingLock, fetchLockStatus } = useLockStatus();
-
-  // ---------- Token axios setup ----------
   useEffect(() => {
-    const token = ctxToken ?? localStorage.getItem("token");
-    const hdrs = axiosInstance.defaults.headers as any;
-    if (token) {
-      hdrs.common = { ...hdrs.common, Authorization: `Bearer ${token}` };
-    } else {
-      delete hdrs.common["Authorization"];
-    }
-  }, [ctxToken]);
+    setUser(authUser);
+  }, [authUser]);
 
-  // ---------- Sync teacher state ----------
   useEffect(() => {
-    if (ctxUser) {
-      setTeacher(ctxUser as FEUser);
-      try {
-        localStorage.setItem("user", JSON.stringify(ctxUser));
-      } catch {
-        /* ignore storage error */
-      }
-    }
-  }, [ctxUser]);
-  if (!teacher) return <p>Vui lòng đăng nhập.</p>;
-  // ---------- Request update grade ----------
-  async function requestUpdateGrade(
-    studentId: string,
-    subject: string,
-    newScore: number,
-  ) {
-    if (gradesLocked) {
-      toast.error(" Điểm đang bị khóa bởi admin — không thể gửi yêu cầu.");
-      return;
-    }
-    setSendingRequest(true);
-    try {
-      const payload = { studentId, subject, grade: newScore };
-      const res = await axiosInstance.post<{ message?: string }>(
-        "/api/grades/request-update",
-        payload,
-      );
-      toast.success(res.data?.message || " Yêu cầu cập nhật đã gửi cho admin.");
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
-        logout?.();
-        setSendingRequest(false);
-        return;
-      }
-      console.error("❌ Lỗi gửi yêu cầu:", err?.response || err);
-      toast.error(err?.response?.data?.message || "Gửi yêu cầu thất bại");
-    } finally {
-      setSendingRequest(false);
-    }
-  }
+    if (user?.teacherId) fetchAll(activeTab, user.teacherId);
+  }, [activeTab, user]);
+
+  if (!user) return <div>Vui lòng đăng nhập để xem thông tin giáo viên.</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 980, margin: "0 auto" }}>
-      <header>
-        {/* header giống cũ: teacher.username/email + trạng thái khóa */}
-      </header>
-
-      <nav>{/* tab buttons */}</nav>
-
-      <main>
-        {activeTab === "info" && <InfoTab teacher={teacher} />}
-
-        {activeTab === "students" && (
-          <StudentsTab
-            students={students}
-            filterYear={filterYear}
-            filterClass={filterClass}
-            setFilterYear={setFilterYear}
-            setFilterClass={setFilterClass}
-            loadingStudents={loadingStudents}
-            studentsError={studentsError}
-            fetchStudents={fetchStudents}
-            gradesLocked={gradesLocked}
-            sendingRequest={sendingRequest}
-            requestUpdateGrade={requestUpdateGrade}
+    <div className="profile">
+      {/* Sidebar */}
+      <aside className="profile__sidebar">
+        <div className="profile__user text__content--size-18">
+          <img
+            src={user.avatar || avatars}
+            alt="avatar"
+            className="profile--avatar"
+            crossOrigin="anonymous"
+            onError={(e) => (e.currentTarget.src = avatars)}
           />
-        )}
+          <h3>{user.username}</h3>
+          <p>{user.role}</p>
+        </div>
+        <ul className="profile__menu">
+          <li
+            onClick={() => setActiveTab("info")}
+            className={activeTab === "info" ? "active" : ""}
+          >
+            <User size={18} /> Thông tin cá nhân
+          </li>
+          <li
+            onClick={() => setActiveTab("classes")}
+            className={activeTab === "classes" ? "active" : ""}
+          >
+            <BookOpen size={18} /> Lớp dạy
+          </li>
+          <li
+            onClick={() => setActiveTab("schedule")}
+            className={activeTab === "schedule" ? "active" : ""}
+          >
+            <Calendar size={18} /> Thời khóa biểu
+          </li>
+          <li
+            onClick={() => setActiveTab("grades")}
+            className={activeTab === "grades" ? "active" : ""}
+          >
+            <BarChart3 size={18} /> Quản lý điểm
+          </li>
+          <li
+            onClick={() => setActiveTab("statistics")}
+            className={activeTab === "statistics" ? "active" : ""}
+          >
+            <BarChart3 size={18} /> Thống kê
+          </li>
+          <li
+            onClick={() => setActiveTab("settings")}
+            className={activeTab === "settings" ? "active" : ""}
+          >
+            <Settings size={18} /> Cài đặt
+          </li>
+          <li
+            onClick={() => setActiveTab("reports")}
+            className={activeTab === "reports" ? "active" : ""}
+          >
+            <FileText size={18} /> Báo cáo học sinh
+          </li>
+        </ul>
+      </aside>
 
+      {/* Main content */}
+      <main className="profile__content">
+        {error && <p style={{ color: "red" }}>❌ {error}</p>}
+
+        {activeTab === "info" && <TeacherInfo user={user} />}
+        {activeTab === "classes" && <TeacherClasses classes={classes} />}
+        {activeTab === "schedule" && <TeacherSchedule schedule={schedule} />}
+        {activeTab === "grades" && (
+          <TeacherGrades teacherId={user.teacherId} classes={classes} />
+        )}
+        {activeTab === "statistics" && (
+          <TeacherStatistics statistics={statistics} classes={classes} />
+        )}
+        {activeTab === "settings" && <TeacherSettings user={user} />}
         {activeTab === "reports" && (
-          <ReportsTab
-            reports={reports as IDailyReport[]}
-            loadingReports={loadingReports}
-            reportsError={reportsError}
-            fetchReports={fetchReports}
-          />
-        )}
-
-        {activeTab === "settings" && (
-          <SettingsTab
-            gradesLocked={gradesLocked}
-            loadingLock={loadingLock}
-            fetchLockStatus={fetchLockStatus}
-          />
+          <ReportsTab classes={classes} teacherId={user.teacherId} />
         )}
       </main>
     </div>

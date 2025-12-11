@@ -61,6 +61,16 @@ export interface IUser {
     endTime: string;
   }[];
 
+  // ===== Lớp được gán (cho giáo viên) =====
+  assignedClass?: {
+    grade: string;
+    classLetter: string;
+    major: string;
+    schoolYear: string;
+    classCode: string;
+    className?: string;
+  }[];
+
   // ===== Học phí =====
   tuitionTotal?: number;
   tuitionPaid?: number;
@@ -69,6 +79,7 @@ export interface IUser {
   // ===== Bảo mật / khóa tài khoản =====
   loginAttempts?: number;
   lockUntil?: number;
+  isBlocked?: boolean;
 }
 
 /* ===========================================================
@@ -125,13 +136,14 @@ export type SafeUser = Omit<IUser, "password" | "_id" | "children"> & {
   children: string[];
   teacherId?: string | null;
   parentId?: string | null;
+  assignedClass?: any[]; // 🆕 For teachers
 };
 
 /* ===========================================================
    ===== Convert IUser -> SafeUser =====
    =========================================================== */
 export const toSafeUser = (
-  user: IUser & { _id: ObjectId | string }
+  user: IUser & { _id: ObjectId | string },
 ): SafeUser => ({
   _id: user._id.toString(),
   studentId: user.studentId,
@@ -165,4 +177,5 @@ export const toSafeUser = (
   tuitionTotal: user.tuitionTotal || 0,
   tuitionPaid: user.tuitionPaid || 0,
   tuitionRemaining: user.tuitionRemaining || 0,
+  assignedClass: (user as any).assignedClass || [], // 🆕 For teachers
 });

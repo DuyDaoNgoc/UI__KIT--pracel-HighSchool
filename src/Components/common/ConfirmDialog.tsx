@@ -1,4 +1,4 @@
-// src/components/common/ConfirmDialog.tsx
+// src/Components/common/ConfirmDialog.tsx
 import React from "react";
 import {
   AlertDialog,
@@ -10,7 +10,7 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
   AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+} from "@/Components/ui/alert-dialog";
 
 interface ConfirmDialogProps {
   trigger: React.ReactNode;

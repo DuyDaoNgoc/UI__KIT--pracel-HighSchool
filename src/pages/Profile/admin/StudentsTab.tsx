@@ -11,7 +11,11 @@ interface StudentsTabProps {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
   creating: boolean;
-  createStudent: (e: React.FormEvent) => Promise<{ data: ICreatedStudent }>;
+  createStudent: (e: React.FormEvent) => Promise<{
+    data: ICreatedStudent;
+    emailSent?: boolean;
+    rawPassword?: string;
+  }>;
   createdStudents: ICreatedStudent[];
   setCreatedStudents: React.Dispatch<React.SetStateAction<ICreatedStudent[]>>;
   generateClassCode: (
@@ -36,6 +40,7 @@ export default function StudentsTab({
   generateClassCode,
   actionLoading,
   assignTeacher,
+  deleteStudent,
 }: StudentsTabProps) {
   const [viewingStudent, setViewingStudent] = useState<ICreatedStudent | null>(
     null,
@@ -51,60 +56,32 @@ export default function StudentsTab({
         return;
       }
       setCreatedStudents((prev) => [...prev, latestStudent]);
-      // tự động thêm vào lớp
-      await addStudentToClass(latestStudent);
+
+      // Student is automatically added to class via StudentModel pre-save hook
+      // Show success message with password info if SMTP not configured
+      const classCode =
+        latestStudent.classCode ||
+        generateClassCode(
+          latestStudent.grade,
+          latestStudent.classLetter,
+          latestStudent.major,
+        );
+
+      const baseMessage = `Học sinh ${latestStudent.name} đã được tạo và thêm vào lớp ${classCode}`;
+
+      // Nếu SMTP chưa cấu hình, hiển thị mật khẩu
+      if (result?.emailSent === false && result?.rawPassword) {
+        toast.success(
+          `${baseMessage}\n📧 Mật khẩu: ${result.rawPassword} (Vui lòng gửi cho học sinh)`,
+        );
+      } else if (result?.emailSent) {
+        toast.success(`${baseMessage}\n✅ Email mật khẩu đã được gửi`);
+      } else {
+        toast.success(baseMessage);
+      }
     } catch (err: any) {
       console.error("handleCreateStudent error:", err);
-      toast.error("Tạo học sinh và thêm vào lớp thất bại");
-    }
-  };
-
-  const addStudentToClass = async (student: ICreatedStudent) => {
-    try {
-      const classCode =
-        student.classCode ||
-        generateClassCode(student.grade, student.classLetter, student.major);
-
-      if (!classCode || !student.studentId) {
-        toast.error("Không xác định được lớp hoặc studentId");
-        return;
-      }
-
-      const classesRes = await axiosInstance.get<{
-        success: boolean;
-        data: any[];
-      }>("/api/classes");
-      const classesData = classesRes.data;
-      let cls = classesData?.data?.find((c: any) => c.classCode === classCode);
-
-      if (!cls) {
-        await axiosInstance.post("/api/classes/create", {
-          grade: student.grade,
-          classLetter: student.classLetter,
-          major: student.major,
-          schoolYear: student.schoolYear,
-        });
-        toast.success(`Lớp ${classCode} chưa tồn tại, đã tạo mới`);
-      }
-
-      const response = await axiosInstance.post<{
-        success: boolean;
-        message?: string;
-      }>(`/api/classes/${classCode}/add-student`, {
-        studentId: student.studentId,
-      });
-      if (response.data?.success) {
-        toast.success(
-          `Học sinh ${student.name} đã được thêm vào lớp ${classCode}`,
-        );
-      } else {
-        toast.error(
-          response.data?.message || "Không thể thêm học sinh vào lớp",
-        );
-      }
-    } catch (err: any) {
-      console.error("addStudentToClass error:", err);
-      toast.error("Thêm học sinh vào lớp thất bại");
+      toast.error("Tạo học sinh thất bại");
     }
   };
 
@@ -112,28 +89,66 @@ export default function StudentsTab({
     if (!studentId) return;
     if (!window.confirm("Bạn có chắc chắn muốn xóa học sinh này?")) return;
 
+    // Optimistic delete: remove from UI immediately
+    const previousStudents = createdStudents;
+    setCreatedStudents((prev) => prev.filter((s) => s.studentId !== studentId));
+
     try {
-      const res = await axiosInstance.delete<{
-        success: boolean;
-        message?: string;
-      }>(`/admin/students/${studentId}`);
-      if (res.data?.success) {
-        setCreatedStudents((prev) =>
-          prev.filter((s) => s.studentId !== studentId),
-        );
-        toast.success(res.data?.message || "Xóa học sinh thành công");
-        // thông báo global event để ClassesTab cập nhật
-        window.dispatchEvent(
-          new CustomEvent("studentDeletedFromClass", {
-            detail: { _id: studentId },
-          }),
-        );
+      if (deleteStudent) {
+        await deleteStudent(studentId);
       } else {
-        toast.error(res.data?.message || "Xóa học sinh thất bại");
+        const res = await axiosInstance.delete<{
+          success: boolean;
+          message?: string;
+        }>(`/admin/students/${studentId}`);
+        if (!res.data?.success) {
+          // Restore if API says it failed
+          setCreatedStudents(previousStudents);
+          toast.error(res.data?.message || "Xóa học sinh thất bại");
+          return;
+        }
       }
+
+      toast.success("Xóa học sinh thành công");
+      // thông báo global event để ClassesTab cập nhật
+      window.dispatchEvent(
+        new CustomEvent("studentDeletedFromClass", {
+          detail: { _id: studentId },
+        }),
+      );
     } catch (err: any) {
       console.error("handleDeleteStudent error:", err);
+      // Restore on error
+      setCreatedStudents(previousStudents);
       toast.error("Xóa học sinh thất bại do lỗi server");
+    }
+  };
+
+  const handleResendPasswordEmail = async (studentId?: string) => {
+    if (!studentId) return;
+    try {
+      const res = await axiosInstance.post<{
+        success: boolean;
+        message?: string;
+        rawPassword?: string;
+        emailSent?: boolean;
+      }>(`/admin/students/${studentId}/resend-password-email`);
+
+      if (res.data?.success) {
+        if (res.data?.emailSent) {
+          toast.success("✅ Email mật khẩu đã được gửi thành công!");
+        } else {
+          // SMTP chưa cấu hình, hiển thị mật khẩu
+          toast.success(
+            `Mật khẩu: ${res.data?.rawPassword} (Vui lòng gửi cho học sinh)`,
+          );
+        }
+      } else {
+        toast.error(res.data?.message || "Gửi email thất bại");
+      }
+    } catch (err: any) {
+      console.error("handleResendPasswordEmail error:", err);
+      toast.error("Lỗi gửi email mật khẩu");
     }
   };
 
@@ -176,6 +191,13 @@ export default function StudentsTab({
           value={studentForm.phone}
           onChange={handleStudentChange}
           placeholder="Số điện thoại"
+        />
+        <input
+          type="email"
+          name="email"
+          value={studentForm.email || ""}
+          onChange={handleStudentChange}
+          placeholder="Email (tùy chọn)"
         />
         <input
           type="text"
@@ -223,6 +245,11 @@ export default function StudentsTab({
         <button type="submit" disabled={creating} className="button">
           {creating ? "Đang tạo..." : "Tạo học sinh"}
         </button>
+        <p className="form-note" style={{ marginTop: 8, fontSize: 13 }}>
+          Nhập email để hệ thống tự động tạo tài khoản cho học sinh (mật khẩu
+          mặc định là mã HS). Mật khẩu sẽ được gửi tới email nếu SMTP được cấu
+          hình, nếu không sẽ được ghi vào logs.
+        </p>
       </form>
 
       {/* Danh sách học sinh */}
@@ -233,6 +260,7 @@ export default function StudentsTab({
             <tr>
               <th>Mã HS</th>
               <th>Tên</th>
+              <th>Email</th>
               <th>Lớp</th>
               <th>Ngành</th>
               <th>Ngày tạo</th>
@@ -241,10 +269,11 @@ export default function StudentsTab({
             </tr>
           </thead>
           <tbody>
-            {createdStudents.map((s) => (
-              <tr key={s._id?.toString() || s.studentId}>
+            {createdStudents.map((s, index) => (
+              <tr key={`${s.studentId}-${index}`}>
                 <td>{s.studentId}</td>
                 <td>{s.name}</td>
+                <td>{s.email || "-"}</td>
                 <td>
                   {s.classCode ||
                     generateClassCode(s.grade, s.classLetter, s.major)}
@@ -262,6 +291,13 @@ export default function StudentsTab({
                     className="action-btn view"
                   >
                     Xem
+                  </button>
+                  <button
+                    onClick={() => handleResendPasswordEmail(s.studentId)}
+                    className="action-btn send"
+                    title="Gửi lại email mật khẩu"
+                  >
+                    📧 Mật khẩu
                   </button>
                   <button
                     onClick={() => handleDeleteStudent(s.studentId)}

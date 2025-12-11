@@ -10,6 +10,11 @@ export interface IUserProfile {
   avatar?: string;
   children?: string[];
 
+  // optional identifiers for teacher / student accounts
+  teacherId?: string;
+  studentId?: string;
+  assignedClass?: string[];
+
   // ✅ Bổ sung để không lỗi khi nhận dữ liệu từ backend
   classCode?: { className: string; grade: string } | string;
   major?: { name: string; code: string } | string;

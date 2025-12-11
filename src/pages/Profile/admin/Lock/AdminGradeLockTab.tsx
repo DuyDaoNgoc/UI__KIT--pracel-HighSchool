@@ -39,14 +39,40 @@ export default function AdminGradeLockTab() {
       setLoading(true);
       try {
         const [locksRes, classesRes, subjectsRes] = await Promise.all([
-          axiosInstance.get<{ data: GradeLock[] }>("/api/grades/lock/locks"),
-          axiosInstance.get<{ data: Class[] }>("/api/classes"),
-          axiosInstance.get<{ data: Subject[] }>("/api/subjects"),
+          axiosInstance.get<any>("/grades/lock/locks"),
+          axiosInstance.get<any>("/classes"),
+          axiosInstance.get<any>("/subjects"),
         ]);
 
-        setLocks(locksRes.data?.data || []);
-        setClasses(classesRes.data?.data || []);
-        setSubjects(subjectsRes.data?.data || []);
+        // Handle locks
+        let locksData = [];
+        if (Array.isArray(locksRes.data)) {
+          locksData = locksRes.data;
+        } else if (locksRes.data?.data && Array.isArray(locksRes.data.data)) {
+          locksData = locksRes.data.data;
+        }
+        setLocks(locksData);
+
+        // Handle classes - /api/classes trả về { success, data: [...] }
+        let classesData = [];
+        if (classesRes.data?.data && Array.isArray(classesRes.data.data)) {
+          classesData = classesRes.data.data;
+        } else if (Array.isArray(classesRes.data)) {
+          classesData = classesRes.data;
+        }
+        setClasses(classesData);
+
+        // Handle subjects
+        let subjectsData = [];
+        if (Array.isArray(subjectsRes.data)) {
+          subjectsData = subjectsRes.data;
+        } else if (
+          subjectsRes.data?.data &&
+          Array.isArray(subjectsRes.data.data)
+        ) {
+          subjectsData = subjectsRes.data.data;
+        }
+        setSubjects(subjectsData);
       } catch (err) {
         console.error("fetchData error:", err);
         toast.error("Lỗi tải dữ liệu");
@@ -65,8 +91,8 @@ export default function AdminGradeLockTab() {
 
     try {
       const endpoint = isCurrentlyLocked
-        ? `/api/grades/lock/unlock/${classId}/${subjectId}`
-        : `/api/grades/lock/lock/${classId}/${subjectId}`;
+        ? `/grades/lock/unlock/${classId}/${subjectId}`
+        : `/grades/lock/lock/${classId}/${subjectId}`;
 
       const res = await axiosInstance.post<{ lock: GradeLock }>(endpoint);
 

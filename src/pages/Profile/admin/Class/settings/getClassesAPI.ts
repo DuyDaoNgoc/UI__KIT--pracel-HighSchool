@@ -7,6 +7,7 @@ export interface ClassType {
   classLetter: string;
   major: string;
   classCode: string;
+  createdAt?: Date | string | null;
 }
 
 export interface ApiResponse<T> {

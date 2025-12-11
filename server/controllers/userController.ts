@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 import { User } from "../models/User";
 import { connectDB } from "../configs/db";
 import { toSafeUser } from "../types/user";
+import nodemailer from "nodemailer";
 
 // ===================== REGISTER =====================
 export const registerUser = async (req: Request, res: Response) => {
@@ -124,24 +125,39 @@ export const registerUser = async (req: Request, res: Response) => {
 // ===================== LOGIN =====================
 export const loginUser = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, code } = req.body;
 
-    if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "❌ Missing field: email" });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "❌ Missing field: password" });
+    if ((!email && !code) || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "❌ Missing credentials: provide email or code, and password",
+      });
     }
 
-    const user = await User.findOne({ email });
+    // Tìm user bằng mã (studentId/teacherId) nếu cung cấp, ngược lại bằng email
+    let user: any = null;
+    if (code) {
+      user = await User.findOne({
+        $or: [{ studentId: code }, { teacherId: code }],
+      });
+    } else {
+      user = await User.findOne({ email });
+    }
+
     if (!user) {
       return res
         .status(401)
-        .json({ success: false, message: "❌ Invalid email or password" });
+        .json({ success: false, message: "❌ Invalid credentials" });
+    }
+
+    // Kiểm tra tài khoản bị đình chỉ
+    if ((user as any).isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Tài khoản của bạn đã bị đình chỉ. Vui lòng liên hệ quản trị viên.",
+        isBlocked: true,
+      });
     }
 
     const now = Date.now();
@@ -224,6 +240,8 @@ export const loginUser = async (req: Request, res: Response) => {
           schoolYear: enrichedUser.schoolYear || teacherDoc.schoolYear,
           gender: enrichedUser.gender || teacherDoc.gender,
           major: enrichedUser.major || teacherDoc.major || teacherDoc.majors,
+          // include assigned classes so frontend can show them immediately
+          assignedClass: teacherDoc.assignedClass || [],
         };
       }
     }
@@ -249,6 +267,72 @@ export const loginUser = async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ success: false, message: "❌ Server error" });
+  }
+};
+
+// ===================== FORGOT PASSWORD =====================
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { code, email } = req.body;
+
+    if (!code && !email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing field: code or email" });
+    }
+
+    // Tìm user theo code hoặc email
+    const user = await User.findOne(
+      code ? { $or: [{ studentId: code }, { teacherId: code }] } : { email },
+    );
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Gửi thông báo tới admin (ADMIN_EMAIL) để họ xử lý tạo lại mật khẩu
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const requester = email || user.email || "(no email)";
+
+    const mailBody = `Yêu cầu đặt lại mật khẩu:\n- Người yêu cầu: ${requester}\n- Mã người dùng: ${user.studentId || user.teacherId || "-"}\n- Tên: ${user.username || "-"}\n- ID: ${user._id}\n\nVui lòng truy cập hệ thống quản trị để tạo lại mật khẩu.`;
+
+    try {
+      if (process.env.SMTP_HOST && adminEmail) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT || 587),
+          secure: (process.env.SMTP_SECURE || "false") === "true",
+          auth: process.env.SMTP_USER
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            : undefined,
+        });
+
+        await transporter.sendMail({
+          from:
+            process.env.SMTP_FROM ||
+            `no-reply@${process.env.DOMAIN || "local"}`,
+          to: adminEmail,
+          subject: "[Yêu cầu] Đặt lại mật khẩu người dùng",
+          text: mailBody,
+        });
+      } else {
+        console.log("Forgot-password request -> Admin:", adminEmail);
+        console.log(mailBody);
+      }
+    } catch (mailErr) {
+      console.warn("Could not send forgot-password email:", mailErr);
+    }
+
+    return res.json({
+      success: true,
+      message:
+        "Yêu cầu đã gửi tới quản trị viên. Họ sẽ tạo lại mật khẩu cho bạn (hoặc bạn sẽ nhận email từ admin).",
+    });
+  } catch (err) {
+    console.error("forgotPassword error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 // ===================== GET ALL USERS =====================

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import Teacher from "../../models/teacherModel";
+import User from "../../models/User";
 import { createTeacher } from "../../controllers/admin/teacher/createTeacher";
 const router = Router();
 // 📌 Lấy danh sách giáo viên
@@ -35,7 +36,26 @@ router.delete("/:id", async (req, res, next) => {
     if (!teacher) {
       return res.status(404).json({ message: "Không tìm thấy giáo viên" });
     }
-    res.json({ message: "Đã xóa giáo viên" });
+
+    // 🔥 Xóa tài khoản User liên quan (nếu có)
+    try {
+      const deleteUserResult = await User.deleteOne({
+        $or: [
+          { teacherId: teacher.teacherId },
+          { email: teacher.email },
+        ],
+      });
+      if (deleteUserResult.deletedCount > 0) {
+        console.log(`✅ Xóa tài khoản user cho giáo viên ${teacher.teacherId}`);
+      }
+    } catch (userErr) {
+      console.warn(
+        `⚠️ Lỗi khi xóa tài khoản user cho ${teacher.teacherId}:`,
+        userErr,
+      );
+    }
+
+    res.json({ message: "Đã xóa giáo viên và tài khoản liên quan" });
   } catch (err) {
     next(err);
   }

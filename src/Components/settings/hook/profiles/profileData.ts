@@ -63,7 +63,28 @@ export const fetchSchedule = async (
     const user = users.find((u) => u._id === userId || u.studentId === userId);
     if (!user) return [];
 
-    return user.schedule ?? [];
+    const raw = user.schedule ?? [];
+
+    // If already in grouped format ({ day, subjects: string[] }), return as-is
+    if (Array.isArray(raw) && raw.length > 0 && raw[0].subjects) {
+      return raw as IScheduleItem[];
+    }
+
+    // Otherwise, normalize from flat schedule items: { day, subject, startTime, endTime }
+    const grouped: Record<string, string[]> = {};
+    for (const item of raw) {
+      const day = item.day || "Unknown";
+      const subjName = item.subject || item.subjectName || "Unknown";
+      const timeStr =
+        item.startTime && item.endTime
+          ? ` (${item.startTime}-${item.endTime})`
+          : "";
+      const label = `${subjName}${timeStr}`;
+      if (!grouped[day]) grouped[day] = [];
+      grouped[day].push(label);
+    }
+
+    return Object.keys(grouped).map((day) => ({ day, subjects: grouped[day] }));
   } catch (err: any) {
     console.error(
       "Error fetching schedule:",

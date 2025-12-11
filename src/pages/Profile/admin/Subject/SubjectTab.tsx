@@ -86,6 +86,14 @@ export default function SubjectTab() {
       if (newSubject) {
         setSubjects((prev) => [...prev, newSubject]);
         setForm({ name: "", price: 0, classId: "" });
+        // Dispatch global event so other tabs (Timetable) can refresh
+        try {
+          window.dispatchEvent(
+            new CustomEvent("subjects:updated", { detail: newSubject }),
+          );
+        } catch (e) {
+          // ignore if CustomEvent not supported in old browsers
+        }
         toast.success("Tạo môn học thành công");
       }
     } catch (err: any) {
@@ -149,6 +157,23 @@ export default function SubjectTab() {
             step="1000"
             required
           />
+        </div>
+
+        <div className="form-group">
+          <label>Lớp:</label>
+          <select
+            name="classId"
+            value={form.classId}
+            onChange={handleChange}
+            required
+          >
+            <option value="">-- Chọn lớp --</option>
+            {classes.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.classCode || c.className || c._id}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button type="submit" disabled={creating} className="button">

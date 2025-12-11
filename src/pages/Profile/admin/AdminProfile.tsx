@@ -40,6 +40,7 @@ interface IStudentForm {
   schoolYear: string;
   major: string;
   gender: string;
+  email: string;
 }
 
 interface ITeacher {
@@ -77,6 +78,7 @@ const AdminProfile: FC = () => {
     schoolYear: "",
     major: "",
     gender: "",
+    email: "",
   });
 
   const [teachers, setTeachers] = useState<ITeacher[]>([]);
@@ -200,7 +202,12 @@ const AdminProfile: FC = () => {
   // ==== Create student ====
   const createStudent = async (
     e: React.FormEvent,
-  ): Promise<{ data?: ICreatedStudent; success?: boolean } | void> => {
+  ): Promise<{
+    data?: ICreatedStudent;
+    success?: boolean;
+    emailSent?: boolean;
+    rawPassword?: string;
+  } | void> => {
     e.preventDefault();
     const { name, dob, grade, classLetter, gender } = studentForm;
 
@@ -222,21 +229,39 @@ const AdminProfile: FC = () => {
       const payload = { ...studentForm, studentId, classCode };
 
       // Gọi API tạo học sinh và lấy dữ liệu trả về
-      const res = await axiosInstance.post<{
-        success: boolean;
-        data: ICreatedStudent;
-      }>("/admin/students/create", payload, authHeaders);
+      const res = await axiosInstance.post<any>(
+        "/admin/students/create",
+        payload,
+        authHeaders,
+      );
 
-      const created = res.data?.data ?? null;
+      const serverData = res?.data?.data ?? null;
+      const createdStudent = serverData?.student ?? serverData ?? null;
+      const emailSent = serverData?.emailSent ?? true;
+      const rawPassword = serverData?.rawPassword ?? null;
 
-      // Cập nhật danh sách local ngay lập tức nếu có
-      if (created) {
-        setCreatedStudents((prev) => [created, ...prev]);
+      // Đồng bộ danh sách từ server (không push local để tránh duplicate)
+      await fetchCreatedStudents();
+
+      // Notify classes view so it can append the new student to the correct class
+      try {
+        if (createdStudent) {
+          window.dispatchEvent(
+            new CustomEvent("studentAddedToClass", { detail: createdStudent }),
+          );
+        }
+      } catch (evErr) {
+        console.warn("Could not dispatch studentAddedToClass event:", evErr);
       }
 
-      // Đồng thời gọi fetch để đồng bộ server-side
-      await fetchCreatedStudents();
-      toast.success(`Tạo học sinh thành công! Mã: ${studentId}`);
+      // Thông báo chung
+      if (rawPassword && !emailSent) {
+        toast.success(
+          `Tạo học sinh thành công! Mã: ${studentId}. SMTP chưa cấu hình — mật khẩu: ${rawPassword}`,
+        );
+      } else {
+        toast.success(`Tạo học sinh thành công! Mã: ${studentId}`);
+      }
 
       setStudentForm({
         name: "",
@@ -249,10 +274,16 @@ const AdminProfile: FC = () => {
         schoolYear: "",
         major: "",
         gender: "",
+        email: "",
       });
 
       // Trả về dữ liệu để caller (StudentsTab) có thể tiếp tục xử lý
-      return { data: created, success: !!created };
+      return {
+        data: createdStudent,
+        success: !!createdStudent,
+        emailSent,
+        rawPassword,
+      };
     } catch (err) {
       console.error("⚠️ createStudent error:", err);
       toast.error("Không thể tạo học sinh!");
@@ -512,7 +543,9 @@ const AdminProfile: FC = () => {
             deleteStudent={deleteStudent}
           />
         )}
-        {activeTab === "classes" && <ClassesTab />}
+        {activeTab === "classes" && (
+          <ClassesTab deleteStudent={deleteStudent} />
+        )}
         {activeTab === "subjects" && <SubjectTab />}
         {activeTab === "payments" && <PaymentTab />}
         {activeTab === "timetables" && <TimetableTab />}

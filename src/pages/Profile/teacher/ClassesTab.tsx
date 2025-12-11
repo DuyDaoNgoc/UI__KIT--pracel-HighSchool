@@ -29,7 +29,7 @@ export default function TeacherClassesTab() {
     const fetchClasses = async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get<{ data: Class[] }>("/api/classes");
+        const res = await axiosInstance.get<{ data: Class[] }>("/classes");
         setClasses(res.data?.data || []);
       } catch (err) {
         console.error("fetchClasses error:", err);
@@ -50,7 +50,7 @@ export default function TeacherClassesTab() {
     if (!students[classId]) {
       try {
         const res = await axiosInstance.get<{ data: Student[] }>(
-          `/api/classes/${classId}/students`,
+          `/classes/${classId}/students`,
         );
         setStudents((prev) => ({
           ...prev,

@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axiosInstance from "../../../api/axiosConfig";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Button,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Alert,
+  CircularProgress,
+  Paper,
+} from "@mui/material";
+import { Save as SaveIcon, Book as BookIcon } from "@mui/icons-material";
 
 interface Student {
   _id: string;
@@ -50,9 +69,7 @@ export default function TeacherGradesTab({ classId, teacherId }: Props) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const url = classId
-          ? `/api/classes/${classId}/students`
-          : "/api/students";
+        const url = classId ? `/classes/${classId}/students` : "/api/students";
         const studentsRes = await axiosInstance.get<{ data: Student[] }>(url);
         setStudents(studentsRes.data?.data || []);
 
@@ -174,90 +191,211 @@ export default function TeacherGradesTab({ classId, teacherId }: Props) {
     subjects.find((s) => s._id === selectedSubject)?.name || "";
 
   return (
-    <div className="profile__card">
-      <h2 className="profile__title">Nhập điểm</h2>
+    <div style={{ padding: "24px", maxWidth: "1000px", margin: "0 auto" }}>
+      <Toaster position="top-right" reverseOrder={false} />
 
-      {/* Chọn môn học */}
-      <div className="form-group mb-3">
-        <label>Chọn môn học:</label>
-        <select
-          value={selectedSubject}
-          onChange={(e) => setSelectedSubject(e.target.value)}
-          disabled={gradeLock?.isLocked}
-        >
-          <option value="">-- Chọn môn học --</option>
-          {subjects.map((subject) => (
-            <option key={subject._id} value={subject._id}>
-              {subject.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          mb: 4,
+          pb: 2,
+          borderBottom: "2px solid #e0e0e0",
+        }}
+      >
+        <BookIcon sx={{ fontSize: 32, color: "#1976d2" }} />
+        <Typography variant="h5" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+          Nhập Điểm
+        </Typography>
+      </Box>
 
-      {/* Cảnh báo khóa điểm */}
+      {/* Select Subject Card */}
+      <Card
+        sx={{
+          mb: 3,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          borderRadius: 2,
+        }}
+      >
+        <CardHeader
+          title="Chọn Môn Học"
+          sx={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+          }}
+        />
+        <CardContent sx={{ pt: 3 }}>
+          <TextField
+            select
+            fullWidth
+            label="Môn học"
+            value={selectedSubject}
+            onChange={(e) => setSelectedSubject(e.target.value)}
+            disabled={gradeLock?.isLocked}
+            SelectProps={{
+              native: true,
+            }}
+            variant="outlined"
+          >
+            <option value="">-- Chọn môn học --</option>
+            {subjects.map((subject) => (
+              <option key={subject._id} value={subject._id}>
+                {subject.name}
+              </option>
+            ))}
+          </TextField>
+        </CardContent>
+      </Card>
+
+      {/* Lock Alert */}
       {gradeLock?.isLocked && (
-        <div className="alert alert-warning">
+        <Alert severity="warning" sx={{ mb: 3 }}>
           ⚠️ Điểm của môn học "<strong>{currentSubjectName}</strong>" đã bị khóa
           bởi Admin. Không thể chỉnh sửa hoặc lưu điểm.
-        </div>
+        </Alert>
       )}
 
-      {/* Danh sách nhập điểm */}
-      {loading ? (
-        <p>Đang tải dữ liệu...</p>
-      ) : students.length === 0 ? (
-        <p className="no-data">Chưa có học sinh nào.</p>
-      ) : (
-        <>
-          <table className="grades-table">
-            <thead>
-              <tr>
-                <th>Mã HS</th>
-                <th>Tên học sinh</th>
-                <th>Điểm ({currentSubjectName})</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student) => (
-                <tr key={student._id}>
-                  <td>{student.studentId}</td>
-                  <td>{student.name}</td>
-                  <td>
-                    <input
-                      type="number"
-                      min="0"
-                      max="10"
-                      step="0.5"
-                      value={editingGrades[student._id] || ""}
-                      onChange={(e) =>
-                        handleGradeChange(
-                          student._id,
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
-                      disabled={gradeLock?.isLocked}
-                      placeholder="Nhập điểm"
-                      className="grade-input"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Grades Table Card */}
+      <Card
+        sx={{
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          borderRadius: 2,
+        }}
+      >
+        <CardHeader
+          title={
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Danh Sách Điểm
+              </Typography>
+              {currentSubjectName && (
+                <Typography
+                  sx={{
+                    fontSize: "14px",
+                    color: "#666",
+                    fontStyle: "italic",
+                  }}
+                >
+                  ({currentSubjectName})
+                </Typography>
+              )}
+            </Box>
+          }
+          sx={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+            "& .MuiTypography-root": { color: "white" },
+          }}
+        />
+        <CardContent sx={{ pt: 0 }}>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : students.length === 0 ? (
+            <Typography color="textSecondary" sx={{ py: 2 }}>
+              Chưa có học sinh nào.
+            </Typography>
+          ) : (
+            <>
+              <TableContainer component={Paper} sx={{ mb: 3, mt: 2 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        background:
+                          "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      }}
+                    >
+                      <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        Mã HS
+                      </TableCell>
+                      <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        Tên Học Sinh
+                      </TableCell>
+                      <TableCell
+                        align="center"
+                        sx={{ color: "white", fontWeight: 600 }}
+                      >
+                        Điểm
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {students.map((student, idx) => (
+                      <TableRow
+                        key={student._id}
+                        sx={{
+                          backgroundColor: idx % 2 === 0 ? "#f9f9f9" : "white",
+                          "&:hover": {
+                            backgroundColor: "#f0f0f0",
+                          },
+                        }}
+                      >
+                        <TableCell sx={{ py: 2 }}>
+                          {student.studentId}
+                        </TableCell>
+                        <TableCell sx={{ py: 2 }}>{student.name}</TableCell>
+                        <TableCell align="center" sx={{ py: 2 }}>
+                          <TextField
+                            type="number"
+                            inputProps={{
+                              min: "0",
+                              max: "10",
+                              step: "0.5",
+                            }}
+                            value={editingGrades[student._id] ?? ""}
+                            onChange={(e) =>
+                              handleGradeChange(
+                                student._id,
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            disabled={gradeLock?.isLocked}
+                            placeholder="0-10"
+                            size="small"
+                            sx={{
+                              width: "80px",
+                              "& input": { textAlign: "center" },
+                            }}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
-          <div className="action-buttons">
-            <button
-              onClick={handleSaveGrades}
-              disabled={saving || gradeLock?.isLocked}
-              className="button success"
-            >
-              {saving ? "Đang lưu..." : "Lưu điểm"}
-            </button>
-          </div>
-        </>
-      )}
-
-      <Toaster position="top-right" reverseOrder={false} />
+              <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                <Button
+                  onClick={handleSaveGrades}
+                  disabled={saving || gradeLock?.isLocked}
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    py: 1.5,
+                    px: 3,
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(135deg, #5568d3 0%, #69408f 100%)",
+                    },
+                  }}
+                >
+                  {saving ? "Đang lưu..." : "Lưu Điểm"}
+                </Button>
+              </Box>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

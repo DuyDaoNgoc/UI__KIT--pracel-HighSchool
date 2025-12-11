@@ -34,6 +34,7 @@ export interface ITeacher extends Document {
   subjectClasses: string[];
   assignedClass: IAssignedClass[]; // CHÚ Ý: chuyển sang mảng
   assignedClassCode?: string;
+  schoolYear?: string; // Năm học
   email?: string;
   degree?: string;
   educationLevel?: string;
@@ -77,6 +78,7 @@ const TeacherSchema = new Schema<ITeacher>(
     assignedClass: { type: [AssignedClassSchema], default: [] },
 
     assignedClassCode: { type: String, unique: true, sparse: true },
+    schoolYear: { type: String }, // Năm học
     email: { type: String, unique: true, sparse: true },
     degree: { type: String },
     educationLevel: { type: String },

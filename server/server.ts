@@ -25,6 +25,7 @@ import paymentRoutes from "./Routers/Payment/index";
 import timetableRoutes from "./Routers/Timetable/index";
 import gradeLockRoutes from "./Routers/grades/gradeLock";
 import gradeRoutes from "./Routers/grades/gradeRoutes";
+import reportsRouter from "./Routers/reports/reportsRouter";
 
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
@@ -52,7 +53,7 @@ const app = express();
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     maxAge: 600,
   }),
@@ -76,8 +77,12 @@ app.patch("/api/users/:id/block", async (req, res) => {
   try {
     const { id } = req.params;
     const { isBlocked } = req.body;
-    await User.findByIdAndUpdate(id, { isBlocked });
-    res.json({ success: true });
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { isBlocked },
+      { new: true },
+    ).select("-password");
+    res.json({ success: true, data: updatedUser });
   } catch (err) {
     console.error("❌ Error blocking user:", err);
     res.status(500).json({ message: "Failed to update user" });
@@ -106,6 +111,9 @@ app.use("/api/timetables", timetableRoutes);
 app.use("/api/grades/lock", gradeLockRoutes);
 app.use("/api/grades", gradeRoutes);
 
+// Reports
+app.use("/api/reports", reportsRouter);
+
 //  Admin
 app.use("/api/admin", adminRoutes);
 
@@ -130,10 +138,11 @@ app.get(
 app.get("/socket-url", (req, res) => {
   try {
     const localIP = getLocalIP();
-    res.json({ url: `http://${localIP}:5000` }); // <-- gửi response
+    const PORT = Number(process.env.PORT) || 8000;
+    res.json({ url: `http://${localIP}:${PORT}` });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Internal Server Error" }); // <-- GỌI LẠI res.json nếu err xảy ra
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 

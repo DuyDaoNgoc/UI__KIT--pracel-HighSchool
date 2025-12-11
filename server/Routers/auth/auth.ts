@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from "express";
 import { registerUser } from "../../controllers/registerUser";
-import { loginUser } from "../../controllers/userController";
+import { loginUser, forgotPassword } from "../../controllers/userController";
 import {
   verifyToken,
   checkRole,
@@ -16,6 +16,9 @@ router.post("/register", registerUser as RequestHandler);
 
 // ===================== LOGIN =====================
 router.post("/login", loginUser as RequestHandler);
+
+// ===================== FORGOT PASSWORD =====================
+router.post("/forgot-password", forgotPassword as RequestHandler);
 
 // ===================== GET CURRENT USER =====================
 router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
@@ -41,7 +44,7 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
           email: 1,
           role: 1,
         },
-      }
+      },
     );
 
     if (!user) {
@@ -57,7 +60,7 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
       const students = db.collection("students");
       const student = await students.findOne(
         { studentId: user.studentId },
-        { projection: { name: 1 } }
+        { projection: { name: 1 } },
       );
       if (student?.name) {
         finalUsername = student.name;
@@ -69,7 +72,7 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
       const teachers = db.collection("teachers");
       const teacher = await teachers.findOne(
         { teacherId: user.teacherId },
-        { projection: { name: 1 } }
+        { projection: { name: 1 } },
       );
       if (teacher?.name) {
         finalUsername = teacher.name;
@@ -96,7 +99,7 @@ router.get("/me", verifyToken, (async (req: AuthRequest, res) => {
 // ===================== ADMIN ROUTE =====================
 router.get("/admin", verifyToken, checkRole(["admin"]), ((
   req: AuthRequest,
-  res
+  res,
 ) => {
   res.json({
     success: true,

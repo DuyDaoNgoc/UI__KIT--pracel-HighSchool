@@ -2,6 +2,8 @@ import express from "express";
 import Timetable from "../../models/Timetable";
 import ClassModel from "../../models/Class";
 import Subject from "../../models/Subject";
+import User from "../../models/User";
+import { verifyToken, requireAdmin } from "../../middleware/authMiddleware";
 
 const router = express.Router();
 
@@ -75,6 +77,33 @@ router.post("/", async (req, res) => {
       await timetable.save();
     }
 
+    // --- Sync schedule to students' user accounts ---
+    try {
+      // populate subject names for a user-friendly schedule
+      const populated = await Timetable.findById(timetable._id).populate(
+        "schedule.subjectId",
+      );
+
+      const userSchedule = (populated?.schedule || []).map((s: any) => ({
+        day: s.day,
+        subject:
+          (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
+          String(s.subjectId),
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }));
+
+      const clsStudents = (cls.studentIds || []).map((id: any) => id);
+      if (clsStudents.length > 0) {
+        await User.updateMany(
+          { _id: { $in: clsStudents } },
+          { $set: { schedule: userSchedule } },
+        );
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync timetable to users:", syncErr);
+    }
+
     res.status(201).json({ message: "Timetable created", timetable });
   } catch (err) {
     console.error(err);
@@ -106,6 +135,31 @@ router.patch("/:id", async (req, res) => {
 
     if (!timetable)
       return res.status(404).json({ message: "Timetable not found" });
+
+    // --- Sync schedule to students' user accounts ---
+    try {
+      // timetable is already populated with subjectId
+      const userSchedule = (timetable.schedule || []).map((s: any) => ({
+        day: s.day,
+        subject:
+          (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
+          String(s.subjectId),
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }));
+
+      const cls = await ClassModel.findById(timetable.classId);
+      const clsStudents = (cls?.studentIds || []).map((id: any) => id);
+      if (clsStudents.length > 0) {
+        await User.updateMany(
+          { _id: { $in: clsStudents } },
+          { $set: { schedule: userSchedule } },
+        );
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync updated timetable to users:", syncErr);
+    }
+
     res.status(200).json({ message: "Timetable updated", timetable });
   } catch (err) {
     console.error(err);
@@ -127,3 +181,39 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
+
+// --- Admin endpoint: backfill/sync all timetables into users collection ---
+router.post("/sync-to-users", verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const timetables = await Timetable.find().populate("schedule.subjectId");
+
+    for (const tt of timetables) {
+      const cls = await ClassModel.findById(tt.classId);
+      if (!cls) continue;
+
+      const userSchedule = (tt.schedule || []).map((s: any) => ({
+        day: s.day,
+        subject:
+          (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
+          String(s.subjectId),
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }));
+
+      const clsStudents = (cls.studentIds || []).map((id: any) => id);
+      if (clsStudents.length > 0) {
+        await User.updateMany(
+          { _id: { $in: clsStudents } },
+          { $set: { schedule: userSchedule } },
+        );
+      }
+    }
+
+    res.json({ success: true, message: "Sync completed" });
+  } catch (err) {
+    console.error("sync-to-users error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Sync failed", error: err });
+  }
+});

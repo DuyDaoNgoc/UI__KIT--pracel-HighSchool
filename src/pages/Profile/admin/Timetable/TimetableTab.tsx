@@ -62,9 +62,23 @@ export default function TimetableTab() {
           axiosInstance.get<{ data: Subject[] }>("/subjects"),
         ]);
 
-        setTimetables(timetablesRes.data?.data || []);
+        // Normalize timetables: ensure classId is a string (not a populated object)
+        const rawTimetables = timetablesRes.data?.data || [];
+        const normalizedTimetables = rawTimetables.map((t: any) => ({
+          ...t,
+          classId: t.classId?._id ? String(t.classId._id) : String(t.classId),
+        }));
+
+        // Normalize subjects: ensure subject.classId is string (some endpoints populate classId)
+        const rawSubjects = subjectsRes.data?.data || [];
+        const normalizedSubjects = rawSubjects.map((s: any) => ({
+          ...s,
+          classId: s.classId?._id ? String(s.classId._id) : String(s.classId),
+        }));
+
+        setTimetables(normalizedTimetables);
         setClasses(classesRes.data?.data || []);
-        setSubjects(subjectsRes.data?.data || []);
+        setSubjects(normalizedSubjects);
       } catch (err) {
         console.error("fetchData error:", err);
         toast.error("Lỗi tải dữ liệu");
@@ -73,6 +87,35 @@ export default function TimetableTab() {
       }
     };
     fetchData();
+
+    // Listen for subject creation events to refresh subjects list
+    const onSubjectsUpdated = async (e: any) => {
+      try {
+        const subjectsRes = await axiosInstance.get<{ data: Subject[] }>(
+          "/subjects",
+        );
+        const rawSubjects = subjectsRes.data?.data || [];
+        const normalizedSubjects = rawSubjects.map((s: any) => ({
+          ...s,
+          classId: s.classId?._id ? String(s.classId._id) : String(s.classId),
+        }));
+        setSubjects(normalizedSubjects);
+      } catch (err) {
+        console.error("Error refreshing subjects after update:", err);
+      }
+    };
+
+    window.addEventListener(
+      "subjects:updated",
+      onSubjectsUpdated as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "subjects:updated",
+        onSubjectsUpdated as EventListener,
+      );
+    };
   }, []);
 
   const handleAddScheduleItem = () => {

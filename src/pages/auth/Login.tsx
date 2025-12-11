@@ -6,7 +6,7 @@ import { Toaster, toast, Toast } from "react-hot-toast";
 import { LogIn, LogOut, ArrowLeft } from "lucide-react";
 const Login: React.FC = () => {
   // form state
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ username: "", password: "" });
   // loading state
   const [loading, setLoading] = useState(false);
   // message state
@@ -54,7 +54,11 @@ const Login: React.FC = () => {
 
     try {
       // Gửi request đăng nhập tới backend
-      const res = await http.post<any>("/auth/login", form);
+      // Chuyển username thành code để backend xử lý (studentId hoặc teacherId)
+      const res = await http.post<any>("/auth/login", {
+        code: form.username,
+        password: form.password,
+      });
       // Xử lý phản hồi từ backend
       const {
         success,
@@ -63,7 +67,16 @@ const Login: React.FC = () => {
         message: msg,
         attemptsLeft,
         lockTime,
+        isBlocked,
       } = res.data;
+
+      // Kiểm tra tài khoản bị đình chỉ
+      if (isBlocked) {
+        setMessage("🚫 " + msg);
+        toast.error(msg);
+        return;
+      }
+
       // Nếu đăng nhập thành công và có token, user
       if (success && token && user) {
         // Lưu token vào localStorage
@@ -137,15 +150,15 @@ const Login: React.FC = () => {
       <form className="login-form" onSubmit={handleSubmit}>
         <h2 className="login-form__h2">Login</h2>
 
-        <label className="login-form__label" htmlFor="email">
-          Email
+        <label className="login-form__label" htmlFor="username">
+          Mã học sinh / Mã giáo viên
         </label>
         <input
-          id="email"
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={form.email}
+          id="username"
+          name="username"
+          type="text"
+          placeholder="Nhập mã HS (26A70157) hoặc mã GV (GV00001)"
+          value={form.username}
           onChange={handleChange}
           required
           disabled={lockSecondsLeft > 0}

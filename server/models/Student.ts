@@ -1,12 +1,15 @@
-import mongoose, { Document, Schema, Types, CallbackError } from "mongoose";
+import mongoose, { Document, Schema, CallbackError } from "mongoose";
 import ClassModel from "./Class"; // import model Class
 
 export interface IStudent extends Document {
   name: string;
+  username?: string;
   dob?: Date;
   address?: string;
   residence?: string;
   phone?: string;
+  email?: string;
+  gender?: string;
   grade: string;
   classLetter: string;
   major: string;
@@ -14,8 +17,8 @@ export interface IStudent extends Document {
   studentId: string;
   classCode?: string;
   className: string;
-  teacherId?: Types.ObjectId | null;
-  parentId?: Types.ObjectId | null;
+  teacherId?: string;
+  parentId?: string;
   avatar?: string;
   role?: string;
   createdAt?: Date;
@@ -25,10 +28,13 @@ export interface IStudent extends Document {
 const StudentSchema: Schema<IStudent> = new Schema(
   {
     name: { type: String, required: true },
+    username: { type: String },
     dob: { type: Date },
     address: { type: String },
     residence: { type: String },
     phone: { type: String },
+    email: { type: String },
+    gender: { type: String, default: "" },
     grade: { type: String, required: true },
     classLetter: { type: String, required: true },
     major: { type: String, required: true },
@@ -36,8 +42,8 @@ const StudentSchema: Schema<IStudent> = new Schema(
     studentId: { type: String, required: true, unique: true },
     classCode: { type: String },
     className: { type: String, required: true },
-    teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
-    parentId: { type: Schema.Types.ObjectId, ref: "Parent", default: null },
+    teacherId: { type: String, default: "" },
+    parentId: { type: String, default: "" },
     avatar: { type: String, default: "" },
     role: { type: String, default: "student" },
   },

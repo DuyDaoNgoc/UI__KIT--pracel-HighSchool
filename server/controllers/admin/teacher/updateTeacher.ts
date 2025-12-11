@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import TeacherModel, { IAssignedClass } from "../../../models/teacherModel";
+import { syncTeacherToUser } from "../../../utils/syncUserData";
 
 export const updateTeacher = async (req: Request, res: Response) => {
   try {
@@ -51,6 +52,9 @@ export const updateTeacher = async (req: Request, res: Response) => {
         success: false,
         message: "Không tìm thấy giáo viên",
       });
+
+    // ✅ Sync teacher changes to users collection
+    await syncTeacherToUser(updated);
 
     return res.json({
       success: true,

@@ -1,12 +1,15 @@
 // server/controllers/admin/createStudent.ts
 import { Request, Response } from "express";
 import { connectDB } from "../../../configs/db";
-import { ObjectId } from "mongodb"; // <<< THÊM DÒNG NÀY
+import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+import User from "../../../models/User";
+import StudentModel from "../../../models/Student";
+import { ObjectId } from "mongodb";
 
 export const createStudent = async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
-    const students = db.collection("students");
 
     console.log("📥 [createStudent] Received body:", req.body);
 
@@ -31,6 +34,7 @@ export const createStudent = async (req: Request, res: Response) => {
       schoolYear,
       major,
       classCode,
+      email,
     } = req.body;
 
     // Check các thông tin bắt buộc
@@ -54,7 +58,7 @@ export const createStudent = async (req: Request, res: Response) => {
     }
 
     // Check unique studentId
-    const existingStudent = await students.findOne({ studentId });
+    const existingStudent = await StudentModel.findOne({ studentId });
     if (existingStudent) {
       return res.status(409).json({
         success: false,
@@ -74,9 +78,9 @@ export const createStudent = async (req: Request, res: Response) => {
       studentId: String(studentId),
       name: String(name),
       username: String(name),
-      role: "student",
       dob: parsedDob,
       gender: String(gender ?? ""),
+      email: email ? String(email).trim().toLowerCase() : "",
       address: String(address ?? ""),
       residence: String(residence ?? ""),
       phone: String(phone ?? ""),
@@ -85,51 +89,120 @@ export const createStudent = async (req: Request, res: Response) => {
       schoolYear: String(schoolYear),
       major: String(major ?? ""),
       classCode: String(safeClassCode),
+      className: `${String(grade)}${String(classLetter)} - ${String(major ?? "")}`,
+      role: "student",
+      avatar: "",
       teacherId: "",
       parentId: "",
-      avatar: "",
-      createdAt: new Date(),
     };
 
     console.log("🚀 [createStudent] Insert student:", newStudent);
 
-    // Insert student
-    const result = await students.insertOne(newStudent);
+    // Insert student using StudentModel instead of raw collection
+    const createdStudent = await StudentModel.create(newStudent);
 
-    // 🔥 Thêm học sinh vào lớp tương ứng
+    // Nếu có email trong body, tạo tài khoản user tự động
+    let emailSent = false;
+    let rawPasswordToReturn: string | null = null;
     try {
-      const classes = db.collection("classes");
+      const { email } = req.body as any;
+      if (email) {
+        const rawPassword = newStudent.studentId; // mật khẩu mặc định = mã học sinh
+        rawPasswordToReturn = rawPassword;
 
-      const classDoc = await classes.findOne({
-        classCode: newStudent.classCode,
-      });
+        // Kiểm tra user tồn tại theo email hoặc studentId
+        const existing = await User.findOne({
+          $or: [
+            { email: email.trim().toLowerCase() },
+            { studentId: newStudent.studentId },
+          ],
+        });
 
-      if (classDoc) {
-        await classes.updateOne(
-          { classCode: newStudent.classCode },
-          {
-            $addToSet: {
-              // ❗SỬA ĐÚNG FIELD THEO MODEL
-              studentIds: new ObjectId(result.insertedId),
-            },
-          },
-        );
-      } else {
-        console.warn("⚠️ Không tìm thấy lớp:", newStudent.classCode);
+        // Nếu user chưa tồn tại, tạo mới
+        if (!existing) {
+          const hashed = await bcrypt.hash(rawPassword, 10);
+          await User.create({
+            username: newStudent.username,
+            email: String(email).trim().toLowerCase(),
+            password: hashed,
+            role: "student",
+            studentId: newStudent.studentId,
+            createdAt: new Date(),
+          } as any);
+          console.log(
+            `✅ Auto-created user for ${email} with studentId ${newStudent.studentId}`,
+          );
+        } else {
+          console.log(
+            `ℹ️ User already exists for email/studentId, reusing account`,
+          );
+        }
+
+        // 🔥 LUÔN gửi email mật khẩu dù user mới hay cũ
+        try {
+          console.log("📧 [EMAIL] SMTP_HOST:", process.env.SMTP_HOST);
+          console.log("📧 [EMAIL] SMTP_PORT:", process.env.SMTP_PORT);
+          console.log("📧 [EMAIL] SMTP_USER:", process.env.SMTP_USER);
+
+          if (process.env.SMTP_HOST) {
+            const transporter = nodemailer.createTransport({
+              host: process.env.SMTP_HOST,
+              port: Number(process.env.SMTP_PORT || 587),
+              secure: (process.env.SMTP_SECURE || "false") === "true",
+              auth: process.env.SMTP_USER
+                ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+                : undefined,
+            });
+
+            console.log("📧 [EMAIL] Attempting to send email to:", email);
+
+            await transporter.sendMail({
+              from:
+                process.env.SMTP_FROM ||
+                `no-reply@${process.env.DOMAIN || "local"}`,
+              to: email,
+              subject: "[Hệ thống] Tài khoản học sinh",
+              html: `<p>Tài khoản của em ${newStudent.name} đã được tạo:</p>
+<ul>
+<li><strong>Mã học sinh:</strong> ${newStudent.studentId}</li>
+<li><strong>Email:</strong> ${email}</li>
+<li><strong>Mật khẩu:</strong> ${rawPassword}</li>
+</ul>
+<p>Em vui lòng đăng nhập và đổi mật khẩu ngay nhé.</p>`,
+            });
+            emailSent = true;
+            console.log(`✅ [EMAIL] Password email sent to ${email}`);
+          } else {
+            console.log(
+              `⚠️ [EMAIL] SMTP not configured. Password for ${newStudent.studentId}: ${rawPassword}`,
+            );
+            // SMTP chưa cấu hình, hiển thị mật khẩu để admin copy
+            emailSent = false;
+          }
+        } catch (mailErr) {
+          console.warn("⚠️ [EMAIL] Could not send password email:", mailErr);
+          emailSent = false;
+        }
       }
     } catch (err) {
-      console.error("❌ Lỗi khi thêm học sinh vào lớp:", err);
+      console.error("❌ Error handling user for student:", err);
     }
 
+    // Note: Student is automatically added to class via StudentModel pre-save hook
+    // No need to manually add here
+
     // Lấy danh sách tất cả students mới nhất
-    const allStudents = await students.find().sort({ createdAt: -1 }).toArray();
+    const allStudents = await StudentModel.find().sort({ createdAt: -1 });
 
     return res.status(201).json({
       success: true,
       message: "Học sinh đã được tạo thành công.",
       data: {
-        student: { ...newStudent, _id: result.insertedId },
+        student: createdStudent,
         students: allStudents,
+        // trả về thông tin gửi email để frontend có thể hiển thị mật khẩu khi cần
+        emailSent,
+        rawPassword: rawPasswordToReturn,
       },
     });
   } catch (error: any) {

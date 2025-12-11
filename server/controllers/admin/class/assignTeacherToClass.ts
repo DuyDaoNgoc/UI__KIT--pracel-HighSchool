@@ -3,6 +3,8 @@
 import { Request, Response } from "express";
 import ClassModel from "../../../models/Class";
 import mongoose from "mongoose";
+import TeacherModel from "../../../models/teacherModel";
+import { syncTeacherToUser } from "../../../utils/syncUserData";
 
 export const assignTeacherToClass = async (req: Request, res: Response) => {
   try {
@@ -28,6 +30,38 @@ export const assignTeacherToClass = async (req: Request, res: Response) => {
       }
 
       await cls.save();
+
+      // Also add this class to the Teacher.assignedClass array (avoid duplicates)
+      try {
+        await TeacherModel.updateOne(
+          { _id: teacherObjectId },
+          {
+            $addToSet: {
+              assignedClass: {
+                grade: cls.grade,
+                classLetter: cls.classLetter,
+                major: cls.major,
+                schoolYear: cls.schoolYear,
+                classCode: cls.classCode,
+                className: cls.className || "",
+              },
+            },
+          },
+        );
+      } catch (e: any) {
+        console.error(
+          "Failed to update Teacher.assignedClass:",
+          e?.message || e,
+        );
+      }
+    }
+
+    // ✅ Fetch updated teacher and sync to users collection
+    const updatedTeacher = await TeacherModel.findOne({
+      _id: teacherObjectId,
+    }).lean();
+    if (updatedTeacher) {
+      await syncTeacherToUser(updatedTeacher);
     }
 
     return res.json({

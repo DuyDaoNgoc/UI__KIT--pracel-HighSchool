@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import ClassModel from "../../models/Class";
 import TeacherModel from "../../models/teacherModel"; // thêm import TeacherModel
 import StudentModel from "../../models/Student"; // import StudentModel để add student đúng
@@ -18,43 +18,53 @@ router.get("/", async (req: Request, res: Response) => {
     // Lấy tất cả lớp
     const classes = await ClassModel.find().lean();
 
-    // Lấy tất cả studentIds
+    // Lấy tất cả studentIds (hỗ trợ cả object {_id,..} và raw ObjectId)
     const allStudentRefs = classes.flatMap((cls) =>
-      (cls.studentIds || []).map((s: any) => s._id),
+      (cls.studentIds || []).map((s: any) => (s && s._id ? s._id : s)),
     );
 
     // Query tất cả học sinh
-    const students = await StudentModel.find({
-      _id: { $in: allStudentRefs },
-    })
-      .select("_id studentId username dob address grade class major")
+    const students = await StudentModel.find({ _id: { $in: allStudentRefs } })
+      .select(
+        "_id studentId name username dob address residence phone grade classLetter class major schoolYear email createdAt",
+      )
       .lean();
 
     // Map học sinh vào lớp
     const classesWithStudents = classes.map((cls) => {
       const clsStudents = (cls.studentIds || []).map((s: any) => {
-        const student = students.find((st) => String(st._id) === String(s._id));
+        // find student by matching _id (if s is object) or by comparing raw id
+        const sid = s && s._id ? String(s._id) : String(s);
+        const student = students.find((st) => String(st._id) === sid);
         if (student) {
           return {
             _id: student._id,
             studentId: student.studentId || "-",
-            name: student.username || "-",
+            name: student.name || student.username || "-",
             dob: student.dob || "-",
             address: student.address || "-",
+            residence: student.residence || "-",
+            phone: student.phone || "-",
             grade: student.grade || cls.grade,
-            classLetter: student.class || cls.classLetter,
+            classLetter: student.classLetter || cls.classLetter,
+            schoolYear: student.schoolYear || cls.schoolYear,
             major: student.major || cls.major,
+            email: student.email || "",
             teacherName: cls.teacherName || "Chưa gán",
+            createdAt: student.createdAt || null,
           };
         } else {
           return {
-            _id: s._id,
+            _id: s._id || s,
             studentId: s.studentId || "-",
             name: "-",
             dob: "-",
             address: "-",
+            residence: "-",
+            phone: "-",
             grade: cls.grade,
             classLetter: cls.classLetter,
+            schoolYear: cls.schoolYear,
             major: cls.major,
             teacherName: cls.teacherName || "Chưa gán",
           };
@@ -67,7 +77,9 @@ router.get("/", async (req: Request, res: Response) => {
         grade: cls.grade,
         classLetter: cls.classLetter,
         major: cls.major,
+        schoolYear: cls.schoolYear,
         teacherName: cls.teacherName || "Chưa gán",
+        createdAt: cls.createdAt || null,
         students: clsStudents,
       };
     });
@@ -278,6 +290,13 @@ router.post("/:classCode/add-student", async (req: Request, res: Response) => {
     const { classCode } = req.params;
     const { studentId } = req.body;
 
+    console.log(
+      "📥 [add-student] classCode:",
+      classCode,
+      "studentId:",
+      studentId,
+    );
+
     if (!studentId)
       return res
         .status(400)
@@ -291,36 +310,41 @@ router.post("/:classCode/add-student", async (req: Request, res: Response) => {
 
     // Tìm học sinh theo studentId
     const student = await StudentModel.findOne({ studentId });
-    if (!student)
+    console.log("🔍 Found student:", student?._id, "for studentId:", studentId);
+
+    if (!student) {
+      console.warn("⚠️ Student not found for studentId:", studentId);
       return res
         .status(404)
         .json({ success: false, message: "Học sinh không tồn tại" });
+    }
 
     // Kiểm tra đã có trong lớp chưa
     const alreadyInClass = cls.studentIds.some(
-      (s: any) => s._id?.equals(student._id) || s.studentId === studentId,
+      (s: any) => s?.equals(student._id) || String(s) === String(student._id),
     );
+
+    console.log("📋 Class studentIds:", cls.studentIds);
+    console.log("📋 Student ID:", student._id, "studentId:", studentId);
+    console.log("📋 Already in class?", alreadyInClass);
 
     if (alreadyInClass)
       return res
         .status(400)
         .json({ success: false, message: "Học sinh đã có trong lớp" });
 
-    // Push cả _id và studentId
-    cls.studentIds.push({
-      _id: student._id,
-      studentId: student.studentId,
-    });
+    // Push student ID to array
+    cls.studentIds.push(student._id as mongoose.Types.ObjectId);
 
     await cls.save();
 
     return res.status(200).json({ success: true, data: cls });
   } catch (err: any) {
-    console.error("⚠️ add student error:", err);
+    console.error("❌ [add-student] error:", err?.message || err);
     return res.status(500).json({
       success: false,
       message: "Thêm học sinh thất bại",
-      errorDetail: err.message || err,
+      error: err?.message,
     });
   }
 });

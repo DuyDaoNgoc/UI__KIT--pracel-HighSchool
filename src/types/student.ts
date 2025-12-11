@@ -17,6 +17,7 @@ export interface ICreatedStudent {
   teacherName?: string;
   classCode?: string; // frontend generate
   gender?: "Nam" | "Nữ" | "other"; // <-- thêm đây
+  email?: string;
   createdAt?: string;
 }
 // Form tạo học sinh phía client

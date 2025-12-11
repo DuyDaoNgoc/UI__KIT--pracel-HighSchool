@@ -43,6 +43,8 @@ export default function StudentModal({
         selectedStudent.major,
       ),
     "Niên khóa": selectedStudent.schoolYear || "-",
+    "Giới tính": selectedStudent.gender || "-",
+    Email: selectedStudent.email || "-",
     SĐT: selectedStudent.phone || "-",
     "Nơi ở": selectedStudent.residence || "-",
     "Địa chỉ": selectedStudent.address || "-",

@@ -21,7 +21,7 @@ export async function loginUser(req: Request, res: Response) {
       const token = jwt.sign(
         { id: "admin", email, role: "admin" },
         process.env.JWT_SECRET as string,
-        { expiresIn: "7d" }
+        { expiresIn: "7d" },
       );
 
       return res.status(200).json({
@@ -43,9 +43,19 @@ export async function loginUser(req: Request, res: Response) {
       _id: any;
       loginAttempts?: number;
       lockUntil?: number;
+      isBlocked?: boolean;
     } = (await findUserByEmail(email)) as any;
     if (!user || !user.password)
       return res.status(401).json({ message: "Invalid email or password" });
+
+    // --- Kiểm tra tài khoản bị đình chỉ ---
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message:
+          "Tài khoản của bạn đã bị đình chỉ. Vui lòng liên hệ quản trị viên.",
+        isBlocked: true,
+      });
+    }
 
     const now = Date.now();
 
@@ -89,7 +99,7 @@ export async function loginUser(req: Request, res: Response) {
     const token = jwt.sign(
       { id: user._id.toString(), email: user.email, role: user.role },
       process.env.JWT_SECRET as string,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     // --- Safe user ---

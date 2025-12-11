@@ -80,14 +80,29 @@ const UserSchema = new Schema<IUserDocument>(
       },
     ],
 
+    // 🎯 Lớp được gán (cho giáo viên)
+    assignedClass: [
+      {
+        grade: { type: String },
+        classLetter: { type: String },
+        major: { type: String },
+        schoolYear: { type: String },
+        classCode: { type: String },
+        className: { type: String },
+      },
+    ],
+
     // 🎯 Học phí
     tuitionTotal: { type: Number },
     tuitionPaid: { type: Number },
     tuitionRemaining: { type: Number },
+
+    // 🎯 Trạng thái tài khoản
+    isBlocked: { type: Boolean, default: false },
   },
   {
     timestamps: true, // ✅ tự thêm createdAt & updatedAt
-  }
+  },
 );
 
 // ===== Pre-save Hook =====

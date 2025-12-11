@@ -1,25 +1,34 @@
-// src/pages/Profile/TeacherProfile/InfoTab.tsx
 import React from "react";
-import type { FEUser } from "./types";
+import { IUserProfile } from "../../../types/profiles";
 
 interface Props {
-  teacher: FEUser;
+  user: IUserProfile;
 }
 
-export default function InfoTab({ teacher }: Props) {
+export default function TeacherInfo({ user }: Props) {
   return (
-    <section>
-      <h3>Thông tin giáo viên</h3>
+    <div className="profile__card text__content--size-12">
+      <h2>Thông tin giáo viên</h2>
       <p>
-        <strong>Tên:</strong> {teacher.username}
+        <b>Email:</b> {user.email}
       </p>
       <p>
-        <strong>Email:</strong> {teacher.email}
+        <b>Số điện thoại:</b> {user.phone ?? "Chưa cập nhật"}
       </p>
-      <p style={{ color: "#666" }}>
-        Trang này dùng để quản lý học sinh, gửi yêu cầu cập nhật điểm, và xem
-        báo cáo hàng ngày. Trạng thái khóa điểm do admin điều khiển.
+      <p>
+        <b>Địa chỉ:</b> {user.address ?? "Chưa cập nhật"}
       </p>
-    </section>
+      <p>
+        <b>Mã giáo viên:</b> {user.teacherId ?? "N/A"}
+      </p>
+      <p>
+        <b>Chuyên môn:</b>{" "}
+        {typeof user.major === "string"
+          ? user.major
+          : user.major
+            ? `${user.major.name} (${user.major.code})`
+            : "Chưa cập nhật"}
+      </p>
+    </div>
   );
 }
