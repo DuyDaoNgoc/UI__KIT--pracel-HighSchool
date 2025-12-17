@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
 import { IUserProfile } from "../../../types/profiles";
-
+import axiosInstance from "../../../api/axiosConfig";
 import ProfileInfo from "./ProfileInfo";
 import ProfileGrades from "./ProfileGrades";
 import ProfileCredits from "./ProfileCredits";
@@ -19,6 +19,7 @@ import ProfileSchedule from "./ProfileSchedule";
 import ProfileTuition from "./ProfileTuition";
 import ProfileStatistics from "./ProfileStatistics";
 import useProfileData from "../../../Components/settings/hook/profiles/useProfileData";
+import { useSocket } from "../../../Components/settings/hook/IOserver/useSocket";
 
 export default function Profile({
   overrideUser,
@@ -42,6 +43,74 @@ export default function Profile({
   useEffect(() => {
     if (user?._id) fetchAll(activeTab, user._id);
   }, [activeTab, user]);
+
+  // Listen for realtime grade updates (socket + storage fallback)
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!user) return;
+
+    const handleSocket = (payload: any) => {
+      try {
+        if (!payload) return;
+        const sid = payload.studentId;
+        // If the update is for current student, refresh grades
+        if (sid && user.studentId && sid === user.studentId) {
+          fetchAll("grades", user._id);
+        }
+      } catch (e) {
+        console.warn("handleSocket grade update error:", e);
+      }
+    };
+
+    if (socket) socket.on("grade:updated", handleSocket);
+
+    const handleStorage = (e: StorageEvent) => {
+      try {
+        if (e.key === "grade:updated" && e.newValue) {
+          const data = JSON.parse(e.newValue as string);
+          if (data?.studentId && data.studentId === user.studentId) {
+            fetchAll("grades", user._id);
+          }
+        }
+      } catch (err) {
+        console.warn(err);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage as any);
+
+    // also listen to custom event dispatched in same tab
+    const handleCustom = (ev: any) => {
+      try {
+        const d = ev?.detail;
+        if (d?.studentId && d.studentId === user.studentId) {
+          fetchAll("grades", user._id);
+        }
+      } catch (err) {
+        console.warn(err);
+      }
+    };
+    window.addEventListener("grade:updated", handleCustom as any);
+
+    // Listen for timetable updates and refresh schedule (will merge via useProfileData)
+    const handleTimetableUpdate = () => {
+      console.log("timetable:updated event received, refetching schedule...");
+      fetchAll("schedule", user._id);
+    };
+    window.addEventListener("timetable:updated", handleTimetableUpdate as any);
+
+    return () => {
+      if (socket) socket.off("grade:updated", handleSocket);
+      window.removeEventListener("storage", handleStorage as any);
+      window.removeEventListener("grade:updated", handleCustom as any);
+      window.removeEventListener(
+        "timetable:updated",
+        handleTimetableUpdate as any,
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, user]);
 
   if (!user) return <div>Vui lòng đăng nhập để xem thông tin cá nhân.</div>;
 

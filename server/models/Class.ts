@@ -12,7 +12,8 @@ export interface IClass extends Document {
   studentIds: Types.ObjectId[];
   className?: string;
   subjectTeachers?: {
-    subject: string;
+    subjectId: Types.ObjectId;
+    subjectName: string;
     teacherId: Types.ObjectId;
     teacherName: string;
   }[];
@@ -41,7 +42,13 @@ const ClassSchema = new Schema<IClass>(
     subjectTeachers: {
       type: [
         {
-          subject: { type: String, required: true },
+          // reference to global Subject document
+          subjectId: {
+            type: Schema.Types.ObjectId,
+            ref: "Subject",
+            required: true,
+          },
+          subjectName: { type: String, required: true },
           teacherId: {
             type: Schema.Types.ObjectId,
             ref: "Teacher",

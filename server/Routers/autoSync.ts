@@ -9,7 +9,8 @@ const router = express.Router();
 
 interface ScheduleInput {
   day: string;
-  subjectName: string;
+  subjectName?: string; // old format: subject name
+  subjectId?: string; // new format: subject _id
   startTime: string;
   endTime: string;
 }
@@ -34,15 +35,15 @@ router.post("/", async (req, res) => {
     const cls = await ClassModel.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // 1️⃣ Tạo môn học
+    // 1️⃣ Tạo môn học (global). Do now subjects are global, create/find by name only.
     const subjectDocs: ISubject[] = [];
     for (const s of subjects) {
-      const existing = await Subject.findOne({ name: s.name, classId });
+      const existing = await Subject.findOne({ name: s.name });
       if (existing) {
         subjectDocs.push(existing);
         continue;
       }
-      const subj = new Subject({ name: s.name, price: s.price, classId });
+      const subj = new Subject({ name: s.name, price: s.price });
       await subj.save();
       subjectDocs.push(subj);
     }
@@ -55,10 +56,29 @@ router.post("/", async (req, res) => {
     }[] = [];
 
     for (const s of schedule) {
-      const subj = subjectDocs.find((subj) => subj.name === s.subjectName);
-      if (!subj) continue;
+      let subjId: mongoose.Types.ObjectId | null = null;
 
-      const subjId = subj._id as mongoose.Types.ObjectId; // ép kiểu
+      // Prefer subjectId if provided; fallback to subjectName
+      if (s.subjectId) {
+        // New format: direct subjectId lookup
+        const subj = subjectDocs.find(
+          (subj) => String(subj._id) === String(s.subjectId),
+        );
+        if (subj) subjId = subj._id as mongoose.Types.ObjectId;
+      } else if (s.subjectName) {
+        // Old format: lookup by name
+        const subj = subjectDocs.find((subj) => subj.name === s.subjectName);
+        if (subj) subjId = subj._id as mongoose.Types.ObjectId;
+      }
+
+      if (!subjId) {
+        console.warn(
+          `⚠️ [autoSync] Skipping schedule entry - subject not found:`,
+          s,
+        );
+        continue;
+      }
+
       timetableSchedule.push({
         day: s.day,
         subjectId: subjId,

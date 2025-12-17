@@ -4,33 +4,35 @@ import type { AxiosRequestConfig } from "@/types/axios";
 import { toast } from "react-toastify";
 import { getGlobalLoadingSetter } from "../Components/settings/hook/IOserver/loading/LoadingContext";
 
-// ===== Lấy baseURL động =====
-const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
+// ===== Utility: Compute baseURL synchronously =====
+function computeBaseURL(): string {
+  const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
+  const EXPLICIT_BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
-const getBaseURL = (): string => {
+  if (EXPLICIT_BACKEND_URL) {
+    return EXPLICIT_BACKEND_URL.endsWith("/api")
+      ? EXPLICIT_BACKEND_URL
+      : EXPLICIT_BACKEND_URL.replace(/\/$/, "") + "/api";
+  }
+
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-
-    if (hostname === "localhost" || hostname === "172.16.0.25") {
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
 
     const lanRegex = /^192\.168\.\d+\.\d+$/;
-    if (lanRegex.test(hostname))
+    if (lanRegex.test(hostname)) {
       return `http://${hostname}:${BACKEND_PORT}/api`;
+    }
 
-    if (process.env.NODE_ENV === "production") return `https://UI-kit.com/api`;
-
-    return `${window.location.origin}/api`;
+    return `${window.location.origin.replace(/\/$/, "")}/api`;
   }
 
-  if (process.env.REACT_APP_BACKEND_URL)
-    return process.env.REACT_APP_BACKEND_URL;
-
   return `http://localhost:${BACKEND_PORT}/api`;
-};
+}
 
-const API_URL = getBaseURL();
+const API_URL = computeBaseURL();
 
 // ===== Axios instance =====
 const http = axios.create({

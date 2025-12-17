@@ -9,6 +9,7 @@ import {
   Settings,
   FileText,
 } from "lucide-react";
+import axiosInstance from "../../../api/axiosConfig";
 import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
 import TeacherInfo from "./InfoTab";
 import TeacherClasses from "./TeacherClasses";
@@ -32,8 +33,57 @@ export default function TeacherProfile() {
   }, [authUser]);
 
   useEffect(() => {
-    if (user?.teacherId) fetchAll(activeTab, user.teacherId);
+    if (user?.teacherId)
+      fetchAll(activeTab, user.teacherId, user.assignedClass || null);
   }, [activeTab, user]);
+
+  // 🔄 Auto-refetch user data when "info" tab is opened
+  // (to catch admin updates like majors, assignedClass, etc.)
+  useEffect(() => {
+    if (activeTab === "info" && user?.teacherId) {
+      const refetchUser = async () => {
+        try {
+          const res = await axiosInstance.get<IUserProfile[]>("/users");
+          // Find current user by teacherId
+          const updatedUser = res.data?.find(
+            (u) => u.teacherId === user.teacherId,
+          );
+          if (updatedUser) {
+            setUser(updatedUser);
+            console.log("[TeacherProfile] Refreshed user data:", updatedUser);
+          }
+        } catch (err) {
+          console.error("[TeacherProfile] Error refetching user:", err);
+        }
+      };
+
+      // Refetch immediately when info tab opens
+      refetchUser();
+
+      // Also refetch every 3 seconds while on info tab to catch admin updates
+      const interval = setInterval(refetchUser, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, user?.teacherId]);
+
+  // Listen for timetable updates and refresh schedule (will merge via useTeacherData)
+  useEffect(() => {
+    if (!user?.teacherId) return;
+
+    const handleTimetableUpdate = () => {
+      console.log("timetable:updated event received, refetching schedule...");
+      fetchAll("schedule", user.teacherId, user.assignedClass || null);
+    };
+
+    window.addEventListener("timetable:updated", handleTimetableUpdate as any);
+
+    return () => {
+      window.removeEventListener(
+        "timetable:updated",
+        handleTimetableUpdate as any,
+      );
+    };
+  }, [user?.teacherId, user?.assignedClass]);
 
   if (!user) return <div>Vui lòng đăng nhập để xem thông tin giáo viên.</div>;
 
@@ -103,7 +153,12 @@ export default function TeacherProfile() {
         {error && <p style={{ color: "red" }}>❌ {error}</p>}
 
         {activeTab === "info" && <TeacherInfo user={user} />}
-        {activeTab === "classes" && <TeacherClasses classes={classes} />}
+        {activeTab === "classes" && (
+          <TeacherClasses
+            assignedClass={user?.assignedClass}
+            teacherName={user?.username}
+          />
+        )}
         {activeTab === "schedule" && <TeacherSchedule schedule={schedule} />}
         {activeTab === "grades" && (
           <TeacherGrades teacherId={user.teacherId} classes={classes} />

@@ -4,6 +4,14 @@ import { ICreatedStudent } from "../../../types/student";
 import { toast, Toaster } from "react-hot-toast";
 import axiosInstance from "../../../api/axiosConfig";
 import StudentModal from "./StudentModal"; // ✅ import modal
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+} from "@mui/material";
 
 interface StudentsTabProps {
   studentForm: any;
@@ -45,6 +53,8 @@ export default function StudentsTab({
   const [viewingStudent, setViewingStudent] = useState<ICreatedStudent | null>(
     null,
   );
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,12 +96,20 @@ export default function StudentsTab({
   };
 
   const handleDeleteStudent = async (studentId?: string) => {
+    // open confirmation dialog flow handled by dialog state
     if (!studentId) return;
-    if (!window.confirm("Bạn có chắc chắn muốn xóa học sinh này?")) return;
+    setDeleteTarget(studentId);
+    setOpenDeleteDialog(true);
+  };
 
-    // Optimistic delete: remove from UI immediately
+  const confirmDelete = async () => {
+    const studentId = deleteTarget as string | undefined;
+    if (!studentId) return;
+
+    // optimistic UI
     const previousStudents = createdStudents;
     setCreatedStudents((prev) => prev.filter((s) => s.studentId !== studentId));
+    setOpenDeleteDialog(false);
 
     try {
       if (deleteStudent) {
@@ -102,7 +120,6 @@ export default function StudentsTab({
           message?: string;
         }>(`/admin/students/${studentId}`);
         if (!res.data?.success) {
-          // Restore if API says it failed
           setCreatedStudents(previousStudents);
           toast.error(res.data?.message || "Xóa học sinh thất bại");
           return;
@@ -110,17 +127,17 @@ export default function StudentsTab({
       }
 
       toast.success("Xóa học sinh thành công");
-      // thông báo global event để ClassesTab cập nhật
       window.dispatchEvent(
         new CustomEvent("studentDeletedFromClass", {
           detail: { _id: studentId },
         }),
       );
+      setDeleteTarget(null);
     } catch (err: any) {
       console.error("handleDeleteStudent error:", err);
-      // Restore on error
       setCreatedStudents(previousStudents);
       toast.error("Xóa học sinh thất bại do lỗi server");
+      setDeleteTarget(null);
     }
   };
 
@@ -148,7 +165,42 @@ export default function StudentsTab({
       }
     } catch (err: any) {
       console.error("handleResendPasswordEmail error:", err);
-      toast.error("Lỗi gửi email mật khẩu");
+
+      // Nếu server trả 404 thì có thể do chưa có `User` cho student -> thử tạo user
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      if (status === 404) {
+        try {
+          const createRes = await axiosInstance.post<{
+            success: boolean;
+            message?: string;
+            rawPassword?: string;
+            emailSent?: boolean;
+            userExists?: boolean;
+          }>(`/admin/students/${studentId}/create-user`);
+
+          if (createRes.data?.success) {
+            if (createRes.data?.emailSent) {
+              toast.success("Tài khoản đã được tạo và email đã gửi.");
+            } else {
+              toast.success(
+                `Tài khoản đã được tạo. Mật khẩu: ${createRes.data?.rawPassword}`,
+              );
+            }
+          } else if (createRes.data?.userExists) {
+            toast.error("Đã tồn tại tài khoản cho học sinh này.");
+          } else {
+            toast.error(createRes.data?.message || "Tạo tài khoản thất bại");
+          }
+        } catch (createErr: any) {
+          console.error("create-user fallback error:", createErr);
+          toast.error("Không thể tạo tài khoản học sinh (xem console)");
+        }
+        return;
+      }
+
+      // Nếu là lỗi khác, hiện thông báo chung
+      toast.error(data?.message || "Lỗi gửi email mật khẩu");
     }
   };
 
@@ -297,7 +349,7 @@ export default function StudentsTab({
                     className="action-btn send"
                     title="Gửi lại email mật khẩu"
                   >
-                    📧 Mật khẩu
+                    📧 Gửi mật khẩu
                   </button>
                   <button
                     onClick={() => handleDeleteStudent(s.studentId)}
@@ -322,6 +374,30 @@ export default function StudentsTab({
         deleteStudent={handleDeleteStudent}
         generateClassCode={generateClassCode}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, color: "#d32f2f" }}>
+          Xác Nhận Xóa Học Sinh
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 1 }}>
+            Bạn có chắc muốn xóa học sinh này? Hành động này không thể hoàn tác.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDeleteDialog(false)} variant="outlined">
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} variant="contained" color="error">
+            Xóa
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Toaster position="top-right" reverseOrder={false} />
     </div>

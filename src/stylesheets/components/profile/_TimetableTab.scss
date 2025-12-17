@@ -79,9 +79,9 @@
   }
 
   .schedule-item {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr auto;
-    gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 10px;
     align-items: center;
 
@@ -107,6 +107,36 @@
         width: 100%;
       }
     }
+  }
+
+  .schedule-item .button.danger {
+    background: #e05a62;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: none;
+  }
+
+  .schedule-item label {
+    display: inline-block;
+    margin-right: 6px;
+    color: #374151;
+    font-size: 13px;
+  }
+
+  /* make time inputs align and have small clock-like look */
+  .schedule-item input[type="time"] {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    width: 100%;
+  }
+
+  .schedule-item input[type="date"] {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    width: 100%;
   }
 }
 
@@ -174,6 +204,135 @@
   }
 }
 
+/* Teacher merged timetable styling */
+.teacher-timetable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.teacher-timetable thead th {
+  background: #f7f7f7;
+  padding: 10px;
+  text-align: left;
+  font-weight: 700;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.teacher-timetable tbody tr {
+  border-bottom: 1px solid #efefef;
+}
+
+.teacher-timetable td {
+  padding: 10px;
+  color: #444;
+  vertical-align: middle;
+}
+
+.btn {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: #e6d5a6;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.btn-small {
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .mt-4 {
   margin-top: 30px;
+}
+
+/* Added schedule styles from ProfileSchedule.scss */
+.schedule-card {
+  padding: 1rem 1.25rem;
+  background: white;
+  border: 1px solid #e6edf8;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(14, 30, 37, 0.04);
+}
+
+.schedule-day {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.schedule-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+}
+
+.schedule-col {
+  flex: 1;
+  background: linear-gradient(180deg, #fbfdff 0%, #f6f9ff 100%);
+  border: 1px solid #eef6ff;
+  padding: 0.75rem;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.schedule-col strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #0b1220;
+  font-size: 0.95rem;
+}
+
+.schedule-subject {
+  margin: 0.25rem 0;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.schedule-note {
+  margin: 0.25rem 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: 0.5rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #eef2f7;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.schedule-table thead tr th {
+  background: transparent;
+  color: #374151;
+  font-weight: 700;
+}
+
+/* small helper for empty state */
+.schedule-empty {
+  color: #6b7280;
+  font-size: 0.95rem;
+  padding: 0.25rem 0;
+}
+
+@media (max-width: 768px) {
+  .schedule-row {
+    flex-direction: column;
+  }
 }

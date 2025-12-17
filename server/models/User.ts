@@ -49,6 +49,7 @@ const UserSchema = new Schema<IUserDocument>(
     dob: { type: Date },
     classCode: { type: String },
     major: { type: String },
+    majors: [{ type: String }], // 🎯 Chuyên môn cho giáo viên (mảng)
     schoolYear: { type: String },
     phone: { type: String },
     address: { type: String },
@@ -89,6 +90,7 @@ const UserSchema = new Schema<IUserDocument>(
         schoolYear: { type: String },
         classCode: { type: String },
         className: { type: String },
+        role: { type: String },
       },
     ],
 
@@ -99,6 +101,22 @@ const UserSchema = new Schema<IUserDocument>(
 
     // 🎯 Trạng thái tài khoản
     isBlocked: { type: Boolean, default: false },
+
+    // 🎯 Thông báo
+    notifications: [
+      {
+        type: { type: String }, // e.g., "grade_submitted", "grade_report_submitted"
+        title: { type: String },
+        message: { type: String },
+        score: { type: Number },
+        subject: { type: String },
+        class: { type: String },
+        teacher: { type: String },
+        report: { type: Schema.Types.Mixed }, // For admin reports
+        timestamp: { type: Date, default: Date.now },
+        read: { type: Boolean, default: false },
+      },
+    ],
   },
   {
     timestamps: true, // ✅ tự thêm createdAt & updatedAt

@@ -208,7 +208,7 @@
 }
 
 .search-bar::before {
-  content: "🔍"; /* hoặc dùng icon font như FontAwesome */
+  content: ""; /* hoặc dùng icon font như FontAwesome */
   position: absolute;
   left: 15px;
   top: 50%;

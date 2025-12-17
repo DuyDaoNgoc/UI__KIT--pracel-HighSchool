@@ -46,7 +46,6 @@ export default function TeacherClassesTab() {
       setExpandedClass(null);
       return;
     }
-
     if (!students[classId]) {
       try {
         const res = await axiosInstance.get<{ data: Student[] }>(

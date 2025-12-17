@@ -93,7 +93,9 @@ export const registerUser = async (req: Request, res: Response) => {
       teacherId: targetUserData.teacherId || "",
       parentId: targetUserData.parentId || "",
       classCode: targetUserData.classCode || targetUserData.classLetter || "",
-      major: targetUserData.major || targetUserData.majors || "",
+      major: Array.isArray(targetUserData?.majors)
+        ? targetUserData.majors.join(", ")
+        : targetUserData.major || targetUserData.majors || "",
       schoolYear: targetUserData.schoolYear || "",
       dob: targetUserData.dob || new Date("2000-01-01"),
       grade: targetUserData.grade || "",
@@ -103,6 +105,7 @@ export const registerUser = async (req: Request, res: Response) => {
       avatar:
         targetUserData.avatar ||
         "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+      assignedClass: targetUserData.assignedClass || [],
       children: [],
       loginAttempts: 0,
       lockUntil: 0,
@@ -240,6 +243,7 @@ export const loginUser = async (req: Request, res: Response) => {
           schoolYear: enrichedUser.schoolYear || teacherDoc.schoolYear,
           gender: enrichedUser.gender || teacherDoc.gender,
           major: enrichedUser.major || teacherDoc.major || teacherDoc.majors,
+          majors: enrichedUser.majors || teacherDoc.majors || [],
           // include assigned classes so frontend can show them immediately
           assignedClass: teacherDoc.assignedClass || [],
         };
@@ -392,8 +396,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
         majorStr =
           extractMajorString(u.major) || extractMajorString((u as any).majors);
 
-        // 2) nếu thiếu, fallback sang students/teachers collection theo role
-        if ((!classStr || !majorStr) && u.role === "student" && u.studentId) {
+        // 2) nếu thiếu một số field, fallback sang students/teachers collection theo role
+        if (u.role === "student" && u.studentId) {
           const student = await students.findOne({ studentId: u.studentId });
           if (student) {
             classStr =
@@ -408,10 +412,36 @@ export const getAllUsers = async (req: Request, res: Response) => {
               (Array.isArray(student.majors)
                 ? student.majors.join(", ")
                 : student.majors || "");
+
+            // bổ sung các trường thông tin cá nhân nếu user thiếu
+            if (!safeUser.phone && student.phone)
+              safeUser.phone = student.phone;
+            if (
+              (!safeUser.address || safeUser.address === "") &&
+              student.address
+            )
+              safeUser.address = student.address;
+            if ((!safeUser.dob || safeUser.dob === null) && student.dob)
+              safeUser.dob = student.dob;
+            if (
+              (!safeUser.residence || safeUser.residence === "") &&
+              student.residence
+            )
+              safeUser.residence = student.residence;
+            if (
+              (!safeUser.schoolYear || safeUser.schoolYear === "") &&
+              student.schoolYear
+            )
+              safeUser.schoolYear = student.schoolYear;
+            if (
+              (!safeUser.gender || safeUser.gender === undefined) &&
+              student.gender
+            )
+              safeUser.gender = student.gender;
           }
         }
 
-        if ((!classStr || !majorStr) && u.role === "teacher" && u.teacherId) {
+        if (u.role === "teacher" && u.teacherId) {
           const teacher = await teachers.findOne({ teacherId: u.teacherId });
           if (teacher) {
             classStr =
@@ -422,10 +452,35 @@ export const getAllUsers = async (req: Request, res: Response) => {
               "";
             majorStr =
               majorStr ||
-              teacher.major ||
-              (Array.isArray(teacher.majors)
+              teacher?.major ||
+              (Array.isArray(teacher?.majors)
                 ? teacher.majors.join(", ")
-                : teacher.majors || "");
+                : teacher?.majors || "");
+
+            // bổ sung các trường thông tin cá nhân nếu user thiếu
+            if (!safeUser.phone && teacher.phone)
+              safeUser.phone = teacher.phone;
+            if (
+              (!safeUser.address || safeUser.address === "") &&
+              teacher.address
+            )
+              safeUser.address = teacher.address;
+            if ((!safeUser.dob || safeUser.dob === null) && teacher.dob)
+              safeUser.dob = teacher.dob;
+            if (
+              (!safeUser.schoolYear || safeUser.schoolYear === "") &&
+              teacher.schoolYear
+            )
+              safeUser.schoolYear = teacher.schoolYear;
+            if (
+              (!safeUser.gender || safeUser.gender === undefined) &&
+              teacher.gender
+            )
+              safeUser.gender = teacher.gender;
+            // Assign assignedClass từ teacher (nếu chưa có từ users collection)
+            if (!safeUser.assignedClass && teacher?.assignedClass) {
+              safeUser.assignedClass = teacher?.assignedClass;
+            }
           }
         }
 
@@ -437,11 +492,26 @@ export const getAllUsers = async (req: Request, res: Response) => {
           ? { name: majorStr, code: (u as any).majorCode || "" }
           : null;
 
+        // Lấy majors array từ teacher nếu là giáo viên
+        let majorsArr: string[] = [];
+        if (u.role === "teacher" && u.teacherId) {
+          const teacher = await teachers.findOne({ teacherId: u.teacherId });
+          if (teacher && Array.isArray(teacher.majors)) {
+            majorsArr = teacher.majors;
+          }
+          // Đảm bảo assignedClass luôn được lấy từ teacher (kiểm tra teacher trước)
+          if (!safeUser.assignedClass && teacher && teacher.assignedClass) {
+            safeUser.assignedClass = teacher.assignedClass;
+          }
+        }
+
         return {
           ...safeUser,
           // giữ tên field giống bạn đang dùng: classCode + major
           classCode: classObj,
           major: majorObj,
+          majors: majorsArr, // chuyên ngành cho giáo viên
+          assignedClass: safeUser.assignedClass, // đảm bảo gửi assignedClass
           role: u.role,
         };
       }),

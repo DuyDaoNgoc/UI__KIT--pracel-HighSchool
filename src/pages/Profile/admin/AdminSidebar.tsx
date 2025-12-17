@@ -124,6 +124,13 @@ export default function AdminSidebar({
         </li>
 
         <li
+          onClick={() => setActiveTab("grades")}
+          className={activeTab === "grades" ? "active" : ""}
+        >
+          <BookOpen size={18} /> Quản lý điểm
+        </li>
+
+        <li
           onClick={() => setActiveTab("payments")}
           className={activeTab === "payments" ? "active" : ""}
         >
@@ -142,15 +149,6 @@ export default function AdminSidebar({
           className={activeTab === "users" ? "active" : ""}
         >
           <Users size={18} /> Quản lý người dùng
-        </li>
-        <li className="  border-register">
-          <LogIn />
-          <button
-            onClick={() => navigate("/register")}
-            className="text__content--size-18 creater__user--btn "
-          >
-            Đăng ký Học viên
-          </button>
         </li>
       </ul>
       <ul className="profile__menu">

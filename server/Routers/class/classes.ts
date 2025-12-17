@@ -32,44 +32,32 @@ router.get("/", async (req: Request, res: Response) => {
 
     // Map học sinh vào lớp
     const classesWithStudents = classes.map((cls) => {
-      const clsStudents = (cls.studentIds || []).map((s: any) => {
-        // find student by matching _id (if s is object) or by comparing raw id
-        const sid = s && s._id ? String(s._id) : String(s);
-        const student = students.find((st) => String(st._id) === sid);
-        if (student) {
-          return {
-            _id: student._id,
-            studentId: student.studentId || "-",
-            name: student.name || student.username || "-",
-            dob: student.dob || "-",
-            address: student.address || "-",
-            residence: student.residence || "-",
-            phone: student.phone || "-",
-            grade: student.grade || cls.grade,
-            classLetter: student.classLetter || cls.classLetter,
-            schoolYear: student.schoolYear || cls.schoolYear,
-            major: student.major || cls.major,
-            email: student.email || "",
-            teacherName: cls.teacherName || "Chưa gán",
-            createdAt: student.createdAt || null,
-          };
-        } else {
-          return {
-            _id: s._id || s,
-            studentId: s.studentId || "-",
-            name: "-",
-            dob: "-",
-            address: "-",
-            residence: "-",
-            phone: "-",
-            grade: cls.grade,
-            classLetter: cls.classLetter,
-            schoolYear: cls.schoolYear,
-            major: cls.major,
-            teacherName: cls.teacherName || "Chưa gán",
-          };
-        }
-      });
+      const clsStudents = (cls.studentIds || [])
+        .map((s: any) => {
+          // find student by matching _id (if s is object) or by comparing raw id
+          const sid = s && s._id ? String(s._id) : String(s);
+          const student = students.find((st) => String(st._id) === sid);
+          if (student && student.studentId && student.name) {
+            return {
+              _id: student._id,
+              studentId: student.studentId,
+              name: student.name || student.username,
+              dob: student.dob || null,
+              address: student.address || "",
+              residence: student.residence || "",
+              phone: student.phone || "",
+              grade: student.grade || cls.grade,
+              classLetter: student.classLetter || cls.classLetter,
+              schoolYear: student.schoolYear || cls.schoolYear,
+              major: student.major || cls.major,
+              email: student.email || "",
+              teacherName: cls.teacherName || "Chưa gán",
+              createdAt: student.createdAt || null,
+            };
+          }
+          return null;
+        })
+        .filter((s) => s !== null);
 
       return {
         _id: cls._id,
@@ -78,6 +66,7 @@ router.get("/", async (req: Request, res: Response) => {
         classLetter: cls.classLetter,
         major: cls.major,
         schoolYear: cls.schoolYear,
+        teacherId: cls.teacherId || null,
         teacherName: cls.teacherName || "Chưa gán",
         createdAt: cls.createdAt || null,
         students: clsStudents,
@@ -371,6 +360,10 @@ router.post("/assign-teacher-bulk", async (req: Request, res: Response) => {
     const teacher = await TeacherModel.findById(teacherId as string);
     const teacherName = teacher?.name || "";
     const results: any[] = [];
+
+    // 🆕 Track all assigned classes for this teacher to update teacher.assignedClass
+    const assignedClasses: any[] = [];
+
     for (const assign of assignments) {
       const { classCode, type } = assign;
       const cls = await ClassModel.findOne({ classCode });
@@ -382,18 +375,43 @@ router.post("/assign-teacher-bulk", async (req: Request, res: Response) => {
         });
         continue;
       }
+
+      // 🆕 Track this assignment
+      assignedClasses.push({
+        grade: cls.grade,
+        classLetter: cls.classLetter,
+        major: cls.major,
+        schoolYear: cls.schoolYear,
+        classCode: cls.classCode,
+        role: type,
+      });
+
       if (type === "homeroom") {
         cls.teacherId = new mongoose.Types.ObjectId(teacherId as string);
         cls.teacherName = teacherName;
       } else if (type === "subject") {
         if (!cls.subjectTeachers) cls.subjectTeachers = [];
+        // Expect assign.subject to be a Subject _id (string). Fetch subject name for display.
+        const subjectId = assign.subject as string;
+        let subjectName = "unknown";
+        try {
+          const SubjectModel = require("../../models/Subject").default;
+          const subjDoc = await SubjectModel.findById(subjectId).lean();
+          if (subjDoc) subjectName = subjDoc.name;
+        } catch (e) {
+          console.warn("⚠️ Không thể lấy Subject để gán lớp:", e);
+        }
+
         if (
           !cls.subjectTeachers.some(
-            (t) => String(t.teacherId) === String(teacherId),
+            (t: any) =>
+              String(t.teacherId) === String(teacherId) &&
+              String(t.subjectId) === String(subjectId),
           )
         ) {
           cls.subjectTeachers.push({
-            subject: (assign.subject as string) || "unknown",
+            subjectId: new mongoose.Types.ObjectId(subjectId),
+            subjectName,
             teacherId: new mongoose.Types.ObjectId(teacherId as string),
             teacherName,
           });
@@ -402,6 +420,60 @@ router.post("/assign-teacher-bulk", async (req: Request, res: Response) => {
       await cls.save();
       results.push({ classCode, success: true });
     }
+
+    // 🆕 Update teacher.assignedClass (MERGE logic: keep old subject, remove old homeroom if new one added)
+    if (teacher && assignedClasses.length > 0) {
+      // Check if any new assignment is homeroom
+      const hasNewHomeroom = assignedClasses.some((a) => a.role === "homeroom");
+
+      // Start with existing classes
+      let merged: any[] = teacher.assignedClass || [];
+
+      // If assigning new homeroom, remove old homeroom first
+      if (hasNewHomeroom) {
+        merged = merged.filter((cls) => cls.role !== "homeroom");
+      }
+
+      // Add new assignments (avoid duplicates by classCode)
+      for (const newAssign of assignedClasses) {
+        const exists = merged.some(
+          (cls) => cls.classCode === newAssign.classCode,
+        );
+        if (!exists) {
+          merged.push(newAssign);
+        } else {
+          // If class already exists, update role (in case changing from subject to homeroom)
+          const idx = merged.findIndex(
+            (cls) => cls.classCode === newAssign.classCode,
+          );
+          if (idx >= 0) {
+            merged[idx] = newAssign;
+          }
+        }
+      }
+
+      teacher.assignedClass = merged;
+      await teacher.save();
+      console.log(
+        `✅ Updated teacher ${teacherId} assignedClass (merged):`,
+        merged,
+      );
+
+      // 🆕 Auto-sync to users collection
+      try {
+        const { syncTeacherToUser } = require("../../utils/syncUserData");
+        await syncTeacherToUser(
+          teacher.toObject ? teacher.toObject() : teacher,
+        );
+        console.log(`✅ Synced teacher ${teacherId} to users collection`);
+      } catch (err) {
+        console.warn(
+          `⚠️ Could not sync teacher to users after class assignment:`,
+          err,
+        );
+      }
+    }
+
     return res
       .status(200)
       .json({ success: true, message: "Xếp giáo viên hoàn tất", results });

@@ -8,9 +8,12 @@ import { syncTeacherToUser } from "../../../utils/syncUserData";
 
 export const assignTeacherToClass = async (req: Request, res: Response) => {
   try {
-    const { teacherId, classes } = req.body;
+    const { teacherId, classes, assignments } = req.body;
 
-    if (!teacherId || !Array.isArray(classes)) {
+    // Nhận cả classes hoặc assignments
+    const classesData = classes || assignments;
+
+    if (!teacherId || !Array.isArray(classesData)) {
       return res.status(400).json({
         success: false,
         message: "Dữ liệu lớp không hợp lệ!",
@@ -19,7 +22,7 @@ export const assignTeacherToClass = async (req: Request, res: Response) => {
 
     const teacherObjectId = new mongoose.Types.ObjectId(teacherId);
 
-    for (const item of classes) {
+    for (const item of classesData) {
       const { classCode, type } = item;
 
       const cls = await ClassModel.findOne({ classCode });
@@ -44,9 +47,13 @@ export const assignTeacherToClass = async (req: Request, res: Response) => {
                 schoolYear: cls.schoolYear,
                 classCode: cls.classCode,
                 className: cls.className || "",
+                role: type || "",
               },
             },
           },
+        );
+        console.log(
+          `✅ Added class ${cls.classCode} to Teacher ${teacherObjectId}`,
         );
       } catch (e: any) {
         console.error(
@@ -61,6 +68,10 @@ export const assignTeacherToClass = async (req: Request, res: Response) => {
       _id: teacherObjectId,
     }).lean();
     if (updatedTeacher) {
+      console.log(
+        `📝 [assignTeacherToClass] Syncing teacher ${updatedTeacher.teacherId} with assignedClass:`,
+        updatedTeacher.assignedClass,
+      );
       await syncTeacherToUser(updatedTeacher);
     }
 

@@ -7,6 +7,10 @@ import {
 } from "../../middleware/authMiddleware";
 import SystemSetting from "../../models/Setting";
 import { User } from "../../models/User";
+import StudentModel from "../../models/Student";
+import GradeModel from "../../models/Grade";
+import { syncStudentGradesToUser } from "../../utils/syncUserData";
+import { getIo } from "../../utils/socketio";
 
 const router = Router();
 const SETTINGS_KEY = "gradesLock";
@@ -145,6 +149,53 @@ router.post(
       }
 
       await student.save();
+
+      // Nếu teacher gửi kèm subjectId và classId, cập nhật Grade collection
+      const { subjectId, classId } = req.body as any;
+      if (subjectId && classId) {
+        try {
+          const studentDoc = await StudentModel.findOne({ studentId });
+          if (studentDoc) {
+            const sid = studentDoc._id;
+            let g = await GradeModel.findOne({
+              studentId: sid,
+              subjectId,
+              classId,
+            });
+            if (!g) {
+              g = new GradeModel({
+                studentId: sid,
+                subjectId,
+                classId,
+                score: grade,
+              });
+            } else {
+              g.score = grade;
+            }
+            await g.save();
+
+            // Đồng bộ grades từ Grade collection vào User.grades
+            await syncStudentGradesToUser(studentId);
+
+            // Emit socket event so connected clients (students) get realtime update
+            try {
+              const io = getIo();
+              if (io) {
+                io.emit("grade:updated", {
+                  studentId,
+                  grade: { subject, score: grade },
+                  by: teacher?.teacherId || teacher?.id || null,
+                  ts: new Date(),
+                });
+              }
+            } catch (e) {
+              console.warn("Could not emit grade:updated socket event:", e);
+            }
+          }
+        } catch (gradeErr) {
+          console.warn("⚠️ Không thể cập nhật Grade collection:", gradeErr);
+        }
+      }
 
       res.json({
         message: "Điểm đã được cập nhật thành công",

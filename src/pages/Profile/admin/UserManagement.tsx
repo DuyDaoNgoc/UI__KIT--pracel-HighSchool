@@ -297,6 +297,9 @@ export default function UserManagement() {
                       Tên đăng nhập
                     </TableCell>
                     <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                      Mã HS/GV
+                    </TableCell>
+                    <TableCell sx={{ color: "white", fontWeight: 600 }}>
                       Email
                     </TableCell>
                     <TableCell sx={{ color: "white", fontWeight: 600 }}>
@@ -335,6 +338,9 @@ export default function UserManagement() {
                       </TableCell>
                       <TableCell sx={{ py: 2, fontWeight: 500 }}>
                         {u.username}
+                      </TableCell>
+                      <TableCell sx={{ py: 2, fontWeight: 500 }}>
+                        {u.studentId || u.teacherId || "-"}
                       </TableCell>
                       <TableCell sx={{ py: 2 }}>{u.email}</TableCell>
                       <TableCell sx={{ py: 2 }}>

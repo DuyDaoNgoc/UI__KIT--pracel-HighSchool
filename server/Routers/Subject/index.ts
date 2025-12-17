@@ -7,6 +7,7 @@ const router = express.Router();
 // Lấy tất cả môn học
 router.get("/", async (req, res) => {
   try {
+    // Return all subjects (global)
     const subjects = await Subject.find().populate("classId");
     res.status(200).json({ data: subjects });
   } catch (err) {
@@ -19,7 +20,10 @@ router.get("/", async (req, res) => {
 router.get("/class/:classId", async (req, res) => {
   try {
     const { classId } = req.params;
-    const subjects = await Subject.find({ classId }).populate("classId");
+    // Return subjects assigned to this class plus global subjects (no classId)
+    const subjects = await Subject.find({
+      $or: [{ classId }, { classId: { $exists: false } }, { classId: null }],
+    }).populate("classId");
     res.status(200).json({ data: subjects });
   } catch (err) {
     console.error(err);
@@ -42,12 +46,10 @@ router.get("/:id", async (req, res) => {
 // Tạo môn học mới
 router.post("/", async (req, res) => {
   try {
-    const { name, price, classId } = req.body;
+    const { name, price } = req.body;
 
-    const cls = await ClassModel.findById(classId);
-    if (!cls) return res.status(404).json({ message: "Class not found" });
-
-    const subject = new Subject({ name, price, classId });
+    // Subjects are global by default. Do not require class assignment here.
+    const subject = new Subject({ name, price });
     await subject.save();
 
     res.status(201).json({ message: "Subject created", subject });

@@ -54,11 +54,13 @@ const Login: React.FC = () => {
 
     try {
       // Gửi request đăng nhập tới backend
-      // Chuyển username thành code để backend xử lý (studentId hoặc teacherId)
-      const res = await http.post<any>("/auth/login", {
-        code: form.username,
-        password: form.password,
-      });
+      // Nếu username chứa '@' => coi là email (dùng cho admin)
+      // Ngược lại gửi dưới key `code` để backend xử lý studentId/teacherId
+      const payload = form.username.includes("@")
+        ? { email: form.username, password: form.password }
+        : { code: form.username, password: form.password };
+
+      const res = await http.post<any>("/auth/login", payload);
       // Xử lý phản hồi từ backend
       const {
         success,

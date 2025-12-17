@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import TeacherModel, { IAssignedClass } from "../../../models/teacherModel";
 import { syncTeacherToUser } from "../../../utils/syncUserData";
+import { getIo } from "../../../utils/socketio";
 
 export const updateTeacher = async (req: Request, res: Response) => {
   try {
@@ -55,6 +56,18 @@ export const updateTeacher = async (req: Request, res: Response) => {
 
     // ✅ Sync teacher changes to users collection
     await syncTeacherToUser(updated);
+
+    // Emit socket events for updated teacher
+    try {
+      const io = getIo();
+      if (io && updated?.teacherId) {
+        const teacherRoom = `user:${updated.teacherId}`;
+        io.to(teacherRoom).emit("teacher:updated", { teacher: updated });
+        io.to("role:admin").emit("teacher:updated", { teacher: updated });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [updateTeacher] Socket emit failed:", emitErr);
+    }
 
     return res.json({
       success: true,

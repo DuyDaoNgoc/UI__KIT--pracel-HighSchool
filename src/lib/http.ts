@@ -1,42 +1,35 @@
-// src/api/axiosConfig.ts
+// src/lib/http.ts
 import axios from "axios";
 
-// ===== Config API URL =====
-const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
+// ===== Utility: Compute baseURL synchronously =====
+function computeBaseURL(): string {
+  const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || "8000";
+  const EXPLICIT_BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
-// ===== Lấy BaseURL động =====
-const getBaseURL = (): string => {
+  if (EXPLICIT_BACKEND_URL) {
+    return EXPLICIT_BACKEND_URL.endsWith("/api")
+      ? EXPLICIT_BACKEND_URL
+      : EXPLICIT_BACKEND_URL.replace(/\/$/, "") + "/api";
+  }
+
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-
-    // Dev: localhost / 127.0.0.1 → backend local
-    if (hostname === "localhost" || hostname === "172.16.0.25") {
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
       return `http://localhost:${BACKEND_PORT}/api`;
     }
-    // LAN (192.168.x.x)
+
     const lanRegex = /^192\.168\.\d+\.\d+$/;
     if (lanRegex.test(hostname)) {
       return `http://${hostname}:${BACKEND_PORT}/api`;
     }
-    // Production domain
-    if (process.env.NODE_ENV === "production") {
-      return `https://UI-kit.com/api`;
-    }
 
-    // Ngrok / staging / host public khác
-    return `${window.location.origin}/api`;
+    return `${window.location.origin.replace(/\/$/, "")}/api`;
   }
 
-  // Node.js / SSR / test env
-  if (process.env.REACT_APP_BACKEND_URL) {
-    return process.env.REACT_APP_BACKEND_URL;
-  }
-
-  // Fallback mặc định
   return `http://localhost:${BACKEND_PORT}/api`;
-};
+}
 
-const API_URL = getBaseURL();
+const API_URL = computeBaseURL();
 
 // ===== Axios Instance =====
 const http = axios.create({
@@ -48,6 +41,9 @@ const http = axios.create({
 // ===== Interceptor thêm token =====
 http.interceptors.request.use(
   (config) => {
+    // Ensure baseURL is always correct
+    config.baseURL = computeBaseURL();
+
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       if (token) {

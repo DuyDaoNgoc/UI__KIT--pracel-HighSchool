@@ -21,6 +21,7 @@ import CreateClass from "./Class/CreateClass";
 import SubjectTab from "./Subject/SubjectTab";
 import PaymentTab from "./Payment/PaymentTab";
 import TimetableTab from "./Timetable/TimetableTab";
+import GradesTab from "./Grades/GradesTab";
 import { toast, Toaster } from "react-hot-toast";
 import ScheduleTeachers from "./Class/ScheduleTeachers";
 
@@ -549,6 +550,7 @@ const AdminProfile: FC = () => {
         {activeTab === "subjects" && <SubjectTab />}
         {activeTab === "payments" && <PaymentTab />}
         {activeTab === "timetables" && <TimetableTab />}
+        {activeTab === "grades" && <GradesTab />}
 
         {activeTab === "create-class" && <CreateClass />}
         {activeTab === "create-teacher" && <CreateTeacher />}

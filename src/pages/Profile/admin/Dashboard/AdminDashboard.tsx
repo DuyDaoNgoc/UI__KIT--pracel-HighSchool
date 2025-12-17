@@ -19,6 +19,7 @@ import { ApexOptions } from "apexcharts";
 
 import { get } from "../../../../api/axiosConfig";
 import { IClass } from "../../../../types/class";
+import { useSocket } from "../../../../Components/settings/hook/IOserver/useSocket";
 
 interface IStudent {
   _id: string;
@@ -39,6 +40,15 @@ interface Stats {
 interface ChartDataItem {
   name: string;
   so_luong: number;
+}
+
+interface Payment {
+  _id: string;
+  studentId: string;
+  subjectId: string;
+  amount: number;
+  status: "paid" | "unpaid";
+  date: string;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -65,6 +75,12 @@ const AdminDashboard: React.FC = () => {
     "all" | "students" | "teachers" | "classes"
   >("all");
 
+  // Payment and revenue data
+  const [paymentsData, setPaymentsData] = useState<Payment[]>([]);
+  const [revenueByYear, setRevenueByYear] = useState<Record<number, number>>(
+    {},
+  );
+
   // per-year state
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
@@ -81,16 +97,18 @@ const AdminDashboard: React.FC = () => {
   // ===== FETCH DATA =====
   const fetchData = async () => {
     try {
-      const [students, teachers, classesRes] = await Promise.all([
+      const [students, teachers, classesRes, payments] = await Promise.all([
         get<IStudent[]>("/admin/students"),
         get<ITeacher[]>("/admin/teachers"),
         // classes endpoint may return { success, data } or an array — use any to avoid TS errors
         get<any>("/classes"),
+        get<any>("/payments"),
       ]);
 
       console.log("📌 Students:", students);
       console.log("📌 Teachers:", teachers);
       console.log("📌 Classes:", classesRes);
+      console.log("📌 Payments:", payments);
 
       // FIX CHUẨN — chỉ lấy mảng đúng
       let classesArray: IClass[] = [];
@@ -103,9 +121,28 @@ const AdminDashboard: React.FC = () => {
         console.warn("⚠️ /classes không trả về mảng");
       }
 
+      // Extract payments array
+      let paymentsArray: Payment[] = [];
+      if (Array.isArray(payments)) {
+        paymentsArray = payments;
+      } else if (Array.isArray(payments?.data)) {
+        paymentsArray = payments.data;
+      }
+
       setStudentsData(students || []);
       setTeachersData(teachers || []);
       setClassesData(classesArray || []);
+      setPaymentsData(paymentsArray || []);
+
+      // Calculate revenue by year (only paid payments)
+      const revenue: Record<number, number> = {};
+      paymentsArray.forEach((payment) => {
+        if (payment.status === "paid") {
+          const year = new Date(payment.date).getFullYear();
+          revenue[year] = (revenue[year] || 0) + payment.amount;
+        }
+      });
+      setRevenueByYear(revenue);
 
       // ===== Per-year aggregates =====
       const yearsSet = new Set<string>();
@@ -228,6 +265,86 @@ const AdminDashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  // Listen for payment updates from PaymentTab to refresh revenue data
+  useEffect(() => {
+    const handlePaymentUpdate = (e: any) => {
+      console.log(
+        "💰 [AdminDashboard] Received payment:updated event, refreshing revenue...",
+      );
+      fetchData();
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "payment:updated" && e.newValue) {
+        console.log("💰 [AdminDashboard] Detected payment:updated via storage");
+        fetchData();
+      }
+    };
+
+    // Polling for payment updates (every 2 seconds)
+    let lastPaymentUpdate = localStorage.getItem("payment:updated");
+    const pollInterval = setInterval(() => {
+      const currentPaymentUpdate = localStorage.getItem("payment:updated");
+      if (currentPaymentUpdate && currentPaymentUpdate !== lastPaymentUpdate) {
+        console.log("💰 [AdminDashboard] Detected payment:updated via polling");
+        lastPaymentUpdate = currentPaymentUpdate;
+        fetchData();
+      }
+    }, 2000);
+
+    window.addEventListener("payment:updated", handlePaymentUpdate);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("payment:updated", handlePaymentUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(pollInterval);
+    };
+  }, []);
+
+  // Socket listeners for realtime updates (payments, students, teachers, subjects)
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+
+    const onPayment = (payload: any) => {
+      console.log("[AdminDashboard] socket payment event:", payload);
+      fetchData();
+    };
+    const onStudent = (payload: any) => {
+      console.log("[AdminDashboard] socket student event:", payload);
+      fetchData();
+    };
+    const onTeacher = (payload: any) => {
+      console.log("[AdminDashboard] socket teacher event:", payload);
+      fetchData();
+    };
+    const onSubject = (payload: any) => {
+      console.log("[AdminDashboard] socket subject event:", payload);
+      fetchData();
+    };
+
+    socket.on("payment:created", onPayment);
+    socket.on("payment:updated", onPayment);
+    socket.on("payment:deleted", onPayment);
+    socket.on("student:created", onStudent);
+    socket.on("student:updated", onStudent);
+    socket.on("teacher:created", onTeacher);
+    socket.on("teacher:updated", onTeacher);
+    socket.on("subject:created", onSubject);
+
+    return () => {
+      socket.off("payment:created", onPayment);
+      socket.off("payment:updated", onPayment);
+      socket.off("payment:deleted", onPayment);
+      socket.off("student:created", onStudent);
+      socket.off("student:updated", onStudent);
+      socket.off("teacher:created", onTeacher);
+      socket.off("teacher:updated", onTeacher);
+      socket.off("subject:created", onSubject);
+    };
+  }, [socket]);
+
   // when metric or years change, fetch compare series
   useEffect(() => {
     const loadCompare = async () => {
@@ -250,12 +367,23 @@ const AdminDashboard: React.FC = () => {
     loadCompare();
   }, [metric, yearA, yearB]);
 
-  // ===== Cập nhật chart khi đổi chế độ xem =====
+  // ===== Cập nhật chart khi đổi chế độ xem hoặc năm =====
   useEffect(() => {
+    // Nếu chọn năm cụ thể, lọc dữ liệu theo năm; nếu không thì dùng tất cả
+    const studentCount = selectedYear
+      ? (studentsByYear[selectedYear] ?? 0)
+      : studentsData.length;
+    const teacherCount = selectedYear
+      ? (teachersByYear[selectedYear] ?? 0)
+      : teachersData.length;
+    const classCount = selectedYear
+      ? (classesByYear[selectedYear] ?? 0)
+      : classesData.length;
+
     const baseData: ChartDataItem[] = [
-      { name: "Học sinh", so_luong: studentsData.length },
-      { name: "Giáo viên", so_luong: teachersData.length },
-      { name: "Lớp học", so_luong: classesData.length },
+      { name: "Học sinh", so_luong: studentCount },
+      { name: "Giáo viên", so_luong: teacherCount },
+      { name: "Lớp học", so_luong: classCount },
     ];
 
     const viewMap: Record<typeof viewMode, string> = {
@@ -271,7 +399,16 @@ const AdminDashboard: React.FC = () => {
         : baseData.filter((d) => d.name === viewMap[viewMode]);
 
     setChartData(filteredData);
-  }, [viewMode, studentsData, teachersData, classesData]);
+  }, [
+    viewMode,
+    studentsData,
+    teachersData,
+    classesData,
+    selectedYear,
+    studentsByYear,
+    teachersByYear,
+    classesByYear,
+  ]);
 
   const monthCategories = [
     "Tháng 1",
@@ -360,7 +497,23 @@ const AdminDashboard: React.FC = () => {
             </Button>
           ))}
         </Box>
-
+        {/* Chọn năm */}
+        <Box sx={{ mb: 3, display: "flex", gap: 2, alignItems: "center" }}>
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={["Tất cả", ...combinedYears]}
+            value={selectedYear ?? "Tất cả"}
+            onChange={(_, val) =>
+              setSelectedYear(
+                val === "Tất cả" ? null : ((val as string) ?? null),
+              )
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Chọn năm" sx={{ width: 160 }} />
+            )}
+          />
+        </Box>
         {/* Cards tổng quan */}
         <Box
           sx={{
@@ -377,25 +530,50 @@ const AdminDashboard: React.FC = () => {
           {[
             {
               title: "Học sinh",
-              value: studentsData.length,
+              value: selectedYear
+                ? (studentsByYear[selectedYear] ?? 0)
+                : studentsData.length,
               color: appTheme.statsColors.students,
             },
             {
               title: "Giáo viên",
-              value: teachersData.length,
+              value: selectedYear
+                ? (teachersByYear[selectedYear] ?? 0)
+                : teachersData.length,
               color: appTheme.statsColors.teachers,
             },
             {
               title: "Lớp học",
-              value: classesData.length,
+              value: selectedYear
+                ? (classesByYear[selectedYear] ?? 0)
+                : classesData.length,
               color: appTheme.statsColors.classes,
             },
+            {
+              title: "Doanh thu",
+              value: selectedYear
+                ? (revenueByYear[Number(selectedYear)] ?? 0)
+                : Object.values(revenueByYear).reduce((a, b) => a + b, 0),
+              color: "#f0fdf4",
+              isCurrency: true,
+            },
           ]
-            .filter((item) => cardViewMap[viewMode].includes(item.title))
+            .filter(
+              (item) =>
+                cardViewMap[viewMode].includes(item.title) ||
+                item.title === "Doanh thu",
+            )
             .map((item, i) => (
               <Card
                 key={i}
-                sx={{ bgcolor: item.color, borderRadius: 3, boxShadow: 2 }}
+                sx={{
+                  bgcolor: item.color,
+                  borderRadius: 3,
+                  boxShadow: 2,
+                  ...(item.title === "Doanh thu" && {
+                    border: "2px solid #10b981",
+                  }),
+                }}
               >
                 <CardContent>
                   <Typography variant="h6" sx={{ color: "#374151" }}>
@@ -403,74 +581,18 @@ const AdminDashboard: React.FC = () => {
                   </Typography>
                   <Typography
                     variant="h3"
-                    sx={{ fontWeight: "bold", color: "#111827" }}
+                    sx={{
+                      fontWeight: "bold",
+                      color: item.title === "Doanh thu" ? "#10b981" : "#111827",
+                    }}
                   >
-                    {item.value}
+                    {item.isCurrency
+                      ? `${(item.value as number).toLocaleString("vi-VN")} VND`
+                      : item.value}
                   </Typography>
                 </CardContent>
               </Card>
             ))}
-        </Box>
-
-        {/* Thống kê theo năm */}
-        <Box sx={{ mb: 3, display: "flex", gap: 2, alignItems: "center" }}>
-          <Autocomplete
-            freeSolo
-            size="small"
-            options={["Tất cả", ...combinedYears]}
-            value={selectedYear ?? "Tất cả"}
-            onChange={(_, val) =>
-              setSelectedYear(
-                val === "Tất cả" ? null : ((val as string) ?? null),
-              )
-            }
-            renderInput={(params) => (
-              <TextField {...params} label="Chọn năm" sx={{ width: 160 }} />
-            )}
-          />
-
-          {selectedYear && (
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <Card
-                sx={{ bgcolor: appTheme.statsColors.students, borderRadius: 3 }}
-              >
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: "#374151" }}>
-                    Học sinh ({selectedYear})
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: "bold" }}>
-                    {studentsByYear[selectedYear] ?? 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-
-              <Card
-                sx={{ bgcolor: appTheme.statsColors.classes, borderRadius: 3 }}
-              >
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: "#374151" }}>
-                    Lớp học ({selectedYear})
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: "bold" }}>
-                    {classesByYear[selectedYear] ?? 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-
-              <Card
-                sx={{ bgcolor: appTheme.statsColors.teachers, borderRadius: 3 }}
-              >
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: "#374151" }}>
-                    Giáo viên ({selectedYear})
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: "bold" }}>
-                    {teachersByYear[selectedYear] ?? 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Box>
-          )}
         </Box>
 
         {/* Metric selector + year compare (for tuition / scores) */}

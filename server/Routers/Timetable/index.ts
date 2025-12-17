@@ -61,6 +61,8 @@ router.post("/", async (req, res) => {
 
     // Kiểm tra tất cả subjectId trong schedule có tồn tại không
     for (const s of schedule) {
+      // allow empty subjectId (day off) — skip validation when missing
+      if (!s.subjectId) continue;
       const subj = await Subject.findById(s.subjectId);
       if (!subj)
         return res
@@ -70,7 +72,23 @@ router.post("/", async (req, res) => {
 
     let timetable = await Timetable.findOne({ classId });
     if (timetable) {
-      timetable.schedule = schedule;
+      // Merge new schedule items with existing ones to preserve old weeks (history)
+      // Avoid duplicates by checking: week + day + startTime + endTime + subjectId
+      const existingSchedule = timetable.schedule || [];
+      const mergedSchedule = [...existingSchedule];
+
+      for (const newItem of schedule) {
+        const key = `${newItem.week || ""}::${newItem.day}::${newItem.startTime}::${newItem.endTime}::${newItem.subjectId || ""}`;
+        const isDuplicate = existingSchedule.some((existing: any) => {
+          const existingKey = `${existing.week || ""}::${existing.day}::${existing.startTime}::${existing.endTime}::${existing.subjectId || ""}`;
+          return key === existingKey;
+        });
+        if (!isDuplicate) {
+          mergedSchedule.push(newItem);
+        }
+      }
+
+      timetable.schedule = mergedSchedule;
       await timetable.save();
     } else {
       timetable = new Timetable({ classId, schedule });
@@ -88,7 +106,7 @@ router.post("/", async (req, res) => {
         day: s.day,
         subject:
           (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
-          String(s.subjectId),
+          (s.subjectId ? String(s.subjectId) : "Trống"),
         startTime: s.startTime,
         endTime: s.endTime,
       }));
@@ -100,6 +118,8 @@ router.post("/", async (req, res) => {
           { $set: { schedule: userSchedule } },
         );
       }
+
+      // (no teacher user sync here — keep original behavior: only students receive schedule)
     } catch (syncErr) {
       console.error("Failed to sync timetable to users:", syncErr);
     }
@@ -116,8 +136,9 @@ router.patch("/:id", async (req, res) => {
   try {
     const { schedule } = req.body;
 
-    // Kiểm tra tất cả subjectId có tồn tại không
+    // Kiểm tra tất cả subjectId có tồn tại không (skip empty -> day off)
     for (const s of schedule) {
+      if (!s.subjectId) continue;
       const subj = await Subject.findById(s.subjectId);
       if (!subj)
         return res
@@ -143,7 +164,7 @@ router.patch("/:id", async (req, res) => {
         day: s.day,
         subject:
           (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
-          String(s.subjectId),
+          (s.subjectId ? String(s.subjectId) : "Trống"),
         startTime: s.startTime,
         endTime: s.endTime,
       }));
@@ -156,6 +177,8 @@ router.patch("/:id", async (req, res) => {
           { $set: { schedule: userSchedule } },
         );
       }
+
+      // (no teacher user sync here)
     } catch (syncErr) {
       console.error("Failed to sync updated timetable to users:", syncErr);
     }
@@ -207,6 +230,7 @@ router.post("/sync-to-users", verifyToken, requireAdmin, async (req, res) => {
           { $set: { schedule: userSchedule } },
         );
       }
+      // (do not sync to teacher user in backfill — keep original behavior)
     }
 
     res.json({ success: true, message: "Sync completed" });

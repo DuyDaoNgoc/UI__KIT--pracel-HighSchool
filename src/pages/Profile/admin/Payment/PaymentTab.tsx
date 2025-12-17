@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axiosInstance from "../../../../api/axiosConfig";
+import { useSocket } from "../../../../Components/settings/hook/IOserver/useSocket";
 
 interface Payment {
   _id: string;
@@ -34,6 +35,9 @@ export default function PaymentTab() {
   const [filterStatus, setFilterStatus] = useState<"all" | "paid" | "unpaid">(
     "all",
   );
+  const [revenueByYear, setRevenueByYear] = useState<Record<number, number>>(
+    {},
+  );
 
   // Fetch dữ liệu
   useEffect(() => {
@@ -46,9 +50,20 @@ export default function PaymentTab() {
           axiosInstance.get<{ data: Subject[] }>("/subjects"),
         ]);
 
-        setPayments(paymentsRes.data?.data || []);
+        const paymentsData = paymentsRes.data?.data || [];
+        setPayments(paymentsData);
         setStudents(studentsRes.data?.data || []);
         setSubjects(subjectsRes.data?.data || []);
+
+        // Calculate revenue by year (only paid payments)
+        const revenue: Record<number, number> = {};
+        paymentsData.forEach((payment) => {
+          if (payment.status === "paid") {
+            const year = new Date(payment.date).getFullYear();
+            revenue[year] = (revenue[year] || 0) + payment.amount;
+          }
+        });
+        setRevenueByYear(revenue);
       } catch (err) {
         console.error("fetchData error:", err);
         toast.error("Lỗi tải dữ liệu");
@@ -58,6 +73,53 @@ export default function PaymentTab() {
     };
     fetchData();
   }, []);
+
+  // Socket listeners to refresh when payments change
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+    const reload = (payload: any) => {
+      console.log("[PaymentTab] socket event:", payload);
+      // simply re-run the fetch logic by calling the effect's fetchData via a small helper
+      (async () => {
+        try {
+          setLoading(true);
+          const [paymentsRes, studentsRes, subjectsRes] = await Promise.all([
+            axiosInstance.get<{ data: Payment[] }>("/payments"),
+            axiosInstance.get<{ data: Student[] }>("/students"),
+            axiosInstance.get<{ data: Subject[] }>("/subjects"),
+          ]);
+          const paymentsData = paymentsRes.data?.data || [];
+          setPayments(paymentsData);
+          setStudents(studentsRes.data?.data || []);
+          setSubjects(subjectsRes.data?.data || []);
+
+          const revenue: Record<number, number> = {};
+          paymentsData.forEach((payment) => {
+            if (payment.status === "paid") {
+              const year = new Date(payment.date).getFullYear();
+              revenue[year] = (revenue[year] || 0) + payment.amount;
+            }
+          });
+          setRevenueByYear(revenue);
+        } catch (err) {
+          console.error("fetchData error (socket reload):", err);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    };
+
+    socket.on("payment:created", reload);
+    socket.on("payment:updated", reload);
+    socket.on("payment:deleted", reload);
+
+    return () => {
+      socket.off("payment:created", reload);
+      socket.off("payment:updated", reload);
+      socket.off("payment:deleted", reload);
+    };
+  }, [socket]);
 
   const handleUpdateStatus = async (
     paymentId: string,
@@ -69,9 +131,48 @@ export default function PaymentTab() {
         { status: newStatus },
       );
       if (res.data?.payment) {
+        const updatedPayment = res.data.payment;
         setPayments((prev) =>
-          prev.map((p) => (p._id === paymentId ? res.data.payment : p)),
+          prev.map((p) => (p._id === paymentId ? updatedPayment : p)),
         );
+
+        // Recalculate revenue for the year of updated payment
+        setRevenueByYear((prev) => {
+          const newRevenue = { ...prev };
+          const year = new Date(updatedPayment.date).getFullYear();
+
+          // Recalculate revenue for this year
+          const yearPayments = payments.filter((p) => {
+            const paymentYear = new Date(p.date).getFullYear();
+            return paymentYear === year;
+          });
+
+          const yearRevenue = yearPayments
+            .filter((p) => p.status === "paid" || p._id === paymentId)
+            .reduce((sum, p) => {
+              if (p._id === paymentId) {
+                return sum + (newStatus === "paid" ? updatedPayment.amount : 0);
+              }
+              return sum + (p.status === "paid" ? p.amount : 0);
+            }, 0);
+
+          newRevenue[year] = yearRevenue;
+          return newRevenue;
+        });
+
+        // Dispatch event to notify AdminDashboard
+        try {
+          localStorage.setItem(
+            "payment:updated",
+            JSON.stringify(updatedPayment),
+          );
+          window.dispatchEvent(
+            new CustomEvent("payment:updated", { detail: updatedPayment }),
+          );
+        } catch (e) {
+          console.error("Failed to dispatch payment update event:", e);
+        }
+
         toast.success("Cập nhật trạng thái thành công");
       }
     } catch (err: any) {
@@ -109,7 +210,7 @@ export default function PaymentTab() {
     <div className="profile__card">
       <h2 className="profile__title">Quản lý học phí</h2>
 
-      {/* Thống kê */}
+      {/* Thống kê tổng quan */}
       <div className="stats-container mb-3">
         <div className="stat-box">
           <h4>Tổng học phí</h4>
@@ -128,6 +229,26 @@ export default function PaymentTab() {
           <p className="stat-value warning">
             {(totalAmount - paidAmount).toLocaleString("vi-VN")} VND
           </p>
+        </div>
+      </div>
+
+      {/* 📊 Doanh thu theo năm */}
+      <div className="stats-section mb-3">
+        <h3 className="stats-title">📊 Doanh thu theo năm</h3>
+        <div className="stats-container">
+          {Object.entries(revenueByYear)
+            .sort(([a], [b]) => Number(b) - Number(a))
+            .map(([year, amount]) => (
+              <div key={year} className="stat-box">
+                <h4>Năm {year}</h4>
+                <p className="stat-value" style={{ color: "#10b981" }}>
+                  {amount.toLocaleString("vi-VN")} VND
+                </p>
+              </div>
+            ))}
+          {Object.keys(revenueByYear).length === 0 && (
+            <p className="no-data">Chưa có doanh thu</p>
+          )}
         </div>
       </div>
 

@@ -6,40 +6,23 @@ interface Subject {
   _id: string;
   name: string;
   price: number;
-  classId: string;
   createdAt?: string;
 }
 
 interface SubjectForm {
   name: string;
   price: number;
-  classId: string;
 }
 
 export default function SubjectTab() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
   const [form, setForm] = useState<SubjectForm>({
     name: "",
     price: 0,
-    classId: "",
   });
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
-
-  // Fetch danh sách lớp
-  useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        const res = await axiosInstance.get<{ data: any[] }>("/classes");
-        setClasses(res.data?.data || []);
-      } catch (err) {
-        console.error("fetchClasses error:", err);
-      }
-    };
-    fetchClasses();
-  }, []);
 
   // Fetch danh sách môn học
   useEffect(() => {
@@ -71,8 +54,8 @@ export default function SubjectTab() {
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.classId) {
-      toast.error("Vui lòng nhập tên môn học và chọn lớp");
+    if (!form.name.trim()) {
+      toast.error("Vui lòng nhập tên môn học");
       return;
     }
 
@@ -85,14 +68,27 @@ export default function SubjectTab() {
       const newSubject = res.data?.subject;
       if (newSubject) {
         setSubjects((prev) => [...prev, newSubject]);
-        setForm({ name: "", price: 0, classId: "" });
-        // Dispatch global event so other tabs (Timetable) can refresh
+        setForm({ name: "", price: 0 });
+        // Trigger refresh in other tabs (Timetable) via localStorage change event
         try {
+          console.log(
+            "📢 [SubjectTab] Triggering subjects:updated via localStorage with:",
+            newSubject,
+          );
+          // Dispatch via localStorage + CustomEvent for cross-tab communication
+          localStorage.setItem("subjects:updated", JSON.stringify(newSubject));
           window.dispatchEvent(
             new CustomEvent("subjects:updated", { detail: newSubject }),
           );
+          // Also trigger storage event for other components
+          window.dispatchEvent(
+            new StorageEvent("storage", {
+              key: "subjects:updated",
+              newValue: JSON.stringify(newSubject),
+            }),
+          );
         } catch (e) {
-          // ignore if CustomEvent not supported in old browsers
+          console.error("❌ [SubjectTab] Failed to dispatch event:", e);
         }
         toast.success("Tạo môn học thành công");
       }
@@ -159,22 +155,10 @@ export default function SubjectTab() {
           />
         </div>
 
-        <div className="form-group">
-          <label>Lớp:</label>
-          <select
-            name="classId"
-            value={form.classId}
-            onChange={handleChange}
-            required
-          >
-            <option value="">-- Chọn lớp --</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.classCode || c.className || c._id}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div
+          className="form-group"
+          style={{ fontSize: "0.9em", color: "#666", marginTop: "10px" }}
+        ></div>
 
         <button type="submit" disabled={creating} className="button">
           {creating ? "Đang tạo..." : "Tạo môn học"}
@@ -209,29 +193,26 @@ export default function SubjectTab() {
             </tr>
           </thead>
           <tbody>
-            {filteredSubjects.map((subject) => {
-              const cls = classes.find((c) => c._id === subject.classId);
-              return (
-                <tr key={subject._id}>
-                  <td>{subject.name}</td>
-                  <td>{subject.price.toLocaleString("vi-VN")}</td>
+            {filteredSubjects.map((subject) => (
+              <tr key={subject._id}>
+                <td>{subject.name}</td>
+                <td>{subject.price.toLocaleString("vi-VN")}</td>
 
-                  <td>
-                    {subject.createdAt
-                      ? new Date(subject.createdAt).toLocaleDateString("vi-VN")
-                      : "-"}
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => handleDeleteSubject(subject._id)}
-                      className="action-btn delete"
-                    >
-                      Xóa
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+                <td>
+                  {subject.createdAt
+                    ? new Date(subject.createdAt).toLocaleDateString("vi-VN")
+                    : "-"}
+                </td>
+                <td>
+                  <button
+                    onClick={() => handleDeleteSubject(subject._id)}
+                    className="action-btn delete"
+                  >
+                    Xóa
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

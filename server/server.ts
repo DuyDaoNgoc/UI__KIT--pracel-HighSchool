@@ -6,6 +6,7 @@ import path from "path";
 import os from "os";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { initSocket } from "./utils/socketio";
 import compression from "compression";
 import helmet from "helmet";
 
@@ -23,6 +24,7 @@ import studentRoutes from "./Routers/student/index";
 import subjectRoutes from "./Routers/Subject/index";
 import paymentRoutes from "./Routers/Payment/index";
 import timetableRoutes from "./Routers/Timetable/index";
+import postponeRoutes from "./Routers/Postpone/index";
 import gradeLockRoutes from "./Routers/grades/gradeLock";
 import gradeRoutes from "./Routers/grades/gradeRoutes";
 import reportsRouter from "./Routers/reports/reportsRouter";
@@ -34,18 +36,7 @@ import User from "./models/User";
 
 dotenv.config();
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        role: "student" | "teacher" | "admin" | "parent";
-        email: string;
-      };
-      db?: any;
-    }
-  }
-}
+// Note: Request augmentation is provided under server/types/express/index.d.ts
 
 const app = express();
 
@@ -62,16 +53,8 @@ app.use(compression());
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(express.json({ limit: "5mb" }));
 
-// ================== User APIs ==================
-app.get("/api/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    res.json(users);
-  } catch (err) {
-    console.error("❌ Error fetching users:", err);
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
-});
+// NOTE: user APIs are handled by `userRoutes` (controllers/userController.getAllUsers)
+// The explicit app.get was removed so the router can enrich user data (class/major/etc.)
 
 app.patch("/api/users/:id/block", async (req, res) => {
   try {
@@ -106,6 +89,7 @@ app.use("/api/admin/teachers", teacherAdminRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/timetables", timetableRoutes);
+app.use("/api/postpone-requests", postponeRoutes);
 
 // Grades và Grade Locks
 app.use("/api/grades/lock", gradeLockRoutes);
@@ -191,6 +175,9 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
 });
 
+// Expose io to other modules (routes) so they can emit events
+initSocket(io);
+
 io.on("connection", (socket) => {
   console.log("🔌 Client connected:", socket.id);
 
@@ -198,6 +185,31 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () =>
     console.log("❎ Client disconnected:", socket.id),
   );
+
+  // Allow clients to join rooms after authentication
+  socket.on("join", (rooms: string | string[]) => {
+    try {
+      if (!rooms) return;
+      if (typeof rooms === "string") {
+        socket.join(rooms);
+        console.log(`🔐 Socket ${socket.id} joined room ${rooms}`);
+      } else if (Array.isArray(rooms)) {
+        rooms.forEach((r) => socket.join(r));
+        console.log(`🔐 Socket ${socket.id} joined rooms ${rooms.join(",")}`);
+      }
+    } catch (err) {
+      console.warn("⚠️ Error joining rooms:", err);
+    }
+  });
+
+  socket.on("leave", (room: string) => {
+    try {
+      socket.leave(room);
+      console.log(`🔓 Socket ${socket.id} left room ${room}`);
+    } catch (err) {
+      console.warn("⚠️ Error leaving room:", err);
+    }
+  });
 });
 
 // ================== Lấy IP LAN ==================

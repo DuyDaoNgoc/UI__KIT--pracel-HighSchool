@@ -13,11 +13,19 @@ export interface IUserProfile {
   // optional identifiers for teacher / student accounts
   teacherId?: string;
   studentId?: string;
-  assignedClass?: string[];
+  assignedClass?: Array<{
+    grade: string;
+    classLetter: string;
+    major: string;
+    schoolYear: string;
+    classCode: string;
+    role?: string;
+  }>;
 
   // ✅ Bổ sung để không lỗi khi nhận dữ liệu từ backend
   classCode?: { className: string; grade: string } | string;
   major?: { name: string; code: string } | string;
+  majors?: string[]; // chuyên ngành cho giáo viên
 }
 
 export interface IGrade {

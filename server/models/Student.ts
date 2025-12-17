@@ -83,11 +83,13 @@ StudentSchema.pre<IStudent>("save", async function (next) {
     const cls = await ClassModel.findOne({ classCode: this.classCode });
 
     if (cls) {
-      const studentObjectId = this._id;
+      const studentObjectId = this._id as mongoose.Types.ObjectId;
 
-      const exists = cls.studentIds.some((id) => id.equals(studentObjectId));
+      const exists = cls.studentIds.some((id: mongoose.Types.ObjectId) =>
+        (id as mongoose.Types.ObjectId).equals(studentObjectId),
+      );
       if (!exists) {
-        cls.studentIds.push(studentObjectId);
+        cls.studentIds.push(studentObjectId as any);
         await cls.save();
       }
     }

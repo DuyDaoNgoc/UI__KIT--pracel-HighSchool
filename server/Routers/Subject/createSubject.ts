@@ -1,6 +1,7 @@
 import express from "express";
 import Subject from "../../models/Subject";
 import ClassModel from "../../models/Class";
+import { getIo } from "../../utils/socketio";
 
 const router = express.Router();
 
@@ -14,6 +15,19 @@ router.post("/", async (req, res) => {
 
     const subject = new Subject({ name, price, classId });
     await subject.save();
+
+    // Emit subject created event
+    try {
+      const io = getIo();
+      if (io) {
+        io.to("role:admin").emit("subject:created", { subject });
+        // If subject tied to a class, notify that class room
+        if (classId)
+          io.to(`class:${classId}`).emit("subject:created", { subject });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [createSubject] Socket emit failed:", emitErr);
+    }
 
     res.status(201).json({ message: "Subject created", subject });
   } catch (err) {

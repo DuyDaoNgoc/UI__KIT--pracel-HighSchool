@@ -16,11 +16,21 @@ const TimetableSchema = new Schema<ITimetable>(
     schedule: [
       {
         day: { type: String, required: true },
+        week: { type: String, required: false },
         subjectId: {
           type: Schema.Types.ObjectId,
           ref: "Subject",
-          required: true,
+          required: false,
         },
+        // optional teacher assigned for this schedule item
+        teacherId: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          required: false,
+        },
+        // optional periodFrom (date string), canceledDates etc.
+        periodFrom: { type: String, required: false },
+        canceledDates: { type: [String], required: false },
         startTime: { type: String, required: true },
         endTime: { type: String, required: true },
       },

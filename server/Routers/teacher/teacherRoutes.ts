@@ -2,6 +2,7 @@ import { Router } from "express";
 import Teacher from "../../models/teacherModel";
 import User from "../../models/User";
 import { createTeacher } from "../../controllers/admin/teacher/createTeacher";
+import { syncTeacherToUser } from "../../utils/syncUserData";
 const router = Router();
 // 📌 Lấy danh sách giáo viên
 router.get("/", async (req, res, next) => {
@@ -24,6 +25,8 @@ router.put("/:id", async (req, res, next) => {
     if (!teacher) {
       return res.status(404).json({ message: "Không tìm thấy giáo viên" });
     }
+    // Auto-sync teacher changes to users collection
+    await syncTeacherToUser(teacher);
     res.json(teacher);
   } catch (err) {
     next(err);
@@ -40,10 +43,7 @@ router.delete("/:id", async (req, res, next) => {
     // 🔥 Xóa tài khoản User liên quan (nếu có)
     try {
       const deleteUserResult = await User.deleteOne({
-        $or: [
-          { teacherId: teacher.teacherId },
-          { email: teacher.email },
-        ],
+        $or: [{ teacherId: teacher.teacherId }, { email: teacher.email }],
       });
       if (deleteUserResult.deletedCount > 0) {
         console.log(`✅ Xóa tài khoản user cho giáo viên ${teacher.teacherId}`);

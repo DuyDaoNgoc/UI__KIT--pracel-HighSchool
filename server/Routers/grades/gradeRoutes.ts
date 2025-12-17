@@ -4,7 +4,10 @@ import Student from "../../models/Student";
 import Subject from "../../models/Subject";
 import ClassModel from "../../models/Class";
 import GradeLock from "../../models/GradeLock";
+import User from "../../models/User";
 import { verifyToken, checkRole } from "../../middleware/authMiddleware";
+import { syncStudentGradesToUser } from "../../utils/syncUserData";
+import { getIo } from "../../utils/socketio";
 
 const router = express.Router();
 
@@ -44,6 +47,7 @@ router.post(
       }
 
       const savedGrades = [];
+      const studentIds = new Set<string>();
 
       for (const gradeData of gradesData) {
         const { studentId, subjectId, classId, score } = gradeData;
@@ -81,6 +85,25 @@ router.post(
 
         await grade.save();
         savedGrades.push(grade);
+        studentIds.add(String(studentId));
+      }
+
+      // ✅ Sync grades to User collection for all affected students
+      for (const studentId of studentIds) {
+        await syncStudentGradesToUser(studentId);
+        try {
+          const io = getIo();
+          if (io) {
+            io.emit("grade:updated", {
+              studentId,
+              grade: null, // batch endpoint updates many grades; frontend should refetch for this student
+              by: null,
+              ts: new Date(),
+            });
+          }
+        } catch (e) {
+          console.warn("Could not emit grade:updated in batch:", e);
+        }
       }
 
       res.status(200).json({ success: true, grades: savedGrades });
@@ -172,6 +195,167 @@ router.delete(
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Server error", error: err });
+    }
+  },
+);
+
+// ========== NEW ENDPOINT: Gửi điểm đến học sinh và admin ==========
+router.post(
+  "/submit-with-notifications",
+  verifyToken,
+  checkRole(["teacher", "admin"]),
+  async (req, res) => {
+    try {
+      const {
+        classId,
+        subjectId,
+        grades: gradesData,
+        sendToStudents = true,
+        sendToAdmin = true,
+        teacherId,
+      } = req.body;
+
+      if (!classId || !subjectId || !gradesData) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields: classId, subjectId, grades",
+        });
+      }
+
+      // Fetch class, subject, and teacher info
+      const cls = await ClassModel.findById(classId);
+      const subject = await Subject.findById(subjectId);
+      const teacher = teacherId ? await User.findById(teacherId) : null;
+
+      if (!cls || !subject) {
+        return res.status(404).json({
+          success: false,
+          message: "Class or Subject not found",
+        });
+      }
+
+      // Fetch students in this class
+      const students = await Student.find({ classId }).populate("userId");
+
+      // Prepare notification data
+      const gradeReport = {
+        classCode: cls.classCode,
+        subjectName: subject.name,
+        teacherName: teacher?.name || "Unknown Teacher",
+        gradedStudents: [] as any[],
+        totalStudents: students.length,
+        gradesSubmittedAt: new Date(),
+      };
+
+      // Process each student grade
+      for (const student of students) {
+        const score = gradesData[student._id];
+        if (score !== undefined && score !== null) {
+          gradeReport.gradedStudents.push({
+            studentId: student.studentId,
+            name: student.name,
+            score: score,
+          });
+        }
+      }
+
+      const io = getIo();
+
+      // ✅ SEND TO STUDENTS
+      if (sendToStudents && io) {
+        for (const studentData of gradeReport.gradedStudents) {
+          const student = await Student.findOne({
+            studentId: studentData.studentId,
+          }).populate("userId");
+
+          if (student?.userId) {
+            const notification = {
+              type: "grade_submitted",
+              title: `📝 Điểm ${subject.name} được cập nhật`,
+              message: `Thầy/cô ${teacher?.name} vừa cập nhật điểm ${subject.name} của bạn: ${studentData.score}/10`,
+              score: studentData.score,
+              subject: subject.name,
+              class: cls.classCode,
+              teacher: teacher?.name,
+              timestamp: new Date(),
+            };
+
+            // Emit to student via socket
+            if (io) {
+              io.to(`user:${student.userId._id}`).emit(
+                "notification",
+                notification,
+              );
+              console.log(
+                `📨 Grade notification sent to student ${student.studentId}`,
+              );
+            }
+
+            // Save notification to database (optional)
+            try {
+              await User.findByIdAndUpdate(student.userId._id, {
+                $push: {
+                  notifications: notification,
+                },
+              });
+            } catch (e) {
+              console.warn("Could not save notification to DB:", e);
+            }
+          }
+        }
+      }
+
+      // ✅ SEND TO ADMIN
+      if (sendToAdmin && io) {
+        const adminNotification = {
+          type: "grade_report_submitted",
+          title: `📊 Báo cáo điểm từ ${teacher?.name}`,
+          message: `${teacher?.name} vừa cập nhật ${gradeReport.gradedStudents.length}/${gradeReport.totalStudents} học sinh lớp ${cls.classCode} môn ${subject.name}`,
+          report: gradeReport,
+          timestamp: new Date(),
+        };
+
+        // Get all admins
+        const admins = await User.find({ role: "admin" });
+        for (const admin of admins) {
+          io.to(`user:${admin._id}`).emit("notification", adminNotification);
+          console.log(`📨 Grade report sent to admin ${admin.email}`);
+
+          // Save notification to admin's database
+          try {
+            await User.findByIdAndUpdate(admin._id, {
+              $push: {
+                notifications: adminNotification,
+              },
+            });
+          } catch (e) {
+            console.warn("Could not save admin notification to DB:", e);
+          }
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Grades submitted successfully",
+        report: gradeReport,
+        notificationsSent: {
+          toStudents: sendToStudents,
+          toAdmin: sendToAdmin,
+          studentsNotified: sendToStudents
+            ? gradeReport.gradedStudents.length
+            : 0,
+          adminsNotified: sendToAdmin
+            ? await User.countDocuments({ role: "admin" })
+            : 0,
+        },
+      });
+    } catch (err) {
+      console.error("submit-with-notifications error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: err,
+      });
     }
   },
 );

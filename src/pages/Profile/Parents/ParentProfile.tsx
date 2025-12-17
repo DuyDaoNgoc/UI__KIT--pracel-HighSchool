@@ -8,7 +8,7 @@ export default function ParentProfile() {
   const { user: parent } = useAuth() as { user: IUserProfile | null };
   const [children, setChildren] = useState<IUserProfile[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<IUserProfile | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function ParentProfile() {
           `/api/users/children`,
           {
             params: { ids: parent.children!.join(",") }, // đã check ở trên nên dùng ! được
-          }
+          },
         );
         setChildren(data);
       } catch (err) {

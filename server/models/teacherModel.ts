@@ -15,6 +15,7 @@ export interface IAssignedClass {
   schoolYear: string; // Niên khóa (VD: "2024-2025")
   classCode: string; // Mã duy nhất của lớp (VD: "10A1-2024") => dùng để lookup
   className?: string; // Tên hiển thị (VD: "10A - Toán (2024-2025)")
+  role?: string; // vai trò giáo viên trong lớp (ví dụ: 'homeroom' cho chủ nhiệm, 'subjectHead' cho bộ môn)
 }
 
 /* =======================
@@ -57,6 +58,7 @@ const AssignedClassSchema = new Schema<IAssignedClass>({
   schoolYear: { type: String, required: true },
   classCode: { type: String, required: true },
   className: { type: String },
+  role: { type: String, default: "" },
 });
 
 /* =======================

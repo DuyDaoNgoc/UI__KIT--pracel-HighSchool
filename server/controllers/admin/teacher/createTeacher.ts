@@ -8,6 +8,8 @@ import TeacherModel, {
   ITeacher,
 } from "../../../models/teacherModel";
 import ClassModel from "../../../models/Class";
+import { syncTeacherToUser } from "../../../utils/syncUserData";
+import { getIo } from "../../../utils/socketio";
 
 /* ====================================================
    🔹 HÀM: generateTeacherId()
@@ -70,6 +72,7 @@ export const createTeacher = async (req: Request, res: Response) => {
       research,
       subject,
       avatar,
+      schoolYear,
     } = req.body;
 
     // 🔸 Kiểm tra trường bắt buộc
@@ -121,6 +124,7 @@ export const createTeacher = async (req: Request, res: Response) => {
         major: "",
         schoolYear: "",
         classCode: finalAssignedClassCode as string,
+        role: "homeroom",
       };
     }
 
@@ -134,6 +138,7 @@ export const createTeacher = async (req: Request, res: Response) => {
       address: address || "",
       majors: normalizeArray(majors),
       subjectClasses: normalizeArray(subjectClasses),
+      schoolYear: schoolYear || undefined,
       email: email?.trim().toLowerCase() || undefined, // rỗng => undefined để không bị duplicate key
       degree: degree || "",
       educationLevel: educationLevel || "",
@@ -169,43 +174,44 @@ export const createTeacher = async (req: Request, res: Response) => {
       }
     }
 
-    // ✅ Thành công
-    // Nếu có email, auto tạo user cho giáo viên
+    // ✅ LUÔN tạo User tài khoản cho giáo viên, dù có email hay không
     let emailSent = false;
     let rawPasswordToReturn: string | null = null;
-    if (teacherData.email) {
-      try {
-        const rawPassword = teacherData.teacherId;
-        rawPasswordToReturn = rawPassword;
+    try {
+      const rawPassword = teacherData.teacherId;
+      rawPasswordToReturn = rawPassword;
 
-        const existing = await User.findOne({
-          $or: [
-            { email: teacherData.email },
-            { teacherId: teacherData.teacherId },
-          ],
-        });
+      // Chỉ query theo teacherId (email có thể rỗng nên không query theo email)
+      const existing = await User.findOne({
+        teacherId: teacherData.teacherId,
+      });
 
-        // Nếu user chưa tồn tại, tạo mới
-        if (!existing) {
-          const hashed = await bcrypt.hash(rawPassword, 10);
-          await User.create({
-            username: teacherData.name,
-            email: teacherData.email,
-            password: hashed,
-            role: "teacher",
-            teacherId: teacherData.teacherId,
-            createdAt: new Date(),
-          } as any);
-          console.log(
-            `✅ Auto-created user for ${teacherData.email} with teacherId ${teacherData.teacherId}`,
-          );
-        } else {
-          console.log(
-            `ℹ️ User already exists for email/teacherId, reusing account`,
-          );
-        }
+      // Nếu user chưa tồn tại, tạo mới
+      if (!existing) {
+        const hashed = await bcrypt.hash(rawPassword, 10);
+        const userEmail = teacherData.email
+          ? teacherData.email
+          : `${teacherData.teacherId}@teacher.local`; // default email nếu không cung cấp
 
-        // 🔥 LUÔN gửi email mật khẩu dù user mới hay cũ
+        await User.create({
+          username: teacherData.name,
+          email: userEmail,
+          password: hashed,
+          role: "teacher",
+          teacherId: teacherData.teacherId,
+          createdAt: new Date(),
+        } as any);
+        console.log(
+          `✅ Auto-created user for ${teacherData.teacherId} with email ${userEmail}`,
+        );
+      } else {
+        console.log(
+          `ℹ️ User already exists for ${teacherData.teacherId}, skipping creation`,
+        );
+      }
+
+      // 🔥 Gửi email mật khẩu nếu SMTP cấu hình VÀ có email thật (không default)
+      if (teacherData.email) {
         try {
           console.log("📧 [EMAIL] SMTP_HOST:", process.env.SMTP_HOST);
           console.log("📧 [EMAIL] SMTP_PORT:", process.env.SMTP_PORT);
@@ -254,9 +260,30 @@ export const createTeacher = async (req: Request, res: Response) => {
           console.warn("⚠️ [EMAIL] Could not send password email:", mailErr);
           emailSent = false;
         }
-      } catch (err) {
-        console.error("❌ Error handling user for teacher:", err);
+      } else {
+        console.log(
+          `ℹ️ [EMAIL] No email provided, user created but no email sent (default email: ${teacherData.teacherId}@teacher.local)`,
+        );
       }
+    } catch (err) {
+      console.error("❌ Error handling user for teacher:", err);
+    }
+
+    // ✅ Auto-sync teacher to user collection (AFTER user is created/updated)
+    await syncTeacherToUser(
+      teacherData.toObject ? teacherData.toObject() : teacherData,
+    );
+
+    // Emit socket events: notify admins and the teacher (if they login using teacherId)
+    try {
+      const io = getIo();
+      if (io) {
+        const teacherRoom = `user:${teacherData.teacherId}`;
+        io.to(teacherRoom).emit("teacher:created", { teacher: teacherData });
+        io.to("role:admin").emit("teacher:created", { teacher: teacherData });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [createTeacher] Socket emit failed:", emitErr);
     }
 
     return res.status(201).json({

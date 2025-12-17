@@ -15,7 +15,7 @@ export interface ICreatedTeacher {
   address?: string;
   majors: string[];
   subjectClasses?: string[];
-  assignedClass?: IAssignedClass | null;
+  assignedClass?: IAssignedClass[] | null;
   assignedClassCode?: string;
   email?: string;
   degree?: string;
@@ -24,6 +24,7 @@ export interface ICreatedTeacher {
   research?: string;
   subject?: string[];
   avatar?: string;
+  schoolYear?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -41,6 +42,7 @@ export const getTeachers = async (req: Request, res: Response) => {
       return {
         _id,
         name: t.name,
+        schoolYear: t.schoolYear ?? undefined,
         dob: t.dob ? new Date(t.dob).toISOString().split("T")[0] : undefined,
         gender: t.gender,
         phone: t.phone ?? undefined,

@@ -9,6 +9,9 @@ import {
 } from "../../middleware/authMiddleware";
 import ClassModel from "../../models/Class";
 import { generateClassCode } from "../../helpers/classCode";
+import StudentModel from "../../models/Student";
+import { syncStudentToUser } from "../../utils/syncUserData";
+import { getIo } from "../../utils/socketio";
 
 // Tạo kiểu cho Document Mongoose
 type IUserDocument = IUser & Document;
@@ -171,6 +174,24 @@ router.post(
         { upsert: true, new: true },
       );
 
+      // 🔔 Emit socket event to notify teachers/admins of new student
+      try {
+        const io = getIo();
+        if (io) {
+          io.emit("student:created", {
+            studentId: student.studentId,
+            classCode: student.classCode,
+            name: student.username,
+            data: student,
+          });
+          console.log(
+            `🔔 Emitted student:created event for ${student.studentId}`,
+          );
+        }
+      } catch (emitErr) {
+        console.warn("⚠️ [students/create] Socket emit failed:", emitErr);
+      }
+
       // Trả dữ liệu đầy đủ học sinh vừa tạo
       return res.status(201).json({
         success: true,
@@ -249,31 +270,71 @@ router.put(
     const updateData = req.body;
 
     try {
-      const student = await User.findOneAndUpdate({ studentId }, updateData, {
-        new: true,
-      });
+      // ✅ First, update Student collection
+      const studentDoc = await StudentModel.findOneAndUpdate(
+        { studentId },
+        updateData,
+        { new: true },
+      );
 
-      if (!student) {
+      if (!studentDoc) {
         return res
           .status(404)
           .json({ success: false, message: "Học sinh không tồn tại" });
       }
 
+      // ✅ Then, sync the updated student data to User collection
+      await syncStudentToUser(
+        studentDoc.toObject ? studentDoc.toObject() : studentDoc,
+      );
+
+      // ✅ Also update User collection directly for fields that exist there
+      const userUpdateData: any = {};
+      if (updateData.phone) userUpdateData.phone = updateData.phone;
+      if (updateData.address) userUpdateData.address = updateData.address;
+      if (updateData.dob) userUpdateData.dob = updateData.dob;
+      if (updateData.email) userUpdateData.email = updateData.email;
+      if (updateData.classCode) userUpdateData.classCode = updateData.classCode;
+      if (updateData.major) userUpdateData.major = updateData.major;
+      if (updateData.schoolYear)
+        userUpdateData.schoolYear = updateData.schoolYear;
+
+      if (Object.keys(userUpdateData).length > 0) {
+        await User.findOneAndUpdate({ studentId }, userUpdateData, {
+          new: true,
+        });
+        console.log(`✅ Synced student changes to user for ${studentId}`);
+      }
+
+      // Emit student updated via socket
+      try {
+        const io = getIo();
+        if (io) {
+          io.to(`user:${studentId}`).emit("student:updated", {
+            studentId,
+            data: studentDoc,
+          });
+          io.to("role:admin").emit("student:updated", {
+            studentId,
+            data: studentDoc,
+          });
+        }
+      } catch (emitErr) {
+        console.warn("⚠️ [students/update] Socket emit failed:", emitErr);
+      }
+
       return res.status(200).json({
         success: true,
         data: {
-          _id: student._id,
-          studentId: student.studentId,
-          name: student.username,
-          dob: student.dob,
-          address: student.address,
-          residence: student.residence,
-          phone: student.phone,
-          grade: student.grade,
-          classLetter: student.class,
-          major: student.major,
-          schoolYear: student.schoolYear,
-          classCode: student.classCode,
+          _id: studentDoc._id,
+          studentId: studentDoc.studentId,
+          name: studentDoc.name,
+          dob: studentDoc.dob,
+          address: studentDoc.address,
+          phone: studentDoc.phone,
+          major: studentDoc.major,
+          schoolYear: studentDoc.schoolYear,
+          classCode: studentDoc.classCode,
         },
       });
     } catch (err: any) {

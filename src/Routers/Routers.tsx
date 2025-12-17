@@ -16,6 +16,7 @@ import News from "../pages/Contents/home/News";
 import Documentation from "../pages/Contents/home/Documentation";
 import Help from "../pages/Contents/home/Help";
 import Privacy from "../pages/Contents/home/Privacy";
+import ForgotPassword from "../pages/auth/ForgotPassword";
 
 // Profile
 import Profile from "../pages/Profile/Students/Profile";
@@ -205,6 +206,17 @@ const AppRouter: React.FC = () => {
             <DefaultLayout>
               <PageWrapper>
                 <Privacy />
+              </PageWrapper>
+            </DefaultLayout>
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            <DefaultLayout>
+              <PageWrapper>
+                <ForgotPassword />
               </PageWrapper>
             </DefaultLayout>
           }

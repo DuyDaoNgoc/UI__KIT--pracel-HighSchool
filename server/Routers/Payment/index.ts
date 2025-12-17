@@ -2,6 +2,7 @@ import express from "express";
 import Payment from "../../models/Payment";
 import Student from "../../models/Student";
 import Subject from "../../models/Subject";
+import { getIo } from "../../utils/socketio";
 
 const router = express.Router();
 
@@ -67,6 +68,17 @@ router.post("/", async (req, res) => {
 
     await payment.save();
 
+    // Emit payment created
+    try {
+      const io = getIo();
+      if (io) {
+        io.to("role:admin").emit("payment:created", { payment });
+        io.to(`user:${studentId}`).emit("payment:created", { payment });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [Payment] emit failed:", emitErr);
+    }
+
     res.status(201).json({ message: "Payment created", payment });
   } catch (err) {
     console.error(err);
@@ -92,6 +104,22 @@ router.patch("/:id", async (req, res) => {
       .populate("subjectId");
 
     if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    // Emit payment updated
+    try {
+      const io = getIo();
+      if (io) {
+        io.to("role:admin").emit("payment:updated", { payment });
+        // notify student
+        if (payment.studentId)
+          io.to(`user:${payment.studentId}`).emit("payment:updated", {
+            payment,
+          });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [Payment] emit failed:", emitErr);
+    }
+
     res.status(200).json({ message: "Payment updated", payment });
   } catch (err) {
     console.error(err);
@@ -104,6 +132,22 @@ router.delete("/:id", async (req, res) => {
   try {
     const payment = await Payment.findByIdAndDelete(req.params.id);
     if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    try {
+      const io = getIo();
+      if (io) {
+        io.to("role:admin").emit("payment:deleted", {
+          paymentId: req.params.id,
+        });
+        if (payment.studentId)
+          io.to(`user:${payment.studentId}`).emit("payment:deleted", {
+            paymentId: req.params.id,
+          });
+      }
+    } catch (emitErr) {
+      console.warn("⚠️ [Payment] emit failed:", emitErr);
+    }
+
     res.status(200).json({ message: "Payment deleted" });
   } catch (err) {
     console.error(err);

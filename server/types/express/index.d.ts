@@ -11,9 +11,9 @@ declare global {
     //  Mở rộng lại Request (không ghi đè field gốc)
     interface Request {
       user?: {
-        id: string;
-        role: "admin" | "teacher" | "student" | "parent";
-        email: string;
+        id?: string;
+        role?: "admin" | "teacher" | "student" | "parent";
+        email?: string;
       };
       file?: MulterFile;
     }

@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import axiosInstance from "../../../../api/axiosConfig";
 import { toast, Toaster } from "react-hot-toast";
 import toastr from "toastr";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+} from "@mui/material";
 interface ITeacher {
   _id: string;
   teacherId?: string;
@@ -14,6 +22,7 @@ interface ITeacher {
   degree?: string;
   educationLevel?: string;
   majors?: string[];
+  schoolYear?: string;
   certificates?: string[];
   research?: string;
   createdAt?: Date | string;
@@ -32,6 +41,7 @@ interface ITeacherForm {
   majors: string;
   certificates: string;
   research: string;
+  schoolYear: string;
   email: string;
 }
 
@@ -48,6 +58,7 @@ export default function CreateTeacherWithTable() {
     majors: "",
     certificates: "",
     research: "",
+    schoolYear: "",
     email: "",
   });
   toastr.options = {
@@ -58,6 +69,8 @@ export default function CreateTeacherWithTable() {
   };
   const [teachers, setTeachers] = useState<ITeacher[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // ✅ Sửa ở đây: backend trả về mảng trực tiếp
   const fetchTeachers = async () => {
@@ -103,6 +116,7 @@ export default function CreateTeacherWithTable() {
       majors: "",
       certificates: "",
       research: "",
+      schoolYear: "",
       email: "",
     });
     setEditingId(null);
@@ -121,6 +135,7 @@ export default function CreateTeacherWithTable() {
       address: form.address || undefined,
       degree: form.degree || undefined,
       educationLevel: form.educationLevel || undefined,
+      schoolYear: form.schoolYear || undefined,
       majors: form.majors ? form.majors.split(",").map((m) => m.trim()) : [],
       certificates: form.certificates
         ? form.certificates.split(",").map((c) => c.trim())
@@ -146,14 +161,23 @@ export default function CreateTeacherWithTable() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc muốn xoá giáo viên này?")) return;
+    setDeleteTarget(id);
+    setOpenDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteTarget;
+    if (!id) return;
+    setOpenDeleteDialog(false);
     try {
       await axiosInstance.delete(`/teachers/${id}`);
       toast.success("Xoá giáo viên thành công!");
       fetchTeachers();
+      setDeleteTarget(null);
     } catch (err) {
       console.error("❌ Lỗi xoá giáo viên:", err);
       toast.error(" Lỗi khi xoá giáo viên.");
+      setDeleteTarget(null);
     }
   };
 
@@ -170,6 +194,7 @@ export default function CreateTeacherWithTable() {
       educationLevel: teacher.educationLevel || "",
       majors: teacher.majors?.join(", ") || "",
       certificates: teacher.certificates?.join(", ") || "",
+      schoolYear: teacher.schoolYear || "",
       research: teacher.research || "",
       email: teacher.email || "",
     });
@@ -232,6 +257,13 @@ export default function CreateTeacherWithTable() {
           value={form.email}
           onChange={handleChange}
           type="email"
+        />
+        <input
+          className="teacher-form__input"
+          name="schoolYear"
+          placeholder="Năm học (ví dụ 2024-2025)"
+          value={form.schoolYear}
+          onChange={handleChange}
         />
         <input
           className="teacher-form__input"
@@ -304,6 +336,7 @@ export default function CreateTeacherWithTable() {
             <th className="teacher-table__cell">Trình độ</th>
             <th className="teacher-table__cell">Chuyên ngành</th>
             <th className="teacher-table__cell">Chứng chỉ</th>
+            <th className="teacher-table__cell">Năm học</th>
             <th className="teacher-table__cell">Nghiên cứu / Kinh nghiệm</th>
             <th className="teacher-table__cell">Thời gian tạo</th>
             <th className="teacher-table__cell">Hành động</th>
@@ -325,6 +358,7 @@ export default function CreateTeacherWithTable() {
               <td className="teacher-table__cell">
                 {t.certificates?.join(", ") || ""}
               </td>
+              <td className="teacher-table__cell">{t.schoolYear || "-"}</td>
               <td className="teacher-table__cell">{t.research}</td>
               <td className="teacher-table__cell">
                 {t.createdAt ? new Date(t.createdAt).toLocaleString() : "-"}
@@ -347,6 +381,30 @@ export default function CreateTeacherWithTable() {
           ))}
         </tbody>
       </table>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, color: "#d32f2f" }}>
+          Xác Nhận Xóa Giáo Viên
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 1 }}>
+            Bạn có chắc muốn xóa giáo viên này? Hành động này không thể hoàn
+            tác.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDeleteDialog(false)} variant="outlined">
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} variant="contained" color="error">
+            Xóa
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Toaster position="top-right" reverseOrder={false} />
     </div>
   );

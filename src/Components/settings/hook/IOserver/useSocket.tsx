@@ -116,6 +116,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         toast.success("Đã kết nối");
         setLoading(false);
         setError(null);
+        // Auto-join rooms based on logged-in user info (if present in localStorage)
+        try {
+          const rawUser = window.localStorage.getItem("user");
+          const authUser = rawUser ? JSON.parse(rawUser) : null;
+          const rooms: string[] = [];
+          if (authUser) {
+            if (authUser.role) rooms.push(`role:${authUser.role}`);
+            if (authUser.studentId) rooms.push(`user:${authUser.studentId}`);
+            if (authUser.teacherId) rooms.push(`user:${authUser.teacherId}`);
+            if (authUser.parentId) rooms.push(`user:${authUser.parentId}`);
+            if (authUser.classCode) rooms.push(`class:${authUser.classCode}`);
+          }
+          if (rooms.length) {
+            s.emit("join", rooms);
+            console.log("🔐 Request join rooms:", rooms);
+          }
+        } catch (err) {
+          console.warn("⚠️ Could not auto-join rooms:", err);
+        }
       });
 
       s.on("disconnect", () => {

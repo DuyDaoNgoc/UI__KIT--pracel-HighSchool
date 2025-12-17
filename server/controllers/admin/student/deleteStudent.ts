@@ -30,30 +30,74 @@ export const deleteStudent = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ Gỡ học sinh khỏi lớp nếu có đầy đủ thông tin
-    if (student.schoolYear && student.classLetter && student.major) {
-      const majorAbbrev = (student.major || "")
-        .split(/\s+/)
-        .map((w: string) => w[0]?.toUpperCase() || "")
-        .join("");
+    // ✅ Gỡ học sinh khỏi lớp - cố gắng gỡ ở mọi nơi (kể cả khi thiếu thông tin lớp)
+    try {
+      // 1) Nếu lớp đầy đủ thông tin, cố gắng gỡ ở lớp đó (tối ưu)
+      if (student.schoolYear && student.classLetter && student.major) {
+        const majorAbbrev = (student.major || "")
+          .split(/\s+/)
+          .map((w: string) => w[0]?.toUpperCase() || "")
+          .join("");
 
-      const classCode = `${student.schoolYear}${student.classLetter}${majorAbbrev}`;
+        const classCode = `${student.schoolYear}${student.classLetter}${majorAbbrev}`;
 
-      try {
-        // Remove subdocument form { _id, studentId }
         await classes.updateOne(
           { classCode, schoolYear: student.schoolYear, major: student.major },
-          { $pull: { studentIds: { _id: new ObjectId(student._id) } } },
+          { $pull: { studentIds: { _id: new ObjectId(student._id) } } } as any,
         );
 
-        // Also remove legacy entries where studentIds may have been stored as raw ObjectId
         await classes.updateOne(
           { classCode, schoolYear: student.schoolYear, major: student.major },
-          { $pull: { studentIds: new ObjectId(student._id) } },
+          { $pull: { studentIds: new ObjectId(student._id) } } as any,
         );
-      } catch (pullErr) {
-        console.warn("⚠️ Lỗi khi gỡ học sinh khỏi lớp (pull):", pullErr);
       }
+
+      // 2) Dọn dẹp toàn bộ classes: remove entries that may be stored in different formats
+      // - subdocuments like { _id: ObjectId, studentId: '26A...' }
+      // - raw ObjectId values
+      // - string studentId values
+      await classes.updateMany({}, {
+        $pull: { studentIds: { _id: new ObjectId(student._id) } },
+      } as any);
+      await classes.updateMany({}, {
+        $pull: { studentIds: new ObjectId(student._id) },
+      } as any);
+      if (student.studentId) {
+        await classes.updateMany({}, {
+          $pull: { studentIds: student.studentId },
+        } as any);
+        // also pull subdocuments where field studentId equals student.studentId
+        await classes.updateMany({}, {
+          $pull: { studentIds: { studentId: student.studentId } },
+        } as any);
+
+        // additional formats: some codebases store different key names or stringified _id
+        try {
+          // raw string of ObjectId
+          await classes.updateMany({}, {
+            $pull: { studentIds: String(student._id) },
+          } as any);
+
+          // subdocument field variants
+          await classes.updateMany({}, {
+            $pull: { studentIds: { id: student.studentId } },
+          } as any);
+          await classes.updateMany({}, {
+            $pull: { studentIds: { student_id: student.studentId } },
+          } as any);
+          await classes.updateMany({}, {
+            $pull: { studentIds: { sid: student.studentId } },
+          } as any);
+          // sometimes stored as { id: ObjectId }
+          await classes.updateMany({}, {
+            $pull: { studentIds: { id: new ObjectId(student._id) } },
+          } as any);
+        } catch (extraErr) {
+          console.warn("⚠️ Lỗi khi gỡ các định dạng studentId khác:", extraErr);
+        }
+      }
+    } catch (pullErr) {
+      console.warn("⚠️ Lỗi khi gỡ học sinh khỏi classes (cleanup):", pullErr);
     }
 
     const result = await students.deleteOne(filter);
@@ -67,10 +111,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
     // 🔥 Xóa tài khoản User liên quan (nếu có)
     try {
       const deleteUserResult = await User.deleteOne({
-        $or: [
-          { studentId: student.studentId },
-          { email: student.email },
-        ],
+        $or: [{ studentId: student.studentId }, { email: student.email }],
       });
       if (deleteUserResult.deletedCount > 0) {
         console.log(`✅ Xóa tài khoản user cho học sinh ${student.studentId}`);
