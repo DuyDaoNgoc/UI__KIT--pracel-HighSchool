@@ -22,6 +22,7 @@ import SubjectTab from "./Subject/SubjectTab";
 import PaymentTab from "./Payment/PaymentTab";
 import TimetableTab from "./Timetable/TimetableTab";
 import GradesTab from "./Grades/GradesTab";
+import TuitionTab from "./Tuition/TuitionTab";
 import { toast, Toaster } from "react-hot-toast";
 import ScheduleTeachers from "./Class/ScheduleTeachers";
 
@@ -549,6 +550,7 @@ const AdminProfile: FC = () => {
         )}
         {activeTab === "subjects" && <SubjectTab />}
         {activeTab === "payments" && <PaymentTab />}
+        {activeTab === "tuitions" && <TuitionTab />}
         {activeTab === "timetables" && <TimetableTab />}
         {activeTab === "grades" && <GradesTab />}
 

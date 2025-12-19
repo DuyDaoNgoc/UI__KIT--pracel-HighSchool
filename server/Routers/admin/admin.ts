@@ -6,6 +6,8 @@ import { createStudent } from "../../controllers/admin/student/createStudent";
 import { resetUserPasswordByAdmin } from "../../controllers/admin/userAdmin";
 import Payment from "../../models/Payment";
 import Grade from "../../models/Grade";
+import Major from "../../models/Major";
+import Subject from "../../models/Subject";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import User from "../../models/User";
@@ -18,6 +20,47 @@ interface IGradesLock {
   _id: string;
   locked: boolean;
 }
+
+// ===== Lấy dữ liệu cơ bản cho admin =====
+// GET all majors
+router.get(
+  "/majors",
+  verifyToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const majors = await Major.find().sort({ name: 1 });
+      res.status(200).json({ data: majors });
+    } catch (err: any) {
+      console.error("❌ GET /admin/majors error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy danh sách ngành",
+        error: err?.message || String(err),
+      });
+    }
+  },
+);
+
+// GET all subjects
+router.get(
+  "/subjects",
+  verifyToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const subjects = await Subject.find().sort({ name: 1 });
+      res.status(200).json({ data: subjects });
+    } catch (err: any) {
+      console.error("❌ GET /admin/subjects error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy danh sách môn học",
+        error: err?.message || String(err),
+      });
+    }
+  },
+);
 
 // ===== Quản lý học sinh =====
 // Tạo học sinh

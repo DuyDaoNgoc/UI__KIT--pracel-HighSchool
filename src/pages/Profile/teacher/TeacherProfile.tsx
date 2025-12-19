@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   FileText,
+  Home,
 } from "lucide-react";
 import axiosInstance from "../../../api/axiosConfig";
 import avatars from "../../../../public/assets/imgs/avatar/avatar.jpg";
@@ -16,7 +17,7 @@ import TeacherClasses from "./TeacherClasses";
 import TeacherSchedule from "./TeacherSchedule";
 import TeacherGrades from "./TeacherGrades";
 import TeacherStatistics from "./TeacherStatistics";
-import TeacherSettings from "./TeacherSettings";
+
 import ReportsTab from "./ReportsTab";
 import useTeacherData from "../../../Components/settings/hook/profiles/useTeacherData";
 
@@ -71,8 +72,12 @@ export default function TeacherProfile() {
     if (!user?.teacherId) return;
 
     const handleTimetableUpdate = () => {
-      console.log("timetable:updated event received, refetching schedule...");
-      fetchAll("schedule", user.teacherId, user.assignedClass || null);
+      if (!user.teacherId) {
+        console.error("teacherId is missing");
+        return;
+      }
+
+      fetchAll("schedule", user.teacherId, user.assignedClass ?? null);
     };
 
     window.addEventListener("timetable:updated", handleTimetableUpdate as any);
@@ -133,17 +138,18 @@ export default function TeacherProfile() {
           >
             <BarChart3 size={18} /> Thống kê
           </li>
-          <li
-            onClick={() => setActiveTab("settings")}
-            className={activeTab === "settings" ? "active" : ""}
-          >
-            <Settings size={18} /> Cài đặt
-          </li>
+
           <li
             onClick={() => setActiveTab("reports")}
             className={activeTab === "reports" ? "active" : ""}
           >
             <FileText size={18} /> Báo cáo học sinh
+          </li>
+          <li>
+            <Home size={18} />{" "}
+            <a href="/" style={{ textDecoration: "none", color: "#4b4b4b" }}>
+              Quay về trang chủ
+            </a>
           </li>
         </ul>
       </aside>
@@ -166,7 +172,7 @@ export default function TeacherProfile() {
         {activeTab === "statistics" && (
           <TeacherStatistics statistics={statistics} classes={classes} />
         )}
-        {activeTab === "settings" && <TeacherSettings user={user} />}
+
         {activeTab === "reports" && (
           <ReportsTab classes={classes} teacherId={user.teacherId} />
         )}

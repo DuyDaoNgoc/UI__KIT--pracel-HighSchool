@@ -5,8 +5,12 @@ export interface ITimetable extends Document {
   schedule: {
     day: string;
     subjectId: Types.ObjectId;
+    teacherId: Types.ObjectId;
     startTime: string;
     endTime: string;
+    week?: string;
+    periodFrom?: string;
+    canceledDates?: string[];
   }[];
 }
 
@@ -22,11 +26,11 @@ const TimetableSchema = new Schema<ITimetable>(
           ref: "Subject",
           required: false,
         },
-        // optional teacher assigned for this schedule item
+        // teacher assigned for this schedule item - REQUIRED for grade entry
         teacherId: {
           type: Schema.Types.ObjectId,
           ref: "User",
-          required: false,
+          required: true,
         },
         // optional periodFrom (date string), canceledDates etc.
         periodFrom: { type: String, required: false },

@@ -14,33 +14,41 @@ import {
 } from "lucide-react";
 import "../../../stylesheets/components/profile/_ProfileInfo.scss";
 
-interface ProfileInfoProps {
+interface TeacherProfileInfoProps {
   user: IUserProfile;
 }
 
-export default function ProfileInfo({ user }: ProfileInfoProps) {
-  const classText =
-    typeof user.classCode === "string"
-      ? user.classCode
-      : user.classCode
-        ? `${user.classCode.className} (${user.classCode.grade})`
-        : "-";
-
-  const majorText =
-    typeof user.major === "string"
-      ? user.major
-      : user.major
-        ? `${user.major.name} (${user.major.code || ""})`
-        : "-";
-
-  const formatDate = (dateString?: string | Date) => {
-    if (!dateString) return "-";
-    try {
-      return new Date(dateString).toLocaleDateString("vi-VN");
-    } catch {
-      return String(dateString);
-    }
+export default function TeacherProfileInfo({ user }: TeacherProfileInfoProps) {
+  const roleLabel = (r?: string) => {
+    if (!r || r === "") return "-";
+    if (r === "homeroom" || r === "chunhiem" || r === "chu-nhiem")
+      return "Chủ nhiệm";
+    if (r === "subjectHead" || r === "bomon") return "Bộ môn";
+    if (r === "subjectTeacher" || r === "giaovienbomon")
+      return "Giáo viên bộ môn";
+    return r;
   };
+
+  const isHomeroom = (r?: string) =>
+    !r
+      ? false
+      : ["homeroom", "chunhiem", "chu-nhiem"].includes(r.toLowerCase());
+
+  const homeroom = (user.assignedClass || []).find((c) => isHomeroom(c.role));
+  const assignedClassesText = (() => {
+    if (!homeroom) return "Không có lớp chủ nhiệm";
+    const abbr = (homeroom.major || "")
+      .split(/\s+/)
+      .map((w) => (w[0] || "").toUpperCase())
+      .join("")
+      .slice(0, 10);
+    const code = `${homeroom.grade}${homeroom.classLetter}${abbr}`;
+    return `${code} — Chủ nhiệm`;
+  })();
+
+  const majorsText =
+    user.majors && user.majors.length > 0 ? user.majors.join(", ") : "-";
+
   return (
     <div className="profile-info-container">
       {/* Header Section */}
@@ -51,31 +59,31 @@ export default function ProfileInfo({ user }: ProfileInfoProps) {
           </div>
           <div className="header-text">
             <h1 className="student-name">{user.username}</h1>
-            <p className="student-code">Mã HS: {user.studentId || "N/A"}</p>
+            <p className="student-code">Mã GV: {user.teacherId || "N/A"}</p>
           </div>
         </div>
       </div>
 
-      {/* Info Grid - 3 columns of info cards */}
+      {/* Info Grid */}
       <div className="info-grid">
-        {/* Column 1 - Academic Info */}
+        {/* Column 1 - Identifier & Role Info */}
         <div className="info-card">
           <div className="info-card-icon student-info-icon">
             <Code size={20} />
           </div>
           <div className="info-card-content">
-            <span className="info-label">Mã học sinh</span>
-            <span className="info-value">{user.studentId || "N/A"}</span>
+            <span className="info-label">Mã giáo viên</span>
+            <span className="info-value">{user.teacherId || "N/A"}</span>
           </div>
         </div>
 
         <div className="info-card">
           <div className="info-card-icon class-info-icon">
-            <BookOpen size={20} />
+            <Building2 size={20} />
           </div>
           <div className="info-card-content">
-            <span className="info-label">Lớp</span>
-            <span className="info-value">{classText}</span>
+            <span className="info-label">Lớp chủ nhiệm</span>
+            <span className="info-value">{assignedClassesText}</span>
           </div>
         </div>
 
@@ -84,8 +92,8 @@ export default function ProfileInfo({ user }: ProfileInfoProps) {
             <Award size={20} />
           </div>
           <div className="info-card-content">
-            <span className="info-label">Ngành</span>
-            <span className="info-value">{majorText}</span>
+            <span className="info-label">Chuyên môn</span>
+            <span className="info-value">{majorsText}</span>
           </div>
         </div>
 
@@ -127,53 +135,22 @@ export default function ProfileInfo({ user }: ProfileInfoProps) {
           </div>
           <div className="info-card-content">
             <span className="info-label">Niên khóa</span>
-            <span className="info-value">{user.schoolYear || "-"}</span>
+            <span className="info-value">{homeroom?.schoolYear || "-"}</span>
           </div>
         </div>
 
         <div className="info-card">
           <div className="info-card-icon birth-info-icon">
-            <User size={20} />
+            <BookOpen size={20} />
           </div>
           <div className="info-card-content">
-            <span className="info-label">Ngày sinh</span>
+            <span className="info-label">Chức Vụ</span>
             <span className="info-value">
-              {user.dob ? formatDate(user.dob) : "-"}
+              {homeroom ? roleLabel(homeroom.role) : "Không xác định"}
             </span>
           </div>
         </div>
       </div>
-
-      {/* Summary Stats Section */}
-      {(user.gpa || user.credits) && (
-        <div className="profile-stats">
-          <h3 className="stats-title">Tổng quan học tập</h3>
-          <div className="stats-grid">
-            {user.gpa && (
-              <div className="stat-item">
-                <div className="stat-icon gpa-icon">
-                  <Award size={24} />
-                </div>
-                <div className="stat-info">
-                  <span className="stat-value">{user.gpa?.toFixed(2)}</span>
-                  <span className="stat-label">Điểm TB</span>
-                </div>
-              </div>
-            )}
-            {user.credits && (
-              <div className="stat-item">
-                <div className="stat-icon credits-icon">
-                  <BookOpen size={24} />
-                </div>
-                <div className="stat-info">
-                  <span className="stat-value">{user.credits}</span>
-                  <span className="stat-label">Tín chỉ tích lũy</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

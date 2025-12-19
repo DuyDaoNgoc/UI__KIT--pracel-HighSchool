@@ -5,7 +5,11 @@ import Subject from "../../models/Subject";
 import ClassModel from "../../models/Class";
 import GradeLock from "../../models/GradeLock";
 import User from "../../models/User";
-import { verifyToken, checkRole } from "../../middleware/authMiddleware";
+import {
+  verifyToken,
+  checkRole,
+  AuthRequest,
+} from "../../middleware/authMiddleware";
 import { syncStudentGradesToUser } from "../../utils/syncUserData";
 import { getIo } from "../../utils/socketio";
 
@@ -40,29 +44,88 @@ router.post(
   checkRole(["teacher", "admin"]),
   async (req, res) => {
     try {
-      const { grades: gradesData } = req.body;
+      console.log("📝 [/grades/batch] Request received");
+      const gradesData: any[] = req.body?.grades || [];
+      const authReq = req as AuthRequest;
+      const requestUser = authReq.user;
 
       if (!Array.isArray(gradesData)) {
+        console.error("❌ Grades not an array");
         return res.status(400).json({ message: "Grades must be an array" });
+      }
+
+      console.log("📊 Processing", gradesData.length, "grade entries");
+
+      // 🔒 AUTHORIZATION CHECK for teachers
+      if (requestUser?.role === "teacher") {
+        // Check if teacher is authorized for this class/subject
+        if (gradesData.length > 0) {
+          const { classId, subjectId } = gradesData[0];
+
+          const cls = await ClassModel.findById(classId);
+          if (!cls) {
+            console.error("❌ Class not found:", classId);
+            return res.status(404).json({ message: "Class not found" });
+          }
+
+          // Check if teacher is homeroom or subject teacher
+          const clsTeacherId =
+            (cls.teacherId && (cls.teacherId._id || cls.teacherId)) || null;
+          const isHomeroom =
+            String(clsTeacherId) === String(requestUser._id) ||
+            String(clsTeacherId) === String(requestUser.teacherId);
+
+          const isSubjectTeacher = cls.subjectTeachers?.some((st: any) => {
+            const stTeacherId = st.teacherId?._id || st.teacherId || null;
+
+            const teacherMatch =
+              String(stTeacherId) === String(requestUser._id) ||
+              String(stTeacherId) === String(requestUser.teacherId);
+
+            const subjectMatch =
+              String(st.subjectId?._id || st.subjectId) === String(subjectId);
+
+            return teacherMatch && subjectMatch;
+          });
+
+          if (!isHomeroom && !isSubjectTeacher) {
+            console.error("❌ Teacher not authorized for this class/subject");
+            return res.status(403).json({
+              message: "Bạn không có quyền nhập điểm cho lớp/môn học này",
+            });
+          }
+        }
       }
 
       const savedGrades = [];
       const studentIds = new Set<string>();
 
       for (const gradeData of gradesData) {
-        const { studentId, subjectId, classId, score } = gradeData;
+        const { studentId, subjectId, classId, grades } = gradeData as any;
 
         // Kiểm tra khóa điểm
         const lock = await GradeLock.findOne({ classId, subjectId });
         if (lock?.isLocked) {
+          console.error("❌ Grades locked for subject", subjectId);
           return res.status(403).json({
             message: "Điểm của môn học này đã bị khóa, không thể chỉnh sửa",
           });
         }
 
-        // Validate
-        if (score < 0 || score > 10) {
-          return res.status(400).json({ message: "Điểm phải từ 0 đến 10" });
+        // Validate grades array
+        if (!Array.isArray(grades) || grades.length === 0) {
+          console.error("❌ Grades array empty or invalid");
+          return res
+            .status(400)
+            .json({ message: "Grades array must not be empty" });
+        }
+
+        for (const g of grades as any[]) {
+          const sc = (g as any).score;
+          if (sc < 0 || sc > 10) {
+            console.error("❌ Invalid score:", sc);
+            return res.status(400).json({ message: "Điểm phải từ 0 đến 10" });
+          }
         }
 
         const student = await Student.findById(studentId);
@@ -70,6 +133,7 @@ router.post(
         const cls = await ClassModel.findById(classId);
 
         if (!student || !subject || !cls) {
+          console.error("❌ Invalid student, subject, or class");
           return res
             .status(404)
             .json({ message: "Invalid student, subject, or class" });
@@ -78,9 +142,10 @@ router.post(
         // Tìm hoặc tạo điểm
         let grade = await Grade.findOne({ studentId, subjectId, classId });
         if (!grade) {
-          grade = new Grade({ studentId, subjectId, classId, score });
+          grade = new Grade({ studentId, subjectId, classId, grades });
         } else {
-          grade.score = score;
+          // Update grades: merge or replace
+          grade.grades = grades;
         }
 
         await grade.save();
@@ -106,9 +171,10 @@ router.post(
         }
       }
 
+      console.log("✅ Saved", savedGrades.length, "grades");
       res.status(200).json({ success: true, grades: savedGrades });
     } catch (err) {
-      console.error(err);
+      console.error("❌ /grades/batch error:", err);
       res.status(500).json({ message: "Server error", error: err });
     }
   },
@@ -140,8 +206,19 @@ router.get("/statistics", verifyToken, async (req, res) => {
     }
 
     const totalStudents = grades.length;
-    const scores = grades.map((g) => g.score);
-    const averageGrade = scores.reduce((a, b) => a + b, 0) / totalStudents;
+    const computeAvg = (g: any) => {
+      if (typeof g.averageScore === "number") return g.averageScore;
+      if (Array.isArray(g.grades) && g.grades.length > 0)
+        return (
+          g.grades.reduce((s: number, ge: any) => s + (ge.score || 0), 0) /
+          g.grades.length
+        );
+      return 0;
+    };
+    const scores = grades.map((g) => computeAvg(g));
+    const averageGrade = scores.length
+      ? scores.reduce((a, b) => a + b, 0) / scores.length
+      : 0;
 
     const excellentCount = scores.filter((s) => s >= 9).length; // 9-10
     const goodCount = scores.filter((s) => s >= 8 && s < 9).length; // 8-8.9
@@ -249,7 +326,11 @@ router.post(
 
       // Process each student grade
       for (const student of students) {
-        const score = gradesData[student._id];
+        const scoresObj: any = gradesData as any;
+        const score =
+          scoresObj[String(student._id)] ??
+          scoresObj[String(student.studentId)] ??
+          scoresObj[student.studentId];
         if (score !== undefined && score !== null) {
           gradeReport.gradedStudents.push({
             studentId: student.studentId,
@@ -268,7 +349,8 @@ router.post(
             studentId: studentData.studentId,
           }).populate("userId");
 
-          if (student?.userId) {
+          const studentUser = (student as any)?.userId;
+          if (student && studentUser) {
             const notification = {
               type: "grade_submitted",
               title: `📝 Điểm ${subject.name} được cập nhật`,
@@ -282,10 +364,8 @@ router.post(
 
             // Emit to student via socket
             if (io) {
-              io.to(`user:${student.userId._id}`).emit(
-                "notification",
-                notification,
-              );
+              const targetUserId = studentUser._id || studentUser;
+              io.to(`user:${targetUserId}`).emit("notification", notification);
               console.log(
                 `📨 Grade notification sent to student ${student.studentId}`,
               );
@@ -293,7 +373,8 @@ router.post(
 
             // Save notification to database (optional)
             try {
-              await User.findByIdAndUpdate(student.userId._id, {
+              const targetUserId = studentUser._id || studentUser;
+              await User.findByIdAndUpdate(targetUserId, {
                 $push: {
                   notifications: notification,
                 },
@@ -309,7 +390,7 @@ router.post(
       if (sendToAdmin && io) {
         const adminNotification = {
           type: "grade_report_submitted",
-          title: `📊 Báo cáo điểm từ ${teacher?.name}`,
+          title: ` Báo cáo điểm từ ${teacher?.name}`,
           message: `${teacher?.name} vừa cập nhật ${gradeReport.gradedStudents.length}/${gradeReport.totalStudents} học sinh lớp ${cls.classCode} môn ${subject.name}`,
           report: gradeReport,
           timestamp: new Date(),

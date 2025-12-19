@@ -28,6 +28,7 @@ import postponeRoutes from "./Routers/Postpone/index";
 import gradeLockRoutes from "./Routers/grades/gradeLock";
 import gradeRoutes from "./Routers/grades/gradeRoutes";
 import reportsRouter from "./Routers/reports/reportsRouter";
+import tuitionRoutes from "./Routers/Tuition/index";
 
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
@@ -97,6 +98,9 @@ app.use("/api/grades", gradeRoutes);
 
 // Reports
 app.use("/api/reports", reportsRouter);
+
+// Tuition Management
+app.use("/api/tuitions", tuitionRoutes);
 
 //  Admin
 app.use("/api/admin", adminRoutes);

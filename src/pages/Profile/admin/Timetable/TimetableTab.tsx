@@ -107,11 +107,12 @@ export default function TimetableTab() {
       // Prefer dedicated endpoint if available
       let res;
       try {
+        console.log("📚 [TimetableTab] Fetching from /teachers endpoint...");
         res = await axiosInstance.get<{ data: any[] }>("/teachers");
       } catch (e) {
         // fallback to users endpoint filtered by role
         console.warn(
-          "/teachers endpoint not available, falling back to /users?role=teacher",
+          "⚠️ /teachers endpoint failed, falling back to /users?role=teacher",
         );
         res = await axiosInstance.get<{ data: any[] }>("/users", {
           params: { role: "teacher" },
@@ -124,11 +125,15 @@ export default function TimetableTab() {
         _id: t._id || t._id,
         name: t.name || t.username || t.fullName || "(Không tên)",
       }));
-      console.log("📚 [TimetableTab] fetched teachers:", normalized);
+      console.log(
+        "✅ [TimetableTab] Teachers loaded:",
+        normalized.length,
+        normalized,
+      );
       setTeachers(normalized);
       setTeachersError(null);
     } catch (err) {
-      console.error("Error fetching teachers:", err);
+      console.error("❌ [TimetableTab] Error fetching teachers:", err);
       setTeachers([]);
       try {
         setTeachersError((err as any)?.message || String(err));
@@ -327,6 +332,14 @@ export default function TimetableTab() {
     value: string,
   ) => {
     const updated = [...schedule];
+
+    if (field === "teacherId") {
+      console.log(
+        `📌 [TimetableTab] Schedule item ${index} - teacherId changed to:`,
+        value,
+      );
+    }
+
     // if subject cleared, also clear teacher for that row
     if (field === "subjectId") {
       updated[index] = { ...updated[index], subjectId: value } as any;
@@ -342,6 +355,7 @@ export default function TimetableTab() {
 
   const handleCreateTimetable = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🎬 [TimetableTab] handleCreateTimetable called!");
 
     if (!selectedClass || schedule.length === 0) {
       toast.error("Vui lòng chọn lớp và thêm ít nhất một buổi học");
@@ -352,16 +366,49 @@ export default function TimetableTab() {
 
     setCreating(true);
     try {
+      // Validate all schedule items have required fields
+      console.log("🔍 [TimetableTab] Validating schedule before sending:");
+      for (let i = 0; i < schedule.length; i++) {
+        const s = schedule[i];
+        console.log(`  Item ${i}:`, {
+          subjectId: s.subjectId,
+          teacherId: s.teacherId,
+          hasSubject: !!s.subjectId,
+          hasTeacher: !!s.teacherId,
+        });
+        if (s.subjectId && !s.teacherId) {
+          toast.error(`Buổi học ${i + 1}: Vui lòng gán giáo viên cho môn này`);
+          setCreating(false);
+          return;
+        }
+      }
+
       // sanitize schedule: remove empty-string ids so backend won't try to cast "" to ObjectId
-      const sanitizedSchedule = schedule.map((s) => {
+      const sanitizedSchedule = schedule.map((s, idx) => {
         const copy: any = { ...s };
+        console.log(`  Sanitizing item ${idx} BEFORE:`, {
+          subjectId: copy.subjectId,
+          teacherId: copy.teacherId,
+        });
+
         if (!copy.subjectId) {
           delete copy.subjectId;
           // if no subject, teacher should also be removed
           delete copy.teacherId;
         } else {
-          if (!copy.teacherId) delete copy.teacherId;
+          // If subject exists, teacherId MUST exist
+          if (!copy.teacherId) {
+            throw new Error(
+              `Teacher ID missing for subject: ${copy.subjectId}`,
+            );
+          }
         }
+
+        console.log(`  Sanitizing item ${idx} AFTER:`, {
+          subjectId: copy.subjectId,
+          teacherId: copy.teacherId,
+        });
+
         // ensure canceledDates is array if present
         if (Array.isArray(copy.canceledDates))
           copy.canceledDates = copy.canceledDates.slice();
@@ -397,6 +444,12 @@ export default function TimetableTab() {
         }
       } else {
         // Create new timetable (or overwrite existing for class)
+        console.log("📤 [TimetableTab] Sending to backend:", {
+          classId: selectedClass,
+          scheduleCount: sanitizedSchedule.length,
+          schedule: sanitizedSchedule,
+        });
+
         const res = await axiosInstance.post<{ timetable: Timetable }>(
           "/timetables",
           { classId: selectedClass, schedule: sanitizedSchedule },
@@ -671,15 +724,18 @@ export default function TimetableTab() {
 
               <select
                 value={item.teacherId || ""}
-                onChange={(e) =>
-                  handleScheduleChange(index, "teacherId", e.target.value)
-                }
+                onChange={(e) => {
+                  console.log(
+                    `📌 [TimetableTab] Selected teacher ID: ${e.target.value}`,
+                  );
+                  handleScheduleChange(index, "teacherId", e.target.value);
+                }}
                 disabled={!item.subjectId}
               >
                 <option value="">-- Chọn giáo viên --</option>
                 {teachers.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name}
+                  <option key={t._id} value={String(t._id)}>
+                    {t.name} (ID: {String(t._id).substring(0, 8)}...)
                   </option>
                 ))}
               </select>

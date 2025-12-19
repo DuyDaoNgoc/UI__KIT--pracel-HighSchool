@@ -51,9 +51,19 @@ http.interceptors.request.use(
 
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
+      console.log(
+        "🔐 Interceptor - Token from localStorage:",
+        token ? `✅ Present (length: ${token.length})` : "❌ Missing",
+      );
+
       if (token) {
         if (!config.headers) config.headers = {};
         (config.headers as any).Authorization = `Bearer ${token}`;
+        console.log("🔐 Interceptor - Authorization header set");
+      } else {
+        console.warn(
+          "⚠️ Interceptor - No token found, request will be unauthorized",
+        );
       }
     }
 
@@ -67,6 +77,30 @@ http.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error),
+);
+
+// ===== Interceptor log responses
+http.interceptors.response.use(
+  (response) => {
+    console.log(
+      "✅ Response from",
+      response.config.url,
+      "- Status:",
+      response.status,
+    );
+    return response;
+  },
+  (error) => {
+    console.error(
+      "❌ Response error from",
+      error.config?.url,
+      "- Status:",
+      error.response?.status,
+      "- Message:",
+      error.response?.data?.message,
+    );
+    return Promise.reject(error);
+  },
 );
 
 // ===== Helpers

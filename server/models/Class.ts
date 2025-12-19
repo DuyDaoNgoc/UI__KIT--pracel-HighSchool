@@ -28,7 +28,7 @@ const ClassSchema = new Schema<IClass>(
     schoolYear: { type: String, required: true, trim: true },
     major: { type: String, required: true, trim: true },
     classCode: { type: String, required: true, trim: true, unique: true },
-    teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
+    teacherId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     teacherName: { type: String, default: "" },
 
     studentIds: {
@@ -51,7 +51,7 @@ const ClassSchema = new Schema<IClass>(
           subjectName: { type: String, required: true },
           teacherId: {
             type: Schema.Types.ObjectId,
-            ref: "Teacher",
+            ref: "User",
             required: true,
           },
           teacherName: { type: String, required: true },

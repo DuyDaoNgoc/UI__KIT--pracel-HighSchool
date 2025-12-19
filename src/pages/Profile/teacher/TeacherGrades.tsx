@@ -2,7 +2,7 @@
 // The actual implementation has been moved to GradeEntryFormPro.tsx with enhanced features
 
 import React from "react";
-import GradeEntryFormPro from "./GradeEntryFormPro";
+import GradeEntryFormPro from "./GradeEntryFormSimple";
 
 interface Props {
   classes?: any[];

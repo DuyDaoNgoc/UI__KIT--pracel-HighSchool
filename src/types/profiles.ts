@@ -26,6 +26,12 @@ export interface IUserProfile {
   classCode?: { className: string; grade: string } | string;
   major?: { name: string; code: string } | string;
   majors?: string[]; // chuyên ngành cho giáo viên
+
+  // ✅ Thêm các properties cho ProfileInfo
+  dob?: string; // Date of birth
+  grade?: string; // Grade/Class
+  gpa?: number; // GPA
+  credits?: number; // Credits
 }
 
 export interface IGrade {

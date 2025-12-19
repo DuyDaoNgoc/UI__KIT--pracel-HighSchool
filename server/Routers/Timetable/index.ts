@@ -12,7 +12,8 @@ router.get("/", async (req, res) => {
   try {
     const timetables = await Timetable.find()
       .populate("classId")
-      .populate("schedule.subjectId");
+      .populate("schedule.subjectId")
+      .populate("schedule.teacherId");
     res.status(200).json({ data: timetables });
   } catch (err) {
     console.error(err);
@@ -26,7 +27,8 @@ router.get("/class/:classId", async (req, res) => {
     const { classId } = req.params;
     const timetable = await Timetable.findOne({ classId })
       .populate("classId")
-      .populate("schedule.subjectId");
+      .populate("schedule.subjectId")
+      .populate("schedule.teacherId");
     if (!timetable)
       return res.status(404).json({ message: "Timetable not found" });
     res.status(200).json({ data: timetable });
@@ -41,7 +43,8 @@ router.get("/:id", async (req, res) => {
   try {
     const timetable = await Timetable.findById(req.params.id)
       .populate("classId")
-      .populate("schedule.subjectId");
+      .populate("schedule.subjectId")
+      .populate("schedule.teacherId");
     if (!timetable)
       return res.status(404).json({ message: "Timetable not found" });
     res.status(200).json({ data: timetable });

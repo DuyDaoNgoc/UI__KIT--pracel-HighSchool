@@ -15,8 +15,18 @@ const router = Router();
 // Chỉ sửa đoạn GET /
 router.get("/", async (req: Request, res: Response) => {
   try {
-    // Lấy tất cả lớp
-    const classes = await ClassModel.find().lean();
+    // Lấy tất cả lớp và populate teacherId + subjectTeachers
+    const classes = await ClassModel.find()
+      .populate("teacherId", "_id username email")
+      .populate({
+        path: "subjectTeachers.teacherId",
+        select: "_id username email",
+      })
+      .populate({
+        path: "subjectTeachers.subjectId",
+        select: "_id name",
+      })
+      .lean();
 
     // Lấy tất cả studentIds (hỗ trợ cả object {_id,..} và raw ObjectId)
     const allStudentRefs = classes.flatMap((cls) =>
@@ -68,6 +78,7 @@ router.get("/", async (req: Request, res: Response) => {
         schoolYear: cls.schoolYear,
         teacherId: cls.teacherId || null,
         teacherName: cls.teacherName || "Chưa gán",
+        subjectTeachers: cls.subjectTeachers || [],
         createdAt: cls.createdAt || null,
         students: clsStudents,
       };
@@ -82,6 +93,175 @@ router.get("/", async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * 🏫 GET: Lấy lớp dạy của giáo viên hiện tại
+ * Route: GET /api/classes/my-classes
+ * Yêu cầu: authenticated + teacher role
+ */
+router.get(
+  "/my-classes",
+  verifyToken,
+  checkRole(["teacher"]),
+  async (req: any, res: Response) => {
+    try {
+      // Debug: Log the entire request user object
+      console.log("🔍 Full req.user object:", req.user);
+
+      // JWT token stores the id as 'id', not '_id'
+      const teacherId = req.user?.id;
+      console.log(
+        "📚 Fetching classes for teacher ID:",
+        teacherId,
+        "(type: " + typeof teacherId + ")",
+      );
+
+      if (!teacherId) {
+        console.error("❌ No teacher ID found in token");
+        return res.status(401).json({ message: "Unauthorized: No teacher ID" });
+      }
+
+      // First, let's see ALL classes in the database
+      console.log("🔍 DEBUG: Fetching ALL classes to understand structure...");
+      const allClasses = await ClassModel.find()
+        .select("_id classCode teacherId subjectTeachers.teacherId")
+        .lean();
+      console.log("📊 All classes in DB:", allClasses.length, "total");
+      allClasses.forEach((cls) => {
+        console.log(`  - Class ${cls.classCode}:`, {
+          teacherId: cls.teacherId,
+          teacherIdType: typeof cls.teacherId,
+          subjectTeachersCount: (cls.subjectTeachers || []).length,
+        });
+      });
+
+      // 🔒 Query: lớp mà giáo viên là chủ nhiệm HOẶC là giáo viên bộ môn
+      // Try with string comparison first
+      const classes = await ClassModel.find({
+        $or: [
+          { teacherId: teacherId }, // chủ nhiệm - string comparison
+          { "subjectTeachers.teacherId": teacherId }, // giáo viên bộ môn - string comparison
+        ],
+      })
+        .populate("teacherId", "_id username email")
+        .populate({
+          path: "subjectTeachers.teacherId",
+          select: "_id username email",
+        })
+        .populate({
+          path: "subjectTeachers.subjectId",
+          select: "_id name",
+        })
+        .lean();
+
+      console.log(
+        `✅ Found ${classes.length} classes for teacher ${teacherId} (string comparison)`,
+      );
+
+      if (classes.length === 0) {
+        console.log(
+          "⚠️ No classes found with string comparison. Trying with ObjectId...",
+        );
+        // If no results, try converting to ObjectId
+        try {
+          const teacherObjectId = new mongoose.Types.ObjectId(teacherId);
+          const classesWithObjectId = await ClassModel.find({
+            $or: [
+              { teacherId: teacherObjectId },
+              { "subjectTeachers.teacherId": teacherObjectId },
+            ],
+          })
+            .populate("teacherId", "_id username email")
+            .populate({
+              path: "subjectTeachers.teacherId",
+              select: "_id username email",
+            })
+            .populate({
+              path: "subjectTeachers.subjectId",
+              select: "_id name",
+            })
+            .lean();
+
+          console.log(
+            `✅ Found ${classesWithObjectId.length} classes with ObjectId conversion`,
+          );
+          if (classesWithObjectId.length > classes.length) {
+            // ObjectId version found more classes, use it
+            classes.length = 0;
+            classes.push(...classesWithObjectId);
+          }
+        } catch (e) {
+          console.error("❌ Error converting to ObjectId:", e);
+        }
+      }
+
+      console.log(`📋 Final result: ${classes.length} classes`);
+
+      // Lấy tất cả studentIds
+      const allStudentRefs = classes.flatMap((cls) =>
+        (cls.studentIds || []).map((s: any) => (s && s._id ? s._id : s)),
+      );
+
+      // Query tất cả học sinh
+      const students = await StudentModel.find({ _id: { $in: allStudentRefs } })
+        .select(
+          "_id studentId name username dob address residence phone grade classLetter class major schoolYear email createdAt",
+        )
+        .lean();
+
+      // Map học sinh vào lớp
+      const classesWithStudents = classes.map((cls) => {
+        const clsStudents = (cls.studentIds || [])
+          .map((s: any) => {
+            const sid = s && s._id ? String(s._id) : String(s);
+            const student = students.find((st) => String(st._id) === sid);
+            if (student && student.studentId && student.name) {
+              return {
+                _id: student._id,
+                studentId: student.studentId,
+                name: student.name || student.username,
+                dob: student.dob || null,
+                address: student.address || "",
+                residence: student.residence || "",
+                phone: student.phone || "",
+                grade: student.grade || cls.grade,
+                classLetter: student.classLetter || cls.classLetter,
+                schoolYear: student.schoolYear || cls.schoolYear,
+                major: student.major || cls.major,
+                email: student.email || "",
+                teacherName: cls.teacherName || "Chưa gán",
+                createdAt: student.createdAt || null,
+              };
+            }
+            return null;
+          })
+          .filter((s) => s !== null);
+
+        return {
+          _id: cls._id,
+          classCode: cls.classCode,
+          grade: cls.grade,
+          classLetter: cls.classLetter,
+          major: cls.major,
+          schoolYear: cls.schoolYear,
+          teacherId: cls.teacherId || null,
+          teacherName: cls.teacherName || "Chưa gán",
+          subjectTeachers: cls.subjectTeachers || [],
+          createdAt: cls.createdAt || null,
+          students: clsStudents,
+        };
+      });
+
+      return res.status(200).json({ success: true, data: classesWithStudents });
+    } catch (err) {
+      console.error("⚠️ fetch my-classes error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Không thể lấy danh sách lớp dạy",
+      });
+    }
+  },
+);
 
 /**
  * 🗑️ DROP collection (chỉ dùng lần đầu để fix schema)

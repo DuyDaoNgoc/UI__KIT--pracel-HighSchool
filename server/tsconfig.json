@@ -9,8 +9,10 @@
     "isolatedModules": true,
     "outDir": "./dist",
     "rootDir": "./",
-    "baseUrl": "./",
-    "typeRoots": ["./types", "./node_modules/@types"]
+    "typeRoots": ["./types", "./node_modules/@types"],
+    "paths": {
+      "*": ["./*"]
+    }
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]

@@ -132,12 +132,6 @@
   color: white;
 }
 
-.locked {
-}
-
-.unlocked {
-}
-
 /* Modal */
 .profile-modal {
   position: fixed;
@@ -186,6 +180,7 @@
 
 .action-btn {
   cursor: pointer;
+  background: violet;
   background: none;
   border: none;
   padding: 4px;
@@ -257,6 +252,7 @@
 .action-btn {
   padding: 6px 10px;
   border: none;
+  background: darkviolet;
   border-radius: 6px;
   cursor: pointer;
   color: #fff;

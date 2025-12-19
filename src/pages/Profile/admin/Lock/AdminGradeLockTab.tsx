@@ -30,8 +30,11 @@ export default function AdminGradeLockTab() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<string>("");
+  const [formSelectedClass, setFormSelectedClass] = useState<string>("");
+  const [formSelectedSubject, setFormSelectedSubject] = useState<string>("");
+  const [filterSelectedClass, setFilterSelectedClass] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [creatingLock, setCreatingLock] = useState(false);
 
   // Fetch dữ liệu
   useEffect(() => {
@@ -39,42 +42,31 @@ export default function AdminGradeLockTab() {
       setLoading(true);
       try {
         const [locksRes, classesRes, subjectsRes] = await Promise.all([
-          axiosInstance.get<any>("/grades/lock/locks"),
-          axiosInstance.get<any>("/classes"),
-          axiosInstance.get<any>("/subjects"),
+          axiosInstance.get<{ data: GradeLock[] }>("/grades/lock/locks"),
+          axiosInstance.get<{ data: Class[]; success?: boolean }>("/classes"),
+          axiosInstance.get<{ data: Subject[] }>("/subjects"),
         ]);
 
-        // Handle locks
-        let locksData = [];
-        if (Array.isArray(locksRes.data)) {
-          locksData = locksRes.data;
-        } else if (locksRes.data?.data && Array.isArray(locksRes.data.data)) {
-          locksData = locksRes.data.data;
-        }
+        console.log("🔍 Locks Response:", locksRes.data);
+        console.log("🔍 Classes Response:", classesRes.data);
+        console.log("🔍 Subjects Response:", subjectsRes.data);
+
+        // Handle locks: { data: [...] }
+        const locksData = locksRes.data?.data || [];
         setLocks(locksData);
+        console.log("✅ Locks set to:", locksData);
 
-        // Handle classes - /api/classes trả về { success, data: [...] }
-        let classesData = [];
-        if (classesRes.data?.data && Array.isArray(classesRes.data.data)) {
-          classesData = classesRes.data.data;
-        } else if (Array.isArray(classesRes.data)) {
-          classesData = classesRes.data;
-        }
+        // Handle classes: { data: [...], success: true }
+        const classesData = classesRes.data?.data || [];
         setClasses(classesData);
+        console.log("✅ Classes set to:", classesData);
 
-        // Handle subjects
-        let subjectsData = [];
-        if (Array.isArray(subjectsRes.data)) {
-          subjectsData = subjectsRes.data;
-        } else if (
-          subjectsRes.data?.data &&
-          Array.isArray(subjectsRes.data.data)
-        ) {
-          subjectsData = subjectsRes.data.data;
-        }
+        // Handle subjects: { data: [...] }
+        const subjectsData = subjectsRes.data?.data || [];
         setSubjects(subjectsData);
+        console.log("✅ Subjects set to:", subjectsData);
       } catch (err) {
-        console.error("fetchData error:", err);
+        console.error("❌ fetchData error:", err);
         toast.error("Lỗi tải dữ liệu");
       } finally {
         setLoading(false);
@@ -83,26 +75,45 @@ export default function AdminGradeLockTab() {
     fetchData();
   }, []);
 
+  const normalizeId = (v: any) => {
+    if (!v && v !== 0) return "";
+    if (typeof v === "string") return v;
+    if (typeof v === "object") return v._id || v.id || "";
+    return String(v);
+  };
+
   const handleToggleLock = async (classId: string, subjectId: string) => {
-    const lock = locks.find(
-      (l) => l.classId === classId && l.subjectId === subjectId,
-    );
+    const normalizeId = (v: any) => {
+      if (!v && v !== 0) return "";
+      if (typeof v === "string") return v;
+      if (typeof v === "object") return v._id || v.id || "";
+      return String(v);
+    };
+
+    const cid = normalizeId(classId);
+    const sid = normalizeId(subjectId);
+
+    const lock = locks.find((l) => {
+      const lc = normalizeId((l as any).classId);
+      const ls = normalizeId((l as any).subjectId);
+      return lc === cid && ls === sid;
+    });
     const isCurrentlyLocked = lock?.isLocked;
 
     try {
       const endpoint = isCurrentlyLocked
-        ? `/grades/lock/unlock/${classId}/${subjectId}`
-        : `/grades/lock/lock/${classId}/${subjectId}`;
+        ? `/grades/lock/unlock/${cid}/${sid}`
+        : `/grades/lock/lock/${cid}/${sid}`;
 
       const res = await axiosInstance.post<{ lock: GradeLock }>(endpoint);
 
       if (res.data?.lock) {
         setLocks((prev) =>
-          prev.map((l) =>
-            l.classId === classId && l.subjectId === subjectId
-              ? res.data.lock
-              : l,
-          ),
+          prev.map((l) => {
+            const lc = normalizeId((l as any).classId);
+            const ls = normalizeId((l as any).subjectId);
+            return lc === cid && ls === sid ? res.data.lock : l;
+          }),
         );
 
         toast.success(
@@ -117,22 +128,75 @@ export default function AdminGradeLockTab() {
     }
   };
 
+  const handleCreateLock = async () => {
+    if (!formSelectedClass || !formSelectedSubject) {
+      toast.error("Vui lòng chọn lớp và môn học");
+      return;
+    }
+
+    setCreatingLock(true);
+    try {
+      const normalizeId = (v: any) => {
+        if (!v && v !== 0) return "";
+        if (typeof v === "string") return v;
+        if (typeof v === "object") return v._id || v.id || "";
+        return String(v);
+      };
+      const cid = normalizeId(formSelectedClass);
+      const sid = normalizeId(formSelectedSubject);
+
+      const res = await axiosInstance.post<{ lock: GradeLock }>(
+        `/grades/lock/lock/${cid}/${sid}`,
+      );
+
+      if (res.data?.lock) {
+        // Thêm vào danh sách nếu chưa có
+        const existingIndex = locks.findIndex(
+          (l) =>
+            l.classId === formSelectedClass &&
+            l.subjectId === formSelectedSubject,
+        );
+
+        if (existingIndex >= 0) {
+          setLocks((prev) =>
+            prev.map((l, i) => (i === existingIndex ? res.data.lock : l)),
+          );
+        } else {
+          setLocks((prev) => [...prev, res.data.lock]);
+        }
+
+        toast.success("Khóa điểm thành công");
+        setFormSelectedClass("");
+        setFormSelectedSubject("");
+      }
+    } catch (err: any) {
+      console.error("handleCreateLock error:", err);
+      toast.error(err.response?.data?.message || "Khóa điểm thất bại");
+    } finally {
+      setCreatingLock(false);
+    }
+  };
+
   const getClassName = (classId: string) => {
-    const cls = classes.find((c) => c._id === classId);
+    const cid = normalizeId(classId);
+    const cls = classes.find((c) => String(c._id) === String(cid));
     return cls?.classCode || "Không xác định";
   };
 
   const getSubjectName = (subjectId: string) => {
-    const subject = subjects.find((s) => s._id === subjectId);
+    const sid = normalizeId(subjectId);
+    const subject = subjects.find((s) => String(s._id) === String(sid));
     return subject?.name || "Không xác định";
   };
 
-  const classSubjects = selectedClass
-    ? subjects.filter((s) => s.classId === selectedClass)
+  // Filter subjects by selected class
+  const filteredSubjects = formSelectedClass
+    ? subjects.filter((s) => !s.classId || s.classId === formSelectedClass)
     : subjects;
 
   const filteredLocks = locks.filter((lock) => {
-    const matchClass = !selectedClass || lock.classId === selectedClass;
+    const matchClass =
+      !filterSelectedClass || lock.classId === filterSelectedClass;
     const matchSearch =
       getClassName(lock.classId).toLowerCase().includes(search.toLowerCase()) ||
       getSubjectName(lock.subjectId)
@@ -145,13 +209,62 @@ export default function AdminGradeLockTab() {
     <div className="profile__card">
       <h2 className="profile__title">Khóa điểm theo môn</h2>
 
+      {/* Form tạo khóa điểm */}
+      <div className="profile__form-section">
+        <h3 className="form-subtitle"> khóa điểm</h3>
+        <div className="form-group">
+          <label>Chọn lớp:</label>
+          <select
+            value={formSelectedClass}
+            onChange={(e) => {
+              setFormSelectedClass(e.target.value);
+              setFormSelectedSubject(""); // Reset subject khi chọn lớp mới
+            }}
+            className="form-select"
+          >
+            <option value="">-- Chọn lớp --</option>
+            {classes.map((cls) => (
+              <option key={cls._id} value={cls._id}>
+                {cls.classCode}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {formSelectedClass && (
+          <div className="form-group">
+            <label>Chọn môn học:</label>
+            <select
+              value={formSelectedSubject}
+              onChange={(e) => setFormSelectedSubject(e.target.value)}
+              className="form-select"
+            >
+              <option value="">-- Chọn môn --</option>
+              {filteredSubjects.map((subject) => (
+                <option key={subject._id} value={subject._id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <button
+          onClick={handleCreateLock}
+          disabled={!formSelectedClass || !formSelectedSubject || creatingLock}
+          className="btn btn-primary"
+        >
+          {creatingLock ? "Đang xử lý..." : "Khóa Điểm"}
+        </button>
+      </div>
+
       {/* Bộ lọc */}
       <div className="filter-section">
         <div className="form-group">
           <label>Lọc theo lớp:</label>
           <select
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
+            value={filterSelectedClass}
+            onChange={(e) => setFilterSelectedClass(e.target.value)}
           >
             <option value="">-- Tất cả lớp --</option>
             {classes.map((cls) => (
@@ -192,7 +305,9 @@ export default function AdminGradeLockTab() {
           </thead>
           <tbody>
             {filteredLocks.map((lock) => (
-              <tr key={`${lock.classId}-${lock.subjectId}`}>
+              <tr
+                key={`${normalizeId((lock as any).classId)}-${normalizeId((lock as any).subjectId)}`}
+              >
                 <td>{getClassName(lock.classId)}</td>
                 <td>{getSubjectName(lock.subjectId)}</td>
                 <td>
@@ -221,9 +336,7 @@ export default function AdminGradeLockTab() {
                     onClick={() =>
                       handleToggleLock(lock.classId, lock.subjectId)
                     }
-                    className={`action-btn ${
-                      lock.isLocked ? "unlock" : "lock"
-                    }`}
+                    className={`action-btn ${lock.isLocked ? "unlock" : "lock"}`}
                   >
                     {lock.isLocked ? "Mở khóa" : "Khóa"}
                   </button>

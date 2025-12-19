@@ -9,6 +9,20 @@ interface IClass {
   classLetter: string;
   schoolYear: string;
   studentIds?: string[];
+  students?: Array<{
+    _id: string;
+    studentId: string;
+    name: string;
+  }>;
+  subjectTeachers?: Array<{
+    _id?: string;
+    subjectId: any;
+    subjectName?: string;
+    teacherId: any;
+    teacherName?: string;
+  }>;
+  teacherId?: any;
+  teacherName?: string;
 }
 
 interface IScheduleItem {
@@ -46,17 +60,17 @@ export default function useTeacherData() {
     try {
       switch (tab) {
         case "classes":
-          await fetchClasses(teacherId);
+          await fetchClasses(teacherId, assignedClass);
           break;
         case "schedule":
           await fetchSchedule(teacherId, assignedClass);
           break;
         case "grades":
-          await fetchClasses(teacherId); // Also fetch classes for grade entry
+          await fetchClasses(teacherId, assignedClass); // Also fetch classes for grade entry
           await fetchGrades(teacherId);
           break;
         case "statistics":
-          await fetchStatistics(teacherId);
+          await fetchStatistics(teacherId, assignedClass);
           break;
         default:
           break;
@@ -67,13 +81,61 @@ export default function useTeacherData() {
     }
   };
 
-  const fetchClasses = async (teacherId: string) => {
+  const fetchClasses = async (
+    teacherId: string,
+    assignedClass: Array<any> | null = null,
+  ) => {
     try {
+      // Try server-side filtered endpoint first
+      try {
+        const resp = (await get<any>("/classes/my-classes")) || {};
+        const serverClasses = resp?.data || resp || [];
+        if (Array.isArray(serverClasses) && serverClasses.length > 0) {
+          setClasses(serverClasses);
+          return;
+        }
+      } catch (e) {
+        // ignore and fallback
+        console.warn(
+          "/classes/my-classes not available or empty, falling back",
+          e,
+        );
+      }
+
+      // Fallback: fetch all classes and match by assignedClass.classCode if provided
       const response = await get<{ data: IClass[] }>("/classes");
-      const classes = response?.data || response || [];
-      const teacherClasses = (classes || []).filter(
-        (cls: any) => cls.teacherId === teacherId,
-      );
+      const allClasses = response?.data || response || [];
+
+      if (
+        assignedClass &&
+        Array.isArray(assignedClass) &&
+        assignedClass.length > 0
+      ) {
+        const matched = allClasses.filter((c: any) =>
+          assignedClass.some(
+            (a: any) => a && a.classCode && c.classCode === a.classCode,
+          ),
+        );
+        setClasses(matched);
+        return;
+      }
+
+      // Final fallback: match by teacherId in class document (handle ObjectId/string)
+      const teacherClasses = (allClasses || []).filter((cls: any) => {
+        try {
+          if (!cls) return false;
+          if (String(cls.teacherId) === String(teacherId)) return true;
+          // if subjectTeachers array exists, check their teacherId
+          if (Array.isArray(cls.subjectTeachers)) {
+            return cls.subjectTeachers.some(
+              (st: any) => String(st.teacherId) === String(teacherId),
+            );
+          }
+          return false;
+        } catch (err) {
+          return false;
+        }
+      });
       setClasses(teacherClasses);
     } catch (err: any) {
       console.error("Error fetching classes:", err);

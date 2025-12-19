@@ -124,6 +124,13 @@ export default function AdminSidebar({
         </li>
 
         <li
+          onClick={() => setActiveTab("tuitions")}
+          className={activeTab === "tuitions" ? "active" : ""}
+        >
+          <DollarSign size={18} /> Bảng học phí
+        </li>
+
+        <li
           onClick={() => setActiveTab("grades")}
           className={activeTab === "grades" ? "active" : ""}
         >
