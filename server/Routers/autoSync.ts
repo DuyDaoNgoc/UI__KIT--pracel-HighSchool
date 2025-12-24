@@ -1,4 +1,5 @@
 import express from "express";
+import { Types } from "mongoose";
 import ClassModel from "../models/Class";
 import Student from "../models/Student";
 import Subject, { ISubject } from "../models/Subject";
@@ -11,6 +12,7 @@ interface ScheduleInput {
   day: string;
   subjectName?: string; // old format: subject name
   subjectId?: string; // new format: subject _id
+  teacherId: Types.ObjectId | string;
   startTime: string;
   endTime: string;
 }
@@ -51,6 +53,7 @@ router.post("/", async (req, res) => {
     const timetableSchedule: {
       day: string;
       subjectId: mongoose.Types.ObjectId;
+      teacherId: mongoose.Types.ObjectId;
       startTime: string;
       endTime: string;
     }[] = [];
@@ -74,7 +77,6 @@ router.post("/", async (req, res) => {
       if (!subjId) {
         console.warn(
           `⚠️ [autoSync] Skipping schedule entry - subject not found:`,
-          s,
         );
         continue;
       }
@@ -82,6 +84,7 @@ router.post("/", async (req, res) => {
       timetableSchedule.push({
         day: s.day,
         subjectId: subjId,
+        teacherId: s.teacherId as mongoose.Types.ObjectId,
         startTime: s.startTime,
         endTime: s.endTime,
       });

@@ -559,7 +559,7 @@ export default function ClassesTab({
                                       {s.schoolYear || "-"}
                                     </TableCell>
                                     <TableCell sx={{ fontSize: "12px" }}>
-                                      {s.classLetter || "-"}
+                                      {s.classCode || "-"}
                                     </TableCell>
                                     <TableCell sx={{ fontSize: "12px" }}>
                                       {s.phone || "-"}

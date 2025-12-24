@@ -1,13 +1,14 @@
 import express from "express";
 import PostponeRequest from "../../models/PostponeRequest";
 import Timetable from "../../models/Timetable";
+import mongoose from "mongoose";
+import { getIo } from "../../utils/socketio";
 import {
   verifyToken,
   requireAdmin,
   requireTeacher,
   AuthRequest,
 } from "../../middleware/authMiddleware";
-
 const router = express.Router();
 
 // Teacher: create a postpone request
@@ -83,18 +84,55 @@ router.patch("/:id", verifyToken, requireAdmin, async (req: any, res) => {
     reqDoc.reviewedBy = (req as AuthRequest).user?.id;
     await reqDoc.save();
 
+    // emit socket event so connected clients can react to the review
+    try {
+      const io = getIo();
+      if (io) io.emit("postpone:reviewed", { data: reqDoc });
+    } catch (e) {
+      console.warn("Failed to emit postpone:reviewed socket event", e);
+    }
+
     // If approved and request refers to a timetable item, add requestedDate to timetable.schedule.canceledDates
     if (status === "approved" && reqDoc.timetableId && reqDoc.itemId) {
       try {
         const tt = await Timetable.findById(reqDoc.timetableId);
         if (tt) {
-          const sub = tt.schedule.id(reqDoc.itemId as any);
-          if (sub) {
+          let index = Number(reqDoc.itemId);
+          if (!Number.isInteger(index)) {
+            // itemId was not an integer index — try to find by subdocument _id
+            index = tt.schedule.findIndex(
+              (s: any) => String(s._id) === String(reqDoc.itemId),
+            );
+          }
+
+          if (
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= tt.schedule.length
+          ) {
+            console.warn(
+              "Cannot map postpone request.itemId to a schedule index:",
+              reqDoc.itemId,
+            );
+          } else {
+            const sub = tt.schedule[index];
             sub.canceledDates = sub.canceledDates || [];
-            if (reqDoc.requestedDate)
-              sub.canceledDates.push(reqDoc.requestedDate);
-            else sub.canceledDates.push(new Date().toISOString());
+            sub.canceledDates.push(
+              reqDoc.requestedDate || new Date().toISOString(),
+            );
             await tt.save();
+
+            // notify via socket that timetable changed
+            try {
+              const io = getIo();
+              if (io)
+                io.emit("timetable:updated", {
+                  classId: tt.classId,
+                  timetableId: tt._id,
+                });
+            } catch (e) {
+              console.warn("Failed to emit timetable:updated socket event", e);
+            }
           }
         }
       } catch (e) {

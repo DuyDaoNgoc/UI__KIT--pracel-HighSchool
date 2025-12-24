@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-
+import { ITeacher } from "../types/teacher";
 export interface ITimetable extends Document {
   classId: Types.ObjectId;
   schedule: {
@@ -26,11 +26,11 @@ const TimetableSchema = new Schema<ITimetable>(
           ref: "Subject",
           required: false,
         },
-        // teacher assigned for this schedule item - REQUIRED for grade entry
+        // teacher assigned for this schedule item - optional
         teacherId: {
           type: Schema.Types.ObjectId,
           ref: "User",
-          required: true,
+          required: false,
         },
         // optional periodFrom (date string), canceledDates etc.
         periodFrom: { type: String, required: false },

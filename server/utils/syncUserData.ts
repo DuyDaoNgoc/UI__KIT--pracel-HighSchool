@@ -41,6 +41,18 @@ export async function syncTeacherToUser(teacherData: any): Promise<void> {
       updatePayload.assignedClass = teacherData.assignedClass;
     }
 
+    // If teacherData has an _id (Teacher doc), set teacherRef on User for direct reference
+    if (teacherData._id) {
+      try {
+        updatePayload.teacherRef =
+          typeof teacherData._id === "string"
+            ? teacherData._id
+            : String(teacherData._id);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     console.log(
       `📝 [syncTeacherToUser] Syncing teacher ${teacherData.teacherId} with payload:`,
       updatePayload,
@@ -107,6 +119,18 @@ export async function syncStudentToUser(studentData: any): Promise<void> {
     else if (studentData.classLetter)
       updatePayload.classCode = String(studentData.classLetter).trim();
 
+    // If studentData has an _id (Student doc), set studentRef on User for direct reference
+    if (studentData._id) {
+      try {
+        updatePayload.studentRef =
+          typeof studentData._id === "string"
+            ? studentData._id
+            : String(studentData._id);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // major: convert to string (handle arrays or objects)
     if (studentData.major) {
       if (Array.isArray(studentData.major)) {
@@ -166,17 +190,40 @@ export async function syncStudentGradesToUser(
     const gradesCollection = db.collection("grades");
     const usersCollection = db.collection("users");
 
-    // Get all grades for this student
-    const grades = await gradesCollection
-      .find({ studentId: studentId })
-      .toArray();
+    // Get all grades for this student. Handle cases where studentId in grades is stored
+    // as an ObjectId or as a string.
+    const gradeQuery: any = { $or: [{ studentId: studentId }] };
+    try {
+      const objId = new ObjectId(studentId);
+      gradeQuery.$or.push({ studentId: objId });
+    } catch (e) {
+      // not a valid ObjectId, ignore
+    }
+    const grades = await gradesCollection.find(gradeQuery).toArray();
 
     // Resolve subjectId to subjectName for display
     const SubjectModel = require("../models/Subject").default;
 
     const gradesPayload = [];
     for (const g of grades) {
-      if (g.score === undefined || g.score === null) continue;
+      // Compute a numeric score: prefer averageScore, else compute average from g.grades array
+      let scoreVal: number | null = null;
+      if (typeof g.averageScore === "number") {
+        scoreVal = g.averageScore;
+      } else if (Array.isArray(g.grades) && g.grades.length > 0) {
+        const vals = g.grades
+          .map((it: any) =>
+            typeof it.score === "number" ? it.score : parseFloat(it.score),
+          )
+          .filter((n: any) => !isNaN(n));
+        if (vals.length > 0) {
+          const avg =
+            vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+          scoreVal = Math.round(avg * 10) / 10;
+        }
+      }
+
+      if (scoreVal === null || scoreVal === undefined) continue;
 
       let subjectName = "Unknown";
       if (g.subjectId) {
@@ -190,7 +237,7 @@ export async function syncStudentGradesToUser(
 
       gradesPayload.push({
         subject: subjectName, // use resolved name instead of stringified id
-        score: g.score,
+        score: scoreVal,
       });
     }
 

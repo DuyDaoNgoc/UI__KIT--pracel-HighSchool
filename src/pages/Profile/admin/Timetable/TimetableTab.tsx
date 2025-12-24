@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ITeacher } from "../../../../types/teacherTypes";
 import { toast, Toaster } from "react-hot-toast";
 import axiosInstance from "../../../../api/axiosConfig";
+import { useSocket } from "../../../../Components/settings/hook/IOserver/useSocket";
 
 interface ScheduleItem {
   day: string;
@@ -107,12 +108,11 @@ export default function TimetableTab() {
       // Prefer dedicated endpoint if available
       let res;
       try {
-        console.log("📚 [TimetableTab] Fetching from /teachers endpoint...");
         res = await axiosInstance.get<{ data: any[] }>("/teachers");
       } catch (e) {
         // fallback to users endpoint filtered by role
         console.warn(
-          "⚠️ /teachers endpoint failed, falling back to /users?role=teacher",
+          "/teachers endpoint not available, falling back to /users?role=teacher",
         );
         res = await axiosInstance.get<{ data: any[] }>("/users", {
           params: { role: "teacher" },
@@ -120,20 +120,21 @@ export default function TimetableTab() {
       }
 
       const raw = res.data?.data ?? res.data ?? [];
+      console.log("📡 [TimetableTab] Raw teachers from API:", raw);
+
       // normalize to { _id, name }
       const normalized = (Array.isArray(raw) ? raw : []).map((t: any) => ({
         _id: t._id || t._id,
         name: t.name || t.username || t.fullName || "(Không tên)",
       }));
       console.log(
-        "✅ [TimetableTab] Teachers loaded:",
-        normalized.length,
+        "📚 [TimetableTab] fetched teachers (normalized):",
         normalized,
       );
       setTeachers(normalized);
       setTeachersError(null);
     } catch (err) {
-      console.error("❌ [TimetableTab] Error fetching teachers:", err);
+      console.error("Error fetching teachers:", err);
       setTeachers([]);
       try {
         setTeachersError((err as any)?.message || String(err));
@@ -143,79 +144,117 @@ export default function TimetableTab() {
     }
   };
 
-  // Fetch dữ liệu
+  // Admin: fetch postpone requests (if admin) and allow review
+  const [postponeRequests, setPostponeRequests] = React.useState<any[]>([]);
+  const fetchPostponeRequests = async () => {
+    try {
+      const res = await axiosInstance.get<{ data: any[] }>(
+        "/postpone-requests",
+      );
+      const list = res.data?.data || [];
+      // Only show pending requests in admin panel
+      setPostponeRequests(
+        (list || []).filter((x: any) => x.status === "pending"),
+      );
+    } catch (e) {
+      // ignore: likely not admin or endpoint unavailable
+      console.warn("fetchPostponeRequests failed (maybe not admin):", e);
+      setPostponeRequests([]);
+    }
+  };
+
+  // Fetch dữ liệu (moved to component scope so other handlers can call it)
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [timetablesRes, classesRes] = await Promise.all([
+        axiosInstance.get<{ data: Timetable[] }>("/timetables"),
+        axiosInstance.get<{ data: any[] }>("/classes"),
+      ]);
+
+      // Normalize timetables: ensure classId is a string (not a populated object)
+      const rawTimetables = timetablesRes.data?.data || [];
+      const normalizedTimetables = rawTimetables.map((t: any) => ({
+        ...t,
+        classId: t.classId?._id ? String(t.classId._id) : String(t.classId),
+        schedule: (t.schedule || []).map((item: any) => ({
+          ...item,
+        })),
+        periodFrom:
+          t.periodFrom ??
+          t.fromDate ??
+          t.startDate ??
+          (t.period && (t.period.from || t.period.start)) ??
+          "",
+      }));
+
+      // Merge with existing timetables to preserve old weeks
+      setTimetables((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0)
+          return normalizedTimetables;
+        const existingIds = new Set(prev.map((t) => t._id));
+        const toAdd = normalizedTimetables.filter(
+          (nt) => !existingIds.has(nt._id),
+        );
+        return [...prev, ...toAdd];
+      });
+
+      // normalize classes: ensure teacherId and teacherName are simple values
+      const rawClasses = classesRes.data?.data || [];
+      const normalizedClasses = rawClasses.map((c: any) => ({
+        _id: c._id,
+        classCode: c.classCode || c.classCode || "",
+        teacherName: c.teacherName || c.teacherId?.name || "" || "",
+        teacherId: c.teacherId?._id
+          ? String(c.teacherId._id)
+          : c.teacherId
+            ? String(c.teacherId)
+            : undefined,
+      }));
+      setClasses(normalizedClasses);
+    } catch (err) {
+      console.error("fetchData error:", err);
+      toast.error("Lỗi tải dữ liệu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch on mount
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [timetablesRes, classesRes] = await Promise.all([
-          axiosInstance.get<{ data: Timetable[] }>("/timetables"),
-          axiosInstance.get<{ data: any[] }>("/classes"),
-        ]);
-
-        // Normalize timetables: ensure classId is a string (not a populated object)
-        const rawTimetables = timetablesRes.data?.data || [];
-        const normalizedTimetables = rawTimetables.map((t: any) => ({
-          ...t,
-          classId: t.classId?._id ? String(t.classId._id) : String(t.classId),
-          periodFrom:
-            t.periodFrom ??
-            t.fromDate ??
-            t.startDate ??
-            (t.period && (t.period.from || t.period.start)) ??
-            "",
-        }));
-
-        // Merge with existing timetables to preserve old weeks
-        setTimetables((prev) => {
-          if (!Array.isArray(prev) || prev.length === 0)
-            return normalizedTimetables;
-          // Check by _id to avoid duplicates when refetching
-          const existingIds = new Set(prev.map((t) => t._id));
-          const toAdd = normalizedTimetables.filter(
-            (nt) => !existingIds.has(nt._id),
-          );
-          return [...prev, ...toAdd];
-        });
-
-        // normalize classes: ensure teacherId and teacherName are simple values
-        const rawClasses = classesRes.data?.data || [];
-        const normalizedClasses = rawClasses.map((c: any) => ({
-          _id: c._id,
-          classCode: c.classCode || c.classCode || "",
-          teacherName: c.teacherName || c.teacherId?.name || "" || "",
-          teacherId: c.teacherId?._id
-            ? String(c.teacherId._id)
-            : c.teacherId
-              ? String(c.teacherId)
-              : undefined,
-        }));
-        setClasses(normalizedClasses);
-      } catch (err) {
-        console.error("fetchData error:", err);
-        toast.error("Lỗi tải dữ liệu");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
-    // Fetch subjects separately
     fetchSubjects();
     fetchTeachers();
+    fetchPostponeRequests();
   }, []);
 
-  // When selectedClass changes, if that class has an assigned teacher, pre-fill teacherId for schedule rows
+  // Listen to socket events to refresh lists when admin reviews or timetable updates
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+    const onReviewed = (payload: any) => {
+      console.log("socket postpone:reviewed", payload);
+      fetchPostponeRequests();
+    };
+    const onTimetableUpdated = (payload: any) => {
+      console.log("socket timetable:updated", payload);
+      fetchData();
+    };
+    socket.on("postpone:reviewed", onReviewed);
+    socket.on("timetable:updated", onTimetableUpdated);
+    return () => {
+      socket.off("postpone:reviewed", onReviewed);
+      socket.off("timetable:updated", onTimetableUpdated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
+
+  // When selectedClass changes, fetch timetables for that class
   useEffect(() => {
     if (!selectedClass || classes.length === 0) return;
-    const cls = classes.find((c) => c._id === selectedClass);
-    if (!cls || !cls.teacherId) return;
-
-    setSchedule((prev) =>
-      prev.map((item) => ({
-        ...item,
-        teacherId: item.teacherId || cls.teacherId,
-      })),
-    );
+    // NOTE: Removed pre-fill of teacherId from class's assigned teacher
+    // because class.teacherId is a User ID, but timetable teachers come from Teacher collection
+    // These are different collections and have different IDs!
   }, [selectedClass, classes]);
 
   const normalizeTimetable = (t: any) => ({
@@ -332,14 +371,6 @@ export default function TimetableTab() {
     value: string,
   ) => {
     const updated = [...schedule];
-
-    if (field === "teacherId") {
-      console.log(
-        `📌 [TimetableTab] Schedule item ${index} - teacherId changed to:`,
-        value,
-      );
-    }
-
     // if subject cleared, also clear teacher for that row
     if (field === "subjectId") {
       updated[index] = { ...updated[index], subjectId: value } as any;
@@ -355,64 +386,69 @@ export default function TimetableTab() {
 
   const handleCreateTimetable = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🎬 [TimetableTab] handleCreateTimetable called!");
 
     if (!selectedClass || schedule.length === 0) {
       toast.error("Vui lòng chọn lớp và thêm ít nhất một buổi học");
       return;
     }
 
-    // Allow empty subject rows (treated as day off) — do not block creation
+    // Validate that if subjectId is chosen, teacherId must also be chosen
+    const hasInvalidSchedule = schedule.some((s) => {
+      return s.subjectId && !s.teacherId;
+    });
+
+    if (hasInvalidSchedule) {
+      toast.error("Vui lòng chọn giáo viên cho mỗi môn học");
+      return;
+    }
+
+    // Also check that teachers list is not empty
+    if (teachers.length === 0) {
+      toast.error("⚠️ Danh sách giáo viên trống! Vui lòng tải lại giáo viên");
+      return;
+    }
 
     setCreating(true);
     try {
-      // Validate all schedule items have required fields
-      console.log("🔍 [TimetableTab] Validating schedule before sending:");
-      for (let i = 0; i < schedule.length; i++) {
-        const s = schedule[i];
-        console.log(`  Item ${i}:`, {
-          subjectId: s.subjectId,
-          teacherId: s.teacherId,
-          hasSubject: !!s.subjectId,
-          hasTeacher: !!s.teacherId,
-        });
-        if (s.subjectId && !s.teacherId) {
-          toast.error(`Buổi học ${i + 1}: Vui lòng gán giáo viên cho môn này`);
-          setCreating(false);
-          return;
-        }
-      }
-
       // sanitize schedule: remove empty-string ids so backend won't try to cast "" to ObjectId
-      const sanitizedSchedule = schedule.map((s, idx) => {
+      const sanitizedSchedule = schedule.map((s) => {
         const copy: any = { ...s };
-        console.log(`  Sanitizing item ${idx} BEFORE:`, {
-          subjectId: copy.subjectId,
-          teacherId: copy.teacherId,
-        });
-
         if (!copy.subjectId) {
           delete copy.subjectId;
           // if no subject, teacher should also be removed
           delete copy.teacherId;
-        } else {
-          // If subject exists, teacherId MUST exist
-          if (!copy.teacherId) {
-            throw new Error(
-              `Teacher ID missing for subject: ${copy.subjectId}`,
-            );
-          }
         }
-
-        console.log(`  Sanitizing item ${idx} AFTER:`, {
-          subjectId: copy.subjectId,
-          teacherId: copy.teacherId,
-        });
-
+        // Note: keep teacherId even if empty - let backend handle it
         // ensure canceledDates is array if present
         if (Array.isArray(copy.canceledDates))
           copy.canceledDates = copy.canceledDates.slice();
         return copy;
+      });
+
+      console.log(
+        "🔍 [TimetableTab] Sanitized schedule being sent:",
+        sanitizedSchedule,
+      );
+
+      // Log detailed teacher info and available teachers
+      console.log(
+        `📚 [TimetableTab] Available teachers in state (${teachers.length}):`,
+        teachers.map((t) => `${t._id} (${t.name})`).join(", "),
+      );
+
+      sanitizedSchedule.forEach((item: any, idx: number) => {
+        const hasSubject = !!item.subjectId;
+        const hasTeacher = !!item.teacherId;
+        console.log(
+          `🎓 [TimetableTab] Schedule[${idx}]: subject=${hasSubject ? "✅" : "❌"}, teacher=${hasTeacher ? "✅" : "❌"}`,
+        );
+
+        if (item.teacherId) {
+          const foundTeacher = teachers.find((t) => t._id === item.teacherId);
+          console.log(
+            `   └─ teacherId="${item.teacherId}" → found in dropdown: ${foundTeacher ? `✅ ${foundTeacher.name}` : "❌ NOT FOUND"}`,
+          );
+        }
       });
 
       if (editingId) {
@@ -444,20 +480,52 @@ export default function TimetableTab() {
         }
       } else {
         // Create new timetable (or overwrite existing for class)
-        console.log("📤 [TimetableTab] Sending to backend:", {
-          classId: selectedClass,
-          scheduleCount: sanitizedSchedule.length,
-          schedule: sanitizedSchedule,
-        });
+        console.log(
+          "📤 [handleCreateTimetable] Raw schedule (before sanitize):",
+          schedule,
+        );
+        console.log(
+          "📤 [handleCreateTimetable] Sanitized schedule (after sanitize):",
+          sanitizedSchedule,
+        );
+
+        // Log exact JSON that will be sent
+        const payload = { classId: selectedClass, schedule: sanitizedSchedule };
+        console.log(
+          "📤 [handleCreateTimetable] EXACT PAYLOAD being posted:",
+          JSON.stringify(payload, null, 2),
+        );
 
         const res = await axiosInstance.post<{ timetable: Timetable }>(
           "/timetables",
-          { classId: selectedClass, schedule: sanitizedSchedule },
+          payload,
         );
+
+        console.log("✅ [handleCreateTimetable] Response:", res.data);
         if (res.data?.timetable) {
           const nt = normalizeTimetable(res.data.timetable);
-          // Append new timetable instead of overwriting existing ones for the class
-          setTimetables((prev) => [...prev, nt]);
+          // Avoid duplicates: replace if same _id or same classId, otherwise append
+          setTimetables((prev) => {
+            try {
+              if (!Array.isArray(prev) || prev.length === 0) return [nt];
+              if (nt._id) {
+                const existsById = prev.some((t) => t._id === nt._id);
+                if (existsById)
+                  return prev.map((t) => (t._id === nt._id ? nt : t));
+              }
+              // fallback: replace by classId if a timetable for that class already exists
+              const existsByClass = prev.some((t) => t.classId === nt.classId);
+              if (existsByClass)
+                return prev.map((t) => (t.classId === nt.classId ? nt : t));
+              return [...prev, nt];
+            } catch (e) {
+              console.warn(
+                "Error merging new timetable, appending as fallback",
+                e,
+              );
+              return [...prev, nt];
+            }
+          });
           toast.success("Tạo thời khóa biểu thành công");
           try {
             localStorage.setItem(
@@ -490,8 +558,15 @@ export default function TimetableTab() {
         },
       ]);
     } catch (err: any) {
-      console.error("handleCreateTimetable error:", err);
-      toast.error(err.response?.data?.message || "Tạo thời khóa biểu thất bại");
+      console.error("❌ [handleCreateTimetable] Error:", err);
+      console.error("❌ [handleCreateTimetable] Response:", err.response);
+      console.error("❌ [handleCreateTimetable] Message:", err.message);
+
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Tạo thời khóa biểu thất bại";
+      toast.error(errorMessage);
     } finally {
       setCreating(false);
     }
@@ -591,10 +666,17 @@ export default function TimetableTab() {
 
   const getTeacherName = (teacherIdOrObj: any) => {
     if (!teacherIdOrObj) return "-";
-    if (typeof teacherIdOrObj === "object")
-      return teacherIdOrObj.name || String(teacherIdOrObj._id || "-");
-    const t = teachers.find((x) => x._id === String(teacherIdOrObj));
-    return t?.name || "-";
+    // If it's an object with a name property (populated from API), use it directly
+    if (typeof teacherIdOrObj === "object") {
+      if (teacherIdOrObj.name) return teacherIdOrObj.name;
+      if (teacherIdOrObj._id) return String(teacherIdOrObj._id);
+      return "-";
+    }
+    // If it's a string/ID, look it up in the teachers array
+    const teacherId = String(teacherIdOrObj);
+    const t = teachers.find((x) => x._id === teacherId);
+    if (t?.name) return t.name;
+    return teacherId || "-";
   };
 
   const getClassName = (classId: string) => {
@@ -650,36 +732,171 @@ export default function TimetableTab() {
               </option>
             ))}
           </select>
-        </div>
 
-        {/* Debug: teachers */}
-        <div style={{ marginBottom: 12 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div className="profile__subtitle">
-              Danh sách giáo viên: {teachers.length}
-            </div>
-            <div>
-              <button
-                type="button"
-                className="button secondary"
-                onClick={fetchTeachers}
-                style={{ marginRight: 8 }}
+          <div style={{ marginBottom: 12 }}>
+            {/* Admin: postpone requests panel (từ giáo viên) */}
+            {postponeRequests.length > 0 && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  border: "1px solid #eee",
+                  padding: 8,
+                }}
               >
-                Tải lại giáo viên
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={() => console.log("Teachers state:", teachers)}
-              >
-                Log teachers
-              </button>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <div className="profile__subtitle">
+                    Yêu cầu hoãn (từ giáo viên)
+                  </div>
+                  <div>
+                    <button className="button" onClick={fetchPostponeRequests}>
+                      Tải lại
+                    </button>
+                  </div>
+                </div>
+                <ul style={{ marginTop: 8 }}>
+                  {postponeRequests.map((p) => (
+                    <li
+                      key={p._id}
+                      style={{
+                        marginBottom: 6,
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <strong>{p.subject}</strong> — lớp: {p.classId || "-"} —
+                        ngày: {p.requestedDate || "-"}
+                        <div style={{ color: "#666" }}>{p.reason}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          className="button"
+                          onClick={async () => {
+                            console.log("Approving postpone request", p._id);
+                            try {
+                              const resp = await axiosInstance.patch(
+                                `/postpone-requests/${p._id}`,
+                                { status: "approved" },
+                              );
+                              console.log("Approve response:", resp);
+                              // Optimistically remove from UI
+                              setPostponeRequests((prev) =>
+                                prev.filter((x) => x._id !== p._id),
+                              );
+                              // background refresh
+                              fetchPostponeRequests();
+                              fetchData();
+                              try {
+                                localStorage.setItem(
+                                  "postpone:updated",
+                                  JSON.stringify({ ts: Date.now(), id: p._id }),
+                                );
+                              } catch (e) {}
+                              try {
+                                localStorage.setItem(
+                                  "timetable:updated",
+                                  JSON.stringify({
+                                    ts: Date.now(),
+                                    classId: p.classId,
+                                  }),
+                                );
+                              } catch (e) {}
+                              try {
+                                window.dispatchEvent(
+                                  new CustomEvent("timetable:updated", {
+                                    detail: { classId: p.classId },
+                                  }),
+                                );
+                              } catch (e) {}
+                              toast.success("Đã duyệt yêu cầu");
+                            } catch (err: any) {
+                              console.error(
+                                "Approve error:",
+                                err,
+                                err?.response?.data,
+                              );
+                              toast.error(
+                                err?.response?.data?.message ||
+                                  "Duyệt thất bại",
+                              );
+                            }
+                          }}
+                        >
+                          Duyệt
+                        </button>
+                        <button
+                          className="button danger"
+                          onClick={async () => {
+                            console.log("Rejecting postpone request", p._id);
+                            try {
+                              const resp = await axiosInstance.patch(
+                                `/postpone-requests/${p._id}`,
+                                { status: "rejected" },
+                              );
+                              console.log("Reject response:", resp);
+                              // remove from UI optimistically
+                              setPostponeRequests((prev) =>
+                                prev.filter((x) => x._id !== p._id),
+                              );
+                              fetchPostponeRequests();
+                              try {
+                                localStorage.setItem(
+                                  "postpone:updated",
+                                  JSON.stringify({ ts: Date.now(), id: p._id }),
+                                );
+                              } catch (e) {}
+                              toast.success("Đã từ chối");
+                            } catch (err: any) {
+                              console.error(
+                                "Reject error:",
+                                err,
+                                err?.response?.data,
+                              );
+                              toast.error(
+                                err?.response?.data?.message ||
+                                  "Từ chối thất bại",
+                              );
+                            }
+                          }}
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div className="profile__subtitle">
+                Danh sách giáo viên: {teachers.length}
+              </div>
+              <div>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={fetchTeachers}
+                  style={{ marginRight: 8 }}
+                >
+                  Tải lại giáo viên
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => console.log("Teachers state:", teachers)}
+                >
+                  Log teachers
+                </button>
+              </div>
             </div>
           </div>
           {teachers.length === 0 && (
@@ -724,18 +941,15 @@ export default function TimetableTab() {
 
               <select
                 value={item.teacherId || ""}
-                onChange={(e) => {
-                  console.log(
-                    `📌 [TimetableTab] Selected teacher ID: ${e.target.value}`,
-                  );
-                  handleScheduleChange(index, "teacherId", e.target.value);
-                }}
+                onChange={(e) =>
+                  handleScheduleChange(index, "teacherId", e.target.value)
+                }
                 disabled={!item.subjectId}
               >
                 <option value="">-- Chọn giáo viên --</option>
                 {teachers.map((t) => (
-                  <option key={t._id} value={String(t._id)}>
-                    {t.name} (ID: {String(t._id).substring(0, 8)}...)
+                  <option key={t._id} value={t._id}>
+                    {t.name}
                   </option>
                 ))}
               </select>
@@ -951,7 +1165,6 @@ export default function TimetableTab() {
               globalWeek !== "Tất cả"
                 ? globalWeek
                 : weekSelection[timetable._id] || "Tất cả";
-
             return (
               <div key={timetable._id} className="timetable-box">
                 <div
@@ -972,7 +1185,6 @@ export default function TimetableTab() {
                     >
                       Chỉnh sửa
                     </button>
-
                     <button
                       type="button"
                       className="button danger"
@@ -983,7 +1195,6 @@ export default function TimetableTab() {
                     </button>
                   </div>
                 </div>
-
                 <div style={{ marginTop: 8, marginBottom: 8 }}>
                   {weeksArr.map((w) => (
                     <button
@@ -999,7 +1210,6 @@ export default function TimetableTab() {
                     </button>
                   ))}
                 </div>
-
                 <table className="timetable-table">
                   <thead>
                     <tr>
@@ -1024,7 +1234,6 @@ export default function TimetableTab() {
                           );
                         },
                       );
-
                       if (filteredItems.length === 0) {
                         return (
                           <tr>
@@ -1037,7 +1246,6 @@ export default function TimetableTab() {
                           </tr>
                         );
                       }
-
                       return (
                         <>
                           {filteredItems.map((item: any, idx: number) => {
@@ -1048,6 +1256,14 @@ export default function TimetableTab() {
                             } else if ((item as any).date) {
                               dateCell = formatDateDMY((item as any).date);
                             }
+
+                            // Debug log
+                            console.log(
+                              `📌 [TimetableTab] Item ${idx}:`,
+                              item,
+                              "teacherId:",
+                              (item as any).teacherId,
+                            );
 
                             return (
                               <tr key={idx}>

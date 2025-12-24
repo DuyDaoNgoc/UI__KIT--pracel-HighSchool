@@ -20,6 +20,7 @@ import TeacherStatistics from "./TeacherStatistics";
 
 import ReportsTab from "./ReportsTab";
 import useTeacherData from "../../../Components/settings/hook/profiles/useTeacherData";
+import { useSocket } from "../../../Components/settings/hook/IOserver/useSocket";
 
 export default function TeacherProfile() {
   const { user: authUser } = useAuth() as { user: IUserProfile | null };
@@ -35,7 +36,7 @@ export default function TeacherProfile() {
 
   useEffect(() => {
     if (user?.teacherId)
-      fetchAll(activeTab, user.teacherId, user.assignedClass || null);
+      fetchAll(activeTab, user.teacherId!, user.assignedClass || null);
   }, [activeTab, user]);
 
   // 🔄 Auto-refetch user data when "info" tab is opened
@@ -77,7 +78,7 @@ export default function TeacherProfile() {
         return;
       }
 
-      fetchAll("schedule", user.teacherId, user.assignedClass ?? null);
+      fetchAll("schedule", user.teacherId!, user.assignedClass ?? null);
     };
 
     window.addEventListener("timetable:updated", handleTimetableUpdate as any);
@@ -89,6 +90,33 @@ export default function TeacherProfile() {
       );
     };
   }, [user?.teacherId, user?.assignedClass]);
+
+  // Also listen for server socket events so other users' actions (admin) trigger a refresh
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket || !user?.teacherId) return;
+
+    const onUpdate = (payload: any) => {
+      try {
+        // If payload contains classId and it doesn't match this teacher's assignedClass, ignore
+        if (payload && payload.classId && user.assignedClass) {
+          if (String(payload.classId) !== String(user.assignedClass)) return;
+        }
+        fetchAll("schedule", user.teacherId!, user.assignedClass ?? null);
+      } catch (e) {
+        console.warn("onUpdate handler error:", e);
+      }
+    };
+
+    socket.on("timetable:updated", onUpdate);
+    socket.on("postpone:reviewed", onUpdate);
+
+    return () => {
+      socket.off("timetable:updated", onUpdate);
+      socket.off("postpone:reviewed", onUpdate);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, user?.teacherId, user?.assignedClass]);
 
   if (!user) return <div>Vui lòng đăng nhập để xem thông tin giáo viên.</div>;
 
@@ -138,7 +166,6 @@ export default function TeacherProfile() {
           >
             <BarChart3 size={18} /> Thống kê
           </li>
-
           <li
             onClick={() => setActiveTab("reports")}
             className={activeTab === "reports" ? "active" : ""}
@@ -167,14 +194,14 @@ export default function TeacherProfile() {
         )}
         {activeTab === "schedule" && <TeacherSchedule schedule={schedule} />}
         {activeTab === "grades" && (
-          <TeacherGrades teacherId={user.teacherId} classes={classes} />
+          <TeacherGrades teacherId={user.teacherId!} classes={classes} />
         )}
         {activeTab === "statistics" && (
           <TeacherStatistics statistics={statistics} classes={classes} />
         )}
 
         {activeTab === "reports" && (
-          <ReportsTab classes={classes} teacherId={user.teacherId} />
+          <ReportsTab classes={classes} teacherId={user.teacherId!} />
         )}
       </main>
     </div>

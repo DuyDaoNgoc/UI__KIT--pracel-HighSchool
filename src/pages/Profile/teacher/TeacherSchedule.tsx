@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "../../../stylesheets/components/profile/_TimetableTab.scss";
 import axiosInstance from "../../../api/axiosConfig";
+import { useSocket } from "../../../Components/settings/hook/IOserver/useSocket";
 
 interface IScheduleItem {
   _id?: string;
@@ -109,11 +110,67 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
       setPostponeState((s) => ({ ...s, [key]: "sent" }));
       setModalOpen(false);
       setSelectedItem(null);
+      try {
+        localStorage.setItem(
+          "postpone:updated",
+          JSON.stringify({ ts: Date.now() }),
+        );
+      } catch (e) {}
     } catch (err) {
       console.error("submitPostponeRequest error:", err);
       setPostponeState((s) => ({ ...s, [key]: "failed" }));
     }
   };
+
+  // load teacher's own postpone requests and map statuses to postponeState
+  const fetchMyPostponeRequests = async () => {
+    try {
+      const res = await axiosInstance.get<{ data: any[] }>(
+        "/postpone-requests/me",
+      );
+      const list = res.data?.data || [];
+      const m: Record<string, string> = {};
+      for (const r of list) {
+        const k = r.itemId || `${r.day}-${r.startTime}`;
+        m[String(k)] = r.status || "pending";
+      }
+      setPostponeState((s) => ({ ...s, ...m }));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchMyPostponeRequests();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "postpone:updated") fetchMyPostponeRequests();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // listen for server socket events to refresh postpone statuses when admin reviews
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+
+    const handler = (payload: any) => {
+      try {
+        // If payload contains data about the reviewed postpone, refresh local state
+        fetchMyPostponeRequests();
+      } catch (e) {
+        console.warn("postpone socket handler error:", e);
+      }
+    };
+
+    socket.on("postpone:reviewed", handler);
+    socket.on("timetable:updated", handler);
+
+    return () => {
+      socket.off("postpone:reviewed", handler);
+      socket.off("timetable:updated", handler);
+    };
+  }, [socket]);
   // build flattened rows per day; if day empty add a Trống row
   const flattenedRows: Array<any> = [];
   for (const day of sortedDays) {
@@ -264,6 +321,18 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
                     <td>{r.day}</td>
                     <td>{item.subject}</td>
                     <td>
+                      {Array.isArray((item as any).canceledDates) &&
+                        (item as any).canceledDates.length > 0 && (
+                          <div
+                            style={{
+                              color: "green",
+                              fontWeight: 600,
+                              marginBottom: 6,
+                            }}
+                          >
+                            Đã hoãn
+                          </div>
+                        )}
                       {item.classId
                         ? classesMap[item.classId] || item.classId
                         : "-"}
@@ -274,16 +343,31 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
                     <td>{item.week || "-"}</td>
                     <td>{item.date || "-"}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn btn-small"
-                        disabled
-                        title="Chỉ admin mới có quyền thay đổi thời khóa biểu"
-                      >
-                        Hoãn
-                      </button>
-                      {postponeState[key] === "sent" && (
-                        <small style={{ color: "green" }}> Đã gửi</small>
+                      {postponeState[key] === "approved" ? (
+                        <span style={{ color: "green", fontWeight: 600 }}>
+                          Đã hoãn
+                        </span>
+                      ) : postponeState[key] === "rejected" ? (
+                        <span style={{ color: "#c0392b", fontWeight: 600 }}>
+                          Bị từ chối
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-small"
+                            onClick={() => {
+                              setSelectedItem(item as IScheduleItem);
+                              setModalOpen(true);
+                            }}
+                            title="Gửi yêu cầu hoãn đến admin"
+                          >
+                            Hoãn
+                          </button>
+                          {postponeState[key] === "sent" && (
+                            <small style={{ color: "green" }}> Đã gửi</small>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>

@@ -251,6 +251,9 @@ export default function useTeacherData() {
             endTime: s.endTime || "",
             week: s.week || "",
             date: s.date || s.periodFrom || "",
+            canceledDates: Array.isArray(s.canceledDates)
+              ? s.canceledDates.slice()
+              : [],
           } as any;
         });
 
@@ -290,9 +293,12 @@ export default function useTeacherData() {
     }
   };
 
-  const fetchStatistics = async (teacherId: string) => {
+  const fetchStatistics = async (
+    teacherId: string,
+    assignedClass: Array<any> | null = null,
+  ) => {
     try {
-      await fetchClasses(teacherId);
+      await fetchClasses(teacherId, assignedClass);
 
       // Calculate statistics from classes
       const response = await get<{ data: IClass[] }>("/classes");

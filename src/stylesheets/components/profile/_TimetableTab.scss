@@ -324,6 +324,17 @@
   font-weight: 700;
 }
 
+/* Postponed badge */
+.badge-postponed {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #fde68a;
+  color: #92400e;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
 /* small helper for empty state */
 .schedule-empty {
   color: #6b7280;

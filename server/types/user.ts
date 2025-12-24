@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { Document, Types } from "mongoose";
 
 /**
  * Vai trò user (Role)
@@ -8,14 +9,16 @@ export type Role = "student" | "teacher" | "admin" | "parent";
 
 /* ===========================================================
    ===== Interface cơ bản cho User =====
-   - Đây là model dữ liệu user chung (BE <-> FE mapping)
-   - Không bắt buộc mọi field đều tồn tại (hầu hết optional)
+   - Dùng cho BE <-> FE (DTO / response)
    =========================================================== */
 export interface IUser {
   // ===== ID & định danh =====
   _id?: ObjectId | string;
   studentId?: string;
   teacherId?: string | null;
+  // Reference IDs to Teacher / Student documents
+  teacherRef?: ObjectId | string | null;
+  studentRef?: ObjectId | string | null;
   parentId?: string | null;
   customId?: string;
 
@@ -32,16 +35,16 @@ export interface IUser {
   phone?: string;
   address?: string;
   residence?: string;
-  location?: string; // 🆕 nơi ở (VD: Đà Nẵng)
+  location?: string;
   avatar?: string;
   createdAt?: Date;
 
   // ===== Thông tin lớp / học tập =====
   class?: string;
-  classCode?: string; // 🆕 mã lớp đầy đủ (VD: 1ACNTT)
+  classCode?: string;
   classLetter?: string;
-  major?: string; // 🆕 ngành học (VD: CNTT)
-  grade?: string; // 🆕 khối học (VD: 1, 10, 12)
+  major?: string;
+  grade?: string;
   schoolYear?: string;
   teacherName?: string;
 
@@ -65,10 +68,11 @@ export interface IUser {
   assignedClass?: {
     grade: string;
     classLetter: string;
-    major: string;
+    majors: string; // 🔧 FIX: khớp schema
     schoolYear: string;
     classCode: string;
     className?: string;
+    role?: string; // 🔧 FIX: khớp schema
   }[];
 
   // ===== Học phí =====
@@ -80,12 +84,29 @@ export interface IUser {
   loginAttempts?: number;
   lockUntil?: number;
   isBlocked?: boolean;
+
+  // ===== BỔ SUNG ĐỂ KHỚP SCHEMA =====
+  majors?: string[]; // 🔧 FIX: schema có majors[]
+  notifications?: {
+    type?: string;
+    title?: string;
+    message?: string;
+    score?: number;
+    subject?: string;
+    class?: string;
+    teacher?: string;
+    report?: any;
+    timestamp?: Date;
+    read?: boolean;
+  }[];
 }
 
 /* ===========================================================
-   ===== Interface Mongoose Document =====
+   ===== Interface Mongoose Document (CHỈ PHẦN NÀY CỰC QUAN TRỌNG)
    =========================================================== */
-export interface IUserDocument extends IUser {}
+export interface IUserDocument extends IUser, Document {
+  _id: Types.ObjectId;
+}
 
 /* ===========================================================
    ===== Input khi tạo user =====
@@ -101,14 +122,14 @@ export interface CreateUserInput {
   role?: Role;
   dob?: Date | string;
   class?: string;
-  classCode?: string; // 🆕
-  grade?: string; // 🆕
-  major?: string; // 🆕
+  classCode?: string;
+  grade?: string;
+  major?: string;
   schoolYear?: string;
   phone?: string;
   address?: string;
   residence?: string;
-  location?: string; // 🆕
+  location?: string;
   avatar?: string;
   createdAt?: Date;
   children?: string[];
@@ -126,6 +147,8 @@ export interface CreateUserInput {
   tuitionRemaining?: number;
   loginAttempts?: number;
   lockUntil?: number;
+  teacherRef?: ObjectId | string | null;
+  studentRef?: ObjectId | string | null;
 }
 
 /* ===========================================================
@@ -136,11 +159,13 @@ export type SafeUser = Omit<IUser, "password" | "_id" | "children"> & {
   children: string[];
   teacherId?: string | null;
   parentId?: string | null;
-  assignedClass?: any[]; // 🆕 For teachers
+  assignedClass?: any[];
+  teacherRef?: string | null;
+  studentRef?: string | null;
 };
 
 /* ===========================================================
-   ===== Convert IUser -> SafeUser =====
+   ===== Convert IUser -> SafeUser
    =========================================================== */
 export const toSafeUser = (
   user: IUser & { _id: ObjectId | string },
@@ -165,7 +190,7 @@ export const toSafeUser = (
   phone: user.phone || "",
   address: user.address || "",
   residence: user.residence || "",
-  location: (user as any).location || "", // 🆕
+  location: (user as any).location || "",
   avatar:
     user.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
   createdAt: user.createdAt || new Date(),
@@ -177,5 +202,11 @@ export const toSafeUser = (
   tuitionTotal: user.tuitionTotal || 0,
   tuitionPaid: user.tuitionPaid || 0,
   tuitionRemaining: user.tuitionRemaining || 0,
-  assignedClass: (user as any).assignedClass || [], // 🆕 For teachers
+  assignedClass: (user as any).assignedClass || [],
+  teacherRef: (user as any).teacherRef
+    ? (user as any).teacherRef.toString()
+    : null,
+  studentRef: (user as any).studentRef
+    ? (user as any).studentRef.toString()
+    : null,
 });

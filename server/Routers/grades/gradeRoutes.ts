@@ -2,6 +2,7 @@ import express from "express";
 import Grade from "../../models/Grade";
 import Student from "../../models/Student";
 import Subject from "../../models/Subject";
+import TeacherModel from "../../models/teacherModel";
 import ClassModel from "../../models/Class";
 import GradeLock from "../../models/GradeLock";
 import User from "../../models/User";
@@ -21,9 +22,48 @@ router.get("/", verifyToken, async (req, res) => {
     const { subjectId, classId, studentId } = req.query;
     const filter: any = {};
 
-    if (subjectId) filter.subjectId = subjectId;
-    if (classId) filter.classId = classId;
-    if (studentId) filter.studentId = studentId;
+    // Helper: treat 24-hex strings as ObjectId, otherwise try to resolve
+    const looksLikeObjectId = (v: any) =>
+      typeof v === "string" && /^[0-9a-fA-F]{24}$/.test(v);
+
+    // resolve studentId if provided: allow external student code (e.g. 26C26667)
+    if (studentId) {
+      const sid = String(studentId);
+      if (looksLikeObjectId(sid)) {
+        filter.studentId = sid;
+      } else {
+        // try to find Student by studentId code; if not found, return empty
+        try {
+          const s = await Student.findOne({ studentId: sid }).select("_id");
+          if (s && s._id) filter.studentId = s._id;
+          else {
+            // no matching student -> return empty list (not server error)
+            return res.status(200).json({ data: [] });
+          }
+        } catch (e) {
+          console.warn("Error resolving studentId query param:", sid, e);
+          return res.status(200).json({ data: [] });
+        }
+      }
+    }
+
+    if (classId) {
+      const cid = String(classId);
+      if (looksLikeObjectId(cid)) filter.classId = cid;
+      else {
+        const c = await ClassModel.findOne({ classCode: cid }).select("_id");
+        if (c && c._id) filter.classId = c._id;
+      }
+    }
+
+    if (subjectId) {
+      const sub = String(subjectId);
+      if (looksLikeObjectId(sub)) filter.subjectId = sub;
+      else {
+        const s = await Subject.findOne({ name: sub }).select("_id");
+        if (s && s._id) filter.subjectId = s._id;
+      }
+    }
 
     const grades = await Grade.find(filter)
       .populate("studentId")
@@ -49,6 +89,22 @@ router.post(
       const authReq = req as AuthRequest;
       const requestUser = authReq.user;
 
+      // Normalize token identifiers: token uses `id` (from login), but
+      // some code checks `._id` or `teacherId`. Build a list of possible
+      // identifiers to compare against class/subject teacher refs.
+      const tokenIds = [
+        requestUser?.id,
+        (requestUser as any)?._id,
+        (requestUser as any)?.teacherId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      console.log(
+        "🔍 [/grades/batch] requestUser and tokenIds:",
+        requestUser,
+        tokenIds,
+      );
+
       if (!Array.isArray(gradesData)) {
         console.error("❌ Grades not an array");
         return res.status(400).json({ message: "Grades must be an array" });
@@ -69,24 +125,98 @@ router.post(
           }
 
           // Check if teacher is homeroom or subject teacher
-          const clsTeacherId =
+          let clsTeacherId =
             (cls.teacherId && (cls.teacherId._id || cls.teacherId)) || null;
-          const isHomeroom =
-            String(clsTeacherId) === String(requestUser._id) ||
-            String(clsTeacherId) === String(requestUser.teacherId);
+          let isHomeroom = tokenIds.includes(String(clsTeacherId));
 
-          const isSubjectTeacher = cls.subjectTeachers?.some((st: any) => {
-            const stTeacherId = st.teacherId?._id || st.teacherId || null;
+          // If class top-level teacherId is an ObjectId pointing to Teacher doc,
+          // try resolving to teacher code or linked User._id as a fallback.
+          if (!isHomeroom && clsTeacherId) {
+            try {
+              const maybeId = String(clsTeacherId);
+              if (/^[0-9a-fA-F]{24}$/.test(maybeId)) {
+                const tdoc = await TeacherModel.findById(maybeId).lean();
+                if (tdoc) {
+                  if (
+                    tdoc.teacherId &&
+                    tokenIds.includes(String(tdoc.teacherId))
+                  ) {
+                    isHomeroom = true;
+                  }
+                  // try linked User via teacherRef or teacherId
+                  if (!isHomeroom) {
+                    const linkedUser = await User.findOne({
+                      $or: [
+                        { teacherRef: tdoc._id },
+                        { teacherId: tdoc.teacherId },
+                      ],
+                    }).lean();
+                    if (
+                      linkedUser &&
+                      tokenIds.includes(String(linkedUser._id))
+                    ) {
+                      isHomeroom = true;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(
+                "Could not resolve class teacherId to Teacher doc:",
+                e,
+              );
+            }
+          }
 
-            const teacherMatch =
-              String(stTeacherId) === String(requestUser._id) ||
-              String(stTeacherId) === String(requestUser.teacherId);
+          // Subject teacher check with fallback resolution
+          const isSubjectTeacher = !!(await (async () => {
+            const arr = cls.subjectTeachers || [];
+            for (const st of arr) {
+              const stTeacherId = st.teacherId?._id || st.teacherId || null;
+              let teacherMatch = tokenIds.includes(String(stTeacherId));
+              const subjectMatch =
+                String(st.subjectId?._id || st.subjectId) === String(subjectId);
 
-            const subjectMatch =
-              String(st.subjectId?._id || st.subjectId) === String(subjectId);
+              if (!teacherMatch && stTeacherId) {
+                try {
+                  const maybe = String(stTeacherId);
+                  if (/^[0-9a-fA-F]{24}$/.test(maybe)) {
+                    const tdoc = await TeacherModel.findById(maybe).lean();
+                    if (tdoc) {
+                      if (
+                        tdoc.teacherId &&
+                        tokenIds.includes(String(tdoc.teacherId))
+                      ) {
+                        teacherMatch = true;
+                      }
+                      if (!teacherMatch) {
+                        const linkedUser = await User.findOne({
+                          $or: [
+                            { teacherRef: tdoc._id },
+                            { teacherId: tdoc.teacherId },
+                          ],
+                        }).lean();
+                        if (
+                          linkedUser &&
+                          tokenIds.includes(String(linkedUser._id))
+                        ) {
+                          teacherMatch = true;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn(
+                    "Could not resolve subject teacherId to Teacher doc:",
+                    e,
+                  );
+                }
+              }
 
-            return teacherMatch && subjectMatch;
-          });
+              if (teacherMatch && subjectMatch) return true;
+            }
+            return false;
+          })());
 
           if (!isHomeroom && !isSubjectTeacher) {
             console.error("❌ Teacher not authorized for this class/subject");
@@ -99,58 +229,168 @@ router.post(
 
       const savedGrades = [];
       const studentIds = new Set<string>();
+      const failedEntries: any[] = [];
 
       for (const gradeData of gradesData) {
-        const { studentId, subjectId, classId, grades } = gradeData as any;
+        try {
+          const { studentId, subjectId, classId, grades } = gradeData as any;
 
-        // Kiểm tra khóa điểm
-        const lock = await GradeLock.findOne({ classId, subjectId });
-        if (lock?.isLocked) {
-          console.error("❌ Grades locked for subject", subjectId);
-          return res.status(403).json({
-            message: "Điểm của môn học này đã bị khóa, không thể chỉnh sửa",
-          });
-        }
+          // log thô để debug khi dữ liệu không hợp lệ
+          console.debug(
+            "[/grades/batch] processing gradeData:",
+            JSON.stringify(gradeData),
+          );
 
-        // Validate grades array
-        if (!Array.isArray(grades) || grades.length === 0) {
-          console.error("❌ Grades array empty or invalid");
-          return res
-            .status(400)
-            .json({ message: "Grades array must not be empty" });
-        }
-
-        for (const g of grades as any[]) {
-          const sc = (g as any).score;
-          if (sc < 0 || sc > 10) {
-            console.error("❌ Invalid score:", sc);
-            return res.status(400).json({ message: "Điểm phải từ 0 đến 10" });
+          // Kiểm tra khóa điểm
+          const lock = await GradeLock.findOne({ classId, subjectId });
+          if (lock?.isLocked) {
+            console.warn("Grades locked for subject", subjectId);
+            failedEntries.push({ gradeData, reason: "locked" });
+            continue;
           }
+
+          // Validate grades array
+          if (!Array.isArray(grades) || grades.length === 0) {
+            console.warn("Grades array empty or invalid", { gradeData });
+            failedEntries.push({ gradeData, reason: "invalid_grades_array" });
+            continue;
+          }
+
+          let invalidScore = false;
+          for (const g of grades as any[]) {
+            const sc = (g as any).score;
+            if (sc < 0 || sc > 10) {
+              invalidScore = true;
+              break;
+            }
+          }
+          if (invalidScore) {
+            console.warn("Invalid score in grades", { gradeData });
+            failedEntries.push({ gradeData, reason: "invalid_score" });
+            continue;
+          }
+
+          // Hỗ trợ dạng studentId/subjectId/classId có thể là object chứa _id hoặc mã
+          const extractId = (v: any): string | null => {
+            if (v == null) return null;
+            if (typeof v === "string") {
+              // try to unwrap quoted JSON
+              const trimmed = v.trim();
+              if (
+                (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+                (trimmed.startsWith("'") && trimmed.endsWith("'"))
+              ) {
+                const inner = trimmed.slice(1, -1);
+                if (inner && !inner.includes("[object Object]")) return inner;
+              }
+              return v;
+            }
+            if (typeof v === "number") return String(v);
+            if (typeof v === "object") {
+              const tryKeys = [
+                "_id",
+                "id",
+                "studentId",
+                "classId",
+                "subjectId",
+                "userId",
+                "student",
+                "user",
+              ];
+              for (const k of tryKeys) {
+                const val = (v as any)[k];
+                if (!val) continue;
+                if (typeof val === "string") return val;
+                if (typeof val === "object" && (val as any)._id)
+                  return String((val as any)._id);
+                if (typeof val === "number") return String(val);
+              }
+              if ((v as any)._id) return String((v as any)._id);
+              if ((v as any).student && (v as any).student._id)
+                return String((v as any).student._id);
+              if ((v as any).userId && (v as any).userId._id)
+                return String((v as any).userId._id);
+            }
+            return null;
+          };
+
+          const looksLikeObjectId = (v: any) =>
+            typeof v === "string" && /^[0-9a-fA-F]{24}$/.test(v);
+
+          const resolvedStudentId = extractId(studentId);
+          const resolvedSubjectId = extractId(subjectId);
+          const resolvedClassId = extractId(classId);
+
+          let student = null;
+          if (resolvedStudentId && looksLikeObjectId(resolvedStudentId)) {
+            student = await Student.findById(String(resolvedStudentId));
+          } else if (resolvedStudentId) {
+            student = await Student.findOne({
+              studentId: String(resolvedStudentId),
+            });
+          }
+
+          let subject = null;
+          if (resolvedSubjectId && looksLikeObjectId(resolvedSubjectId)) {
+            subject = await Subject.findById(String(resolvedSubjectId));
+          } else if (resolvedSubjectId) {
+            subject = await Subject.findOne({
+              name: String(resolvedSubjectId),
+            });
+          }
+
+          let cls = null;
+          if (resolvedClassId && looksLikeObjectId(resolvedClassId)) {
+            cls = await ClassModel.findById(String(resolvedClassId));
+          } else if (resolvedClassId) {
+            cls = await ClassModel.findOne({
+              classCode: String(resolvedClassId),
+            });
+          }
+
+          if (!student || !subject || !cls) {
+            console.warn(
+              "Skipping invalid gradeData (student/subject/class not found)",
+              {
+                gradeData,
+                resolvedStudentId,
+                resolvedSubjectId,
+                resolvedClassId,
+              },
+            );
+            failedEntries.push({ gradeData, reason: "not_found" });
+            continue;
+          }
+
+          // Tìm hoặc tạo điểm
+          let grade = await Grade.findOne({
+            studentId: student._id,
+            subjectId: subject._id,
+            classId: cls._id,
+          });
+          if (!grade) {
+            grade = new Grade({
+              studentId: student._id,
+              subjectId: subject._id,
+              classId: cls._id,
+              grades,
+            });
+          } else {
+            grade.grades = grades;
+          }
+
+          await grade.save();
+          savedGrades.push(grade);
+          studentIds.add(String(student._id));
+        } catch (e) {
+          console.error("Error processing gradeData entry:", gradeData, e);
+          failedEntries.push({
+            gradeData,
+            reason: "exception",
+            error: e?.message || e,
+          });
+          continue;
         }
-
-        const student = await Student.findById(studentId);
-        const subject = await Subject.findById(subjectId);
-        const cls = await ClassModel.findById(classId);
-
-        if (!student || !subject || !cls) {
-          console.error("❌ Invalid student, subject, or class");
-          return res
-            .status(404)
-            .json({ message: "Invalid student, subject, or class" });
-        }
-
-        // Tìm hoặc tạo điểm
-        let grade = await Grade.findOne({ studentId, subjectId, classId });
-        if (!grade) {
-          grade = new Grade({ studentId, subjectId, classId, grades });
-        } else {
-          // Update grades: merge or replace
-          grade.grades = grades;
-        }
-
-        await grade.save();
-        savedGrades.push(grade);
-        studentIds.add(String(studentId));
       }
 
       // ✅ Sync grades to User collection for all affected students
@@ -299,10 +539,39 @@ router.post(
         });
       }
 
-      // Fetch class, subject, and teacher info
+      // Fetch class and subject
       const cls = await ClassModel.findById(classId);
       const subject = await Subject.findById(subjectId);
-      const teacher = teacherId ? await User.findById(teacherId) : null;
+
+      // Resolve teacher: `teacherId` payload may be a User._id or a teacher code like 'GV00002'
+      const resolveUserByIdentifier = async (ident?: any) => {
+        if (!ident) return null;
+        const s = String(ident);
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(s);
+        if (isObjectId) {
+          const u = await User.findById(s).lean();
+          if (u) return u;
+        }
+        // try common lookup fields (teacherId code, email, username)
+        const u2 = await User.findOne({
+          $or: [{ teacherId: s }, { email: s }, { username: s }],
+        }).lean();
+        return u2;
+      };
+
+      const authReq = req as AuthRequest;
+      const requestUser = authReq.user;
+
+      let teacher = null;
+      if (teacherId) {
+        teacher = await resolveUserByIdentifier(teacherId);
+      }
+      // fallback: if no teacher passed, try use the auth token user
+      if (!teacher && requestUser) {
+        teacher = await resolveUserByIdentifier(
+          requestUser.id || (requestUser as any)._id || requestUser.teacherId,
+        );
+      }
 
       if (!cls || !subject) {
         return res.status(404).json({
@@ -342,75 +611,170 @@ router.post(
 
       const io = getIo();
 
-      // ✅ SEND TO STUDENTS
-      if (sendToStudents && io) {
+      // ✅ SEND TO STUDENTS (robust: per-student try/catch + guards)
+      if (sendToStudents) {
         for (const studentData of gradeReport.gradedStudents) {
-          const student = await Student.findOne({
-            studentId: studentData.studentId,
-          }).populate("userId");
+          try {
+            const student = await Student.findOne({
+              studentId: studentData.studentId,
+            }).populate("userId");
 
-          const studentUser = (student as any)?.userId;
-          if (student && studentUser) {
+            // Resolve the User document: prefer populated student.userId, fallback to lookup by studentId or studentRef
+            let studentUser = (student as any)?.userId || null;
+            if (!studentUser && student) {
+              try {
+                // try find by studentId on users collection
+                studentUser = await User.findOne({
+                  studentId: student.studentId,
+                }).lean();
+                if (!studentUser && student._id) {
+                  studentUser = await User.findOne({
+                    studentRef: String(student._id),
+                  }).lean();
+                }
+              } catch (e) {
+                console.warn(
+                  "Error resolving user for student fallback",
+                  studentData.studentId,
+                  e,
+                );
+              }
+            }
+
+            if (!student || !studentUser) {
+              console.warn(
+                `Skipping notification: missing student or user for ${studentData.studentId}`,
+              );
+              continue;
+            }
+
+            // If score is an object of grade types, compute average numeric score
+            let scoreValue: number | string = studentData.score;
+            if (scoreValue && typeof scoreValue === "object") {
+              try {
+                const numericVals = Object.values(scoreValue)
+                  .map((v: any) => (typeof v === "number" ? v : parseFloat(v)))
+                  .filter((n: any) => !isNaN(n));
+                if (numericVals.length > 0) {
+                  const avg =
+                    numericVals.reduce((a: number, b: number) => a + b, 0) /
+                    numericVals.length;
+                  scoreValue = Math.round(avg * 10) / 10;
+                } else {
+                  scoreValue = JSON.stringify(scoreValue);
+                }
+              } catch (e) {
+                scoreValue = JSON.stringify(scoreValue);
+              }
+            }
+
             const notification = {
               type: "grade_submitted",
               title: `📝 Điểm ${subject.name} được cập nhật`,
-              message: `Thầy/cô ${teacher?.name} vừa cập nhật điểm ${subject.name} của bạn: ${studentData.score}/10`,
-              score: studentData.score,
+              message: `Thầy/cô ${teacher?.name || "(không rõ)"} vừa cập nhật điểm ${subject.name} của bạn: ${scoreValue}/10`,
+              score: scoreValue,
               subject: subject.name,
               class: cls.classCode,
-              teacher: teacher?.name,
+              teacher: teacher?.name || "Unknown",
               timestamp: new Date(),
             };
 
-            // Emit to student via socket
-            if (io) {
-              const targetUserId = studentUser._id || studentUser;
-              io.to(`user:${targetUserId}`).emit("notification", notification);
-              console.log(
-                `📨 Grade notification sent to student ${student.studentId}`,
+            const targetUserId = (studentUser._id || studentUser) as any;
+
+            // Emit via socket if available
+            try {
+              const ioLocal = getIo();
+              if (ioLocal && targetUserId) {
+                ioLocal
+                  .to(`user:${targetUserId}`)
+                  .emit("notification", notification);
+                console.log(
+                  `📨 Grade notification emitted to student ${student.studentId} -> user:${targetUserId}`,
+                );
+              } else {
+                console.warn(
+                  "No io or targetUserId for notification",
+                  student.studentId,
+                  targetUserId,
+                );
+              }
+            } catch (e) {
+              console.warn(
+                "Socket emit failed for student:",
+                studentData.studentId,
+                e,
               );
             }
 
-            // Save notification to database (optional)
+            // Persist notification to user's document (best-effort)
             try {
-              const targetUserId = studentUser._id || studentUser;
-              await User.findByIdAndUpdate(targetUserId, {
-                $push: {
-                  notifications: notification,
-                },
-              });
+              if (targetUserId) {
+                // If we have a lean object (from findOne().lean()) targetUserId may be a string _id
+                const uid =
+                  typeof targetUserId === "string"
+                    ? targetUserId
+                    : targetUserId._id || targetUserId;
+                await User.findByIdAndUpdate(uid, {
+                  $push: { notifications: notification },
+                });
+              }
             } catch (e) {
-              console.warn("Could not save notification to DB:", e);
+              console.warn(
+                "Could not save notification to DB for student:",
+                studentData.studentId,
+                e,
+              );
             }
+          } catch (e) {
+            console.error(
+              "Error sending notification to student",
+              studentData,
+              e,
+            );
           }
         }
       }
 
       // ✅ SEND TO ADMIN
-      if (sendToAdmin && io) {
+      // ✅ SEND TO ADMIN (robust: continue on per-admin errors)
+      if (sendToAdmin) {
         const adminNotification = {
           type: "grade_report_submitted",
-          title: ` Báo cáo điểm từ ${teacher?.name}`,
-          message: `${teacher?.name} vừa cập nhật ${gradeReport.gradedStudents.length}/${gradeReport.totalStudents} học sinh lớp ${cls.classCode} môn ${subject.name}`,
+          title: `Báo cáo điểm từ ${teacher?.name || "(không rõ)"}`,
+          message: `${teacher?.name || "(không rõ)"} vừa cập nhật ${gradeReport.gradedStudents.length}/${gradeReport.totalStudents} học sinh lớp ${cls.classCode} môn ${subject.name}`,
           report: gradeReport,
           timestamp: new Date(),
         };
 
-        // Get all admins
         const admins = await User.find({ role: "admin" });
         for (const admin of admins) {
-          io.to(`user:${admin._id}`).emit("notification", adminNotification);
-          console.log(`📨 Grade report sent to admin ${admin.email}`);
-
-          // Save notification to admin's database
           try {
-            await User.findByIdAndUpdate(admin._id, {
-              $push: {
-                notifications: adminNotification,
-              },
-            });
+            const adminId = admin._id as any;
+            try {
+              const ioLocal = getIo();
+              if (ioLocal && adminId) {
+                ioLocal
+                  .to(`user:${adminId}`)
+                  .emit("notification", adminNotification);
+                console.log(`📨 Grade report emitted to admin ${admin.email}`);
+              }
+            } catch (e) {
+              console.warn("Socket emit failed for admin:", admin.email, e);
+            }
+
+            try {
+              await User.findByIdAndUpdate(adminId, {
+                $push: { notifications: adminNotification },
+              });
+            } catch (e) {
+              console.warn(
+                "Could not save admin notification to DB:",
+                admin.email,
+                e,
+              );
+            }
           } catch (e) {
-            console.warn("Could not save admin notification to DB:", e);
+            console.error("Error notifying admin", admin.email, e);
           }
         }
       }

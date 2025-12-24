@@ -75,15 +75,6 @@ export default function StudentModal({
           <button
             onClick={() =>
               selectedStudent.studentId &&
-              assignTeacher(selectedStudent.studentId)
-            }
-            className="button action-btn"
-          >
-            <UserPlus2 size={14} /> Gán giáo viên
-          </button>
-          <button
-            onClick={() =>
-              selectedStudent.studentId &&
               deleteStudent(selectedStudent.studentId)
             }
             className="button action-btn"

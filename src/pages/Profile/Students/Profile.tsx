@@ -14,7 +14,6 @@ import { IUserProfile } from "../../../types/profiles";
 import axiosInstance from "../../../api/axiosConfig";
 import ProfileInfo from "./ProfileInfo";
 import ProfileGrades from "./ProfileGrades";
-import ProfileCredits from "./ProfileCredits";
 import ProfileSchedule from "./ProfileSchedule";
 import ProfileTuition from "./ProfileTuition";
 import ProfileStatistics from "./ProfileStatistics";
@@ -41,7 +40,8 @@ export default function Profile({
   }, [overrideUser, authUser]);
 
   useEffect(() => {
-    if (user?._id) fetchAll(activeTab, user._id);
+    const idToUse = user?.studentId || user?._id;
+    if (idToUse) fetchAll(activeTab, idToUse);
   }, [activeTab, user]);
 
   // Listen for realtime grade updates (socket + storage fallback)
@@ -100,8 +100,20 @@ export default function Profile({
     };
     window.addEventListener("timetable:updated", handleTimetableUpdate as any);
 
+    // also listen via socket so admin actions on other clients trigger updates
+    const socketTimetableHandler = (payload: any) => {
+      try {
+        // If payload has classId, student profile may still need refresh (class-based)
+        fetchAll("schedule", user._id);
+      } catch (e) {
+        console.warn("socket timetable handler error:", e);
+      }
+    };
+    if (socket) socket.on("timetable:updated", socketTimetableHandler);
+
     return () => {
       if (socket) socket.off("grade:updated", handleSocket);
+      if (socket) socket.off("timetable:updated", socketTimetableHandler);
       window.removeEventListener("storage", handleStorage as any);
       window.removeEventListener("grade:updated", handleCustom as any);
       window.removeEventListener(
@@ -143,12 +155,7 @@ export default function Profile({
           >
             <Book size={18} /> Điểm số & Hạnh kiểm
           </li>
-          <li
-            onClick={() => setActiveTab("credits")}
-            className={activeTab === "credits" ? "active" : ""}
-          >
-            <GraduationCap size={18} /> Tín chỉ
-          </li>
+
           <li
             onClick={() => setActiveTab("schedule")}
             className={activeTab === "schedule" ? "active" : ""}

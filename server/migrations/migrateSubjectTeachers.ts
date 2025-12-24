@@ -26,7 +26,7 @@ async function migrateSubjectTeachers() {
     }).lean();
 
     console.log(
-      `📊 [Migration] Found ${classes.length} classes with subjectTeachers`,
+      ` [Migration] Found ${classes.length} classes with subjectTeachers`,
     );
 
     let migratedCount = 0;
@@ -41,7 +41,7 @@ async function migrateSubjectTeachers() {
       );
 
       if (!needsMigration) {
-        console.log(`⏭️  [Migration] Class ${cls._id} already migrated`);
+        console.log(`  [Migration] Class ${cls._id} already migrated`);
         skippedCount++;
         continue;
       }

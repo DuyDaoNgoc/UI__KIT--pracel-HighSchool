@@ -29,7 +29,27 @@ export default function TeacherClassesTab() {
     const fetchClasses = async () => {
       setLoading(true);
       try {
+        // Prefer server-side teacher-scoped endpoint if available
+        try {
+          const resp = await axiosInstance.get<any>("/classes/my-classes");
+          console.debug(
+            "[ClassesTab] /classes/my-classes response:",
+            resp?.data || resp,
+          );
+          const data = resp?.data?.data || resp?.data || [];
+          if (Array.isArray(data) && data.length > 0) {
+            setClasses(data);
+            return;
+          }
+        } catch (e) {
+          console.warn(
+            "[ClassesTab] /classes/my-classes not available or errored, falling back to /classes",
+            e,
+          );
+        }
+
         const res = await axiosInstance.get<{ data: Class[] }>("/classes");
+        console.debug("[ClassesTab] /classes response:", res?.data || res);
         setClasses(res.data?.data || []);
       } catch (err) {
         console.error("fetchClasses error:", err);

@@ -18,11 +18,28 @@ export const fetchGrades = async (userId: string): Promise<IGrade[]> => {
     // Server trả về mảng grades trong `data` hoặc là các Grade documents
     const grades = data?.data ?? [];
 
-    // Normalize về IGrade[] nếu cần (server có thể trả Grade documents)
-    return grades.map((g: any) => ({
-      subject: g.subject?.name || g.subject || g.subjectId || "Unknown",
-      score: typeof g.score === "number" ? g.score : Number(g.score) || 0,
-    }));
+    // Normalize: return richer grade objects so student UI can render per-type grades
+    return grades.map(
+      (g: any) =>
+        ({
+          subject:
+            g.subject?.name ||
+            g.subject ||
+            (g.subjectId && (g.subjectId.name || g.subjectId)) ||
+            "Unknown",
+          // include grades array if present
+          grades: Array.isArray(g.grades)
+            ? g.grades.map((x: any) => ({
+                type: x.type,
+                score: Number(x.score),
+              }))
+            : undefined,
+          averageScore:
+            g.averageScore !== undefined ? Number(g.averageScore) : undefined,
+          score: g.score !== undefined ? Number(g.score) : undefined,
+          createdAt: g.createdAt || g.updatedAt || undefined,
+        }) as any,
+    );
   } catch (err: any) {
     console.error("Error fetching grades:", err.response?.data || err.message);
     return [];
@@ -59,15 +76,21 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
     const { data } = await axiosInstance.get<any>(`/users`);
     const users: any[] = Array.isArray(data) ? data : data?.data || [];
     const user = users.find((u) => u._id === userId || u.studentId === userId);
-    console.log("fetchSchedule: fetched users", users.length, "matched user:", !!user);
+    console.log(
+      "fetchSchedule: fetched users",
+      users.length,
+      "matched user:",
+      !!user,
+    );
     if (!user) return [];
 
     // Prefer an existing user.schedule pushed by admin (sync from timetables)
     const raw = user.schedule ?? [];
     // If schedule is grouped subjects (legacy), return as-is
-    if (Array.isArray(raw) && raw.length > 0 && (raw[0].subjects)) return raw;
+    if (Array.isArray(raw) && raw.length > 0 && raw[0].subjects) return raw;
     // If schedule is detailed (flattened) keep it and attempt to merge incoming timetables later
-    const hasExistingDetailedSchedule = Array.isArray(raw) && raw.length > 0 && Boolean((raw[0] as any).subject);
+    const hasExistingDetailedSchedule =
+      Array.isArray(raw) && raw.length > 0 && Boolean((raw[0] as any).subject);
 
     // If user is a student and no personal schedule exists, try to derive from timetables
     if (user.role === "student") {
@@ -81,7 +104,11 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
       const [classesRes, timetablesRes, teachersRes] = await Promise.all([
         axiosInstance.get<any>("/classes"),
         axiosInstance.get<any>("/timetables"),
-        axiosInstance.get<any>("/teachers").catch(() => axiosInstance.get<any>("/users", { params: { role: "teacher" } })),
+        axiosInstance
+          .get<any>("/teachers")
+          .catch(() =>
+            axiosInstance.get<any>("/users", { params: { role: "teacher" } }),
+          ),
       ]);
 
       const classesList = classesRes.data?.data || classesRes.data || [];
@@ -101,7 +128,8 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
         if (!t) continue;
         const id = t._id || t.id;
         if (!id) continue;
-        teachersById[String(id)] = t.name || t.fullName || t.username || "(Không tên)";
+        teachersById[String(id)] =
+          t.name || t.fullName || t.username || "(Không tên)";
       }
 
       // find classId for this student (be permissive: support classCode, class, classId, assignedClass)
@@ -119,13 +147,19 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
         targetClassId = classesByCode[String(classCode)]._id;
       }
       // 4) Check assignedClass array for an _id or classCode
-      else if (user.assignedClass && Array.isArray(user.assignedClass) && user.assignedClass.length > 0) {
+      else if (
+        user.assignedClass &&
+        Array.isArray(user.assignedClass) &&
+        user.assignedClass.length > 0
+      ) {
         const ac = user.assignedClass[0];
         if (ac) {
-          if (ac._id && classesById[String(ac._id)]) targetClassId = classesById[String(ac._id)]._id;
+          if (ac._id && classesById[String(ac._id)])
+            targetClassId = classesById[String(ac._id)]._id;
           else {
             const code = ac.classCode || ac.className;
-            if (code && classesByCode[String(code)]) targetClassId = classesByCode[String(code)]._id;
+            if (code && classesByCode[String(code)])
+              targetClassId = classesByCode[String(code)]._id;
           }
         }
       }
@@ -136,7 +170,11 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
 
       // If we couldn't resolve a specific class for this student, do NOT return all timetables
       if (!targetClassId) {
-        console.warn("fetchSchedule: could not resolve class for user, returning empty schedule", userId, user);
+        console.warn(
+          "fetchSchedule: could not resolve class for user, returning empty schedule",
+          userId,
+          user,
+        );
         return [];
       }
 
@@ -144,7 +182,9 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
       const allSchedule: any[] = [];
       // debug: show timetable class ids
       try {
-        const ttClassIds = (timetables || []).map((t: any) => t?.classId?._id || t?.classId);
+        const ttClassIds = (timetables || []).map(
+          (t: any) => t?.classId?._id || t?.classId,
+        );
         console.log("fetchSchedule: timetables classIds:", ttClassIds);
       } catch (e) {
         // ignore
@@ -157,13 +197,20 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
 
         const normalized = (tt.schedule || []).map((s: any) => {
           const subj =
-            s.subject || s.subjectName || (s.subjectId && (s.subjectId.name || s.subjectId.title)) || "Unknown";
+            s.subject ||
+            s.subjectName ||
+            (s.subjectId && (s.subjectId.name || s.subjectId.title)) ||
+            "Unknown";
           let teacherName = "-";
           if (s.teacherId) {
             const tid = s.teacherId._id || s.teacherId;
-            if (tid && teachersById[String(tid)]) teacherName = teachersById[String(tid)];
+            if (tid && teachersById[String(tid)])
+              teacherName = teachersById[String(tid)];
             else if (typeof tid === "string") teacherName = String(tid);
-          } else if (classesById[String(cid)] && classesById[String(cid)].teacherName) {
+          } else if (
+            classesById[String(cid)] &&
+            classesById[String(cid)].teacherName
+          ) {
             teacherName = classesById[String(cid)].teacherName;
           }
 
@@ -179,6 +226,9 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
             endTime: s.endTime || "",
             week: s.week || "",
             date: s.date || s.periodFrom || "",
+            canceledDates: Array.isArray(s.canceledDates)
+              ? s.canceledDates.slice()
+              : [],
           } as any;
         });
 
@@ -188,7 +238,8 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
       // If user already has detailed schedule items, merge timetables into it (preserve old weeks)
       if (hasExistingDetailedSchedule) {
         const existing: any[] = Array.isArray(raw) ? raw.slice() : [];
-        const keyOf = (it: any) => `${it.week||""}::${it.day||""}::${it.startTime||""}::${it.classId||it.classCode||""}::${it.subject||""}`;
+        const keyOf = (it: any) =>
+          `${it.week || ""}::${it.day || ""}::${it.startTime || ""}::${it.classId || it.classCode || ""}::${it.subject || ""}`;
         const existingKeys = new Set(existing.map(keyOf));
         for (const it of allSchedule) {
           const k = keyOf(it);
@@ -219,7 +270,10 @@ export const fetchSchedule = async (userId: string): Promise<any[]> => {
 
     return Object.keys(grouped).map((day) => ({ day, subjects: grouped[day] }));
   } catch (err: any) {
-    console.error("Error fetching schedule:", err.response?.data || err.message);
+    console.error(
+      "Error fetching schedule:",
+      err.response?.data || err.message,
+    );
     return [];
   }
 };

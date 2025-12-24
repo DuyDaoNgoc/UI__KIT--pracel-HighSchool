@@ -207,7 +207,31 @@ export default function ProfileSchedule({
                 return (
                   <tr key={key}>
                     <td>{r.day}</td>
-                    <td>{item.subject}</td>
+                    <td>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{item.subject}</span>
+                        {Array.isArray((item as any).canceledDates) &&
+                          (item as any).canceledDates.length > 0 && (
+                            <span
+                              className="badge-postponed"
+                              title={`Hoãn: ${(item as any).canceledDates.join(", ")}`}
+                            >
+                              Hoãn
+                            </span>
+                          )}
+                        {(!Array.isArray((item as any).canceledDates) ||
+                          (item as any).canceledDates.length === 0) &&
+                          (item as any).postponeStatus === "approved" && (
+                            <span className="badge-postponed">Hoãn</span>
+                          )}
+                      </div>
+                    </td>
                     <td>{item.classCode || item.classId || "-"}</td>
                     <td>{item.teacherName || "-"}</td>
                     <td>{item.startTime || "-"}</td>

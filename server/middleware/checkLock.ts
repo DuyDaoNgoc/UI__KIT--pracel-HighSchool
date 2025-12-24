@@ -39,11 +39,10 @@ export async function checkGradesLock(
         console.log("✅ [checkGradesLock] Admin bypass: allowing request");
         return next();
       }
-
       console.error("❌ [checkGradesLock] Global lock active, denying request");
       return res
         .status(403)
-        .json({ message: "❌ Hệ thống đã khoá điểm, không thể chỉnh sửa" });
+        .json({ message: "Hệ thống đã khoá điểm, không thể chỉnh sửa" });
     }
 
     next();

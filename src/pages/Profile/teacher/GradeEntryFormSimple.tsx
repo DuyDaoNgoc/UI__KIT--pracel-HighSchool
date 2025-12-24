@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axiosInstance from "../../../api/axiosConfig";
+import { useAuth } from "../../../context/AuthContext";
+import SaveIcon from "@mui/icons-material/Save";
+import SendIcon from "@mui/icons-material/Send";
+import { IUserProfile } from "../../../types/profiles";
 import {
   Dialog,
   DialogTitle,
@@ -11,36 +15,6 @@ import {
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
-import {
-  Save as SaveIcon,
-  Send as SendIcon,
-  BookOutlined as BookIcon,
-} from "@mui/icons-material";
-import { useAuth } from "../../../context/AuthContext";
-import { IUserProfile } from "../../../types/profiles";
-import "../../../stylesheets/components/profile/GradeEntryFormPro.scss";
-
-interface Student {
-  _id: string;
-  studentId: string;
-  name: string;
-  email?: string;
-  userId?: string;
-}
-
-interface GradeEntry {
-  type:
-    | "oral"
-    | "test15"
-    | "test1period"
-    | "midterm"
-    | "semester1"
-    | "semester2"
-    | "final";
-  score: number;
-  date?: string;
-  note?: string;
-}
 
 interface Grade {
   _id: string;
@@ -51,6 +25,11 @@ interface Grade {
   averageScore?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface GradeEntry {
+  type: string;
+  score: number;
 }
 
 interface ScheduleItem {
@@ -68,6 +47,21 @@ interface Class {
   grade: string;
   classLetter: string;
   students: any[];
+  // Optional fields present on server class documents
+  teacherId?: string | any;
+  teacherName?: string;
+  subjectTeachers?: Array<{
+    _id?: string;
+    subjectId?: any;
+    teacherId?: any;
+    teacherName?: string;
+  }>;
+}
+
+interface Student {
+  _id: string;
+  studentId: string;
+  name: string;
 }
 
 interface GradeLock {
@@ -82,11 +76,17 @@ interface GradeData {
 
 export default function GradeEntryFormPro() {
   const { user: authUser } = useAuth() as { user: IUserProfile | null };
+  // canonical teacher id for matching: prefer the user's Mongo `_id` (id), fallback to teacher code
+  const teacherId = authUser?._id || authUser?.teacherId || null;
 
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<
+    Array<{ _id: string; name: string }>
+  >([]);
+  // All subjects catalog for name lookups when timetable only contains IDs
+  const [allSubjects, setAllSubjects] = useState<
     Array<{ _id: string; name: string }>
   >([]);
   const [selectedSubject, setSelectedSubject] = useState<string>("");
@@ -111,14 +111,58 @@ export default function GradeEntryFormPro() {
     { key: "final", label: "Cuối kì", short: "CK" },
   ];
 
-  // Fetch classes
+  // Fetch classes: prefer `/classes/my-classes` then fallback to `/classes`.
   useEffect(() => {
     const fetchTeacherClasses = async () => {
-      if (!authUser?.teacherId) return;
       setLoading(true);
       try {
-        const res = await axiosInstance.get<{ data: Class[] }>("/classes");
-        setClasses(res.data?.data || []);
+        let classesList: Class[] = [];
+
+        // Use server-side filtered classes for the logged-in teacher. Do NOT fallback to
+        // `/classes` (admin view) — teacher should only see classes returned by this endpoint.
+        // Try server-side teacher-scoped endpoint first
+        try {
+          const resp = await axiosInstance.get<any>("/classes/my-classes");
+          console.debug(
+            "[GradeEntry] /classes/my-classes response:",
+            resp?.data || resp,
+          );
+          classesList = resp?.data?.data || resp?.data || [];
+        } catch (e) {
+          console.warn(
+            "[GradeEntry] /classes/my-classes errored, will fallback to /classes",
+            e,
+          );
+        }
+
+        // Fallback to /classes if my-classes returned empty
+        if (!classesList || classesList.length === 0) {
+          try {
+            const res = await axiosInstance.get<{ data: Class[] }>("/classes");
+            console.debug(
+              "[GradeEntry] /classes fallback response:",
+              res?.data || res,
+            );
+            classesList = res.data?.data || res.data || [];
+          } catch (e) {
+            console.error(
+              "[GradeEntry] failed to fetch /classes as fallback:",
+              e,
+            );
+            classesList = [];
+          }
+        }
+
+        setClasses(classesList);
+        // Also fetch global subject catalog once for reliable name lookup
+        try {
+          const subs = await axiosInstance.get<{
+            data: { _id: string; name: string }[];
+          }>("/subjects");
+          setAllSubjects(subs.data?.data || []);
+        } catch (e) {
+          console.warn("Could not fetch all subjects catalog:", e);
+        }
       } catch (err) {
         console.error("fetchTeacherClasses error:", err);
         toast.error("Lỗi tải danh sách lớp dạy");
@@ -150,6 +194,7 @@ export default function GradeEntryFormPro() {
         const selectedClassData = classes.find(
           (c: any) => String(c._id) === String(selectedClass),
         );
+        console.debug("[GradeEntry] selectedClassData:", selectedClassData);
         setStudents(selectedClassData?.students || []);
 
         // Get subjects from timetable for this class
@@ -161,7 +206,10 @@ export default function GradeEntryFormPro() {
             }>;
           };
         }>(`/timetables/class/${selectedClass}`);
-
+        console.debug(
+          "[GradeEntry] /timetables/class/${selectedClass} response:",
+          timetableRes?.data || timetableRes,
+        );
         const timetable = timetableRes.data?.data;
         if (timetable?.schedule && timetable.schedule.length > 0) {
           // Extract unique subjects from timetable schedule by subjectId
@@ -179,11 +227,74 @@ export default function GradeEntryFormPro() {
 
             if (typeof item.subjectId === "string") {
               subjectId = item.subjectId;
-              subjectName = item.subject || "Chưa xác định";
+              // try lookup in global catalog
+              const found = allSubjects.find((s) => s._id === subjectId);
+              subjectName = found?.name || item.subject || "Chưa xác định";
             } else if (item.subjectId && typeof item.subjectId === "object") {
               subjectId = item.subjectId._id || item.subjectId.id || "";
-              subjectName = item.subjectId.name || "Chưa xác định";
+              subjectName =
+                item.subjectId.name ||
+                allSubjects.find((s) => s._id === subjectId)?.name ||
+                "Chưa xác định";
             }
+
+            if (!subjectId) return;
+
+            // Only include subjects that this teacher actually teaches in this class.
+            // Check per-schedule teacherId or class.subjectTeachers mapping.
+            let hasAssignment = false;
+            try {
+              if (
+                item.teacherId &&
+                String(item.teacherId?._id || item.teacherId) ===
+                  String(teacherId)
+              ) {
+                hasAssignment = true;
+              }
+
+              if (
+                !hasAssignment &&
+                selectedClassData &&
+                Array.isArray(selectedClassData.subjectTeachers)
+              ) {
+                hasAssignment = selectedClassData.subjectTeachers.some(
+                  (st: any) => {
+                    try {
+                      const stTid =
+                        st.teacherId?._id ||
+                        st.teacherId ||
+                        st.teacher ||
+                        st._id;
+                      const stSub =
+                        st.subjectId?._id ||
+                        st.subjectId ||
+                        st.subject ||
+                        st._id;
+                      return (
+                        String(stTid) === String(teacherId) &&
+                        (String(stSub) === String(subjectId) ||
+                          String(stSub) ===
+                            String(
+                              (item.subjectId &&
+                                (item.subjectId._id || item.subjectId.id)) ||
+                                "",
+                            ))
+                      );
+                    } catch (e) {
+                      return false;
+                    }
+                  },
+                );
+              }
+
+              // Do NOT grant subjects based solely on homeroom (chủ nhiệm) status —
+              // only subjects explicitly assigned via `subjectTeachers` or via timetable item
+              // should be allowed. (Strict behavior as requested.)
+            } catch (e) {
+              hasAssignment = false;
+            }
+
+            if (!hasAssignment) return;
 
             // Add to map only if this ID hasn't been added yet (automatic deduplication)
             if (subjectId && !uniqueSubjects.has(subjectId)) {
@@ -194,6 +305,32 @@ export default function GradeEntryFormPro() {
             }
           });
 
+          // If strict matching found nothing, fallback to include all subjects
+          if (uniqueSubjects.size === 0) {
+            console.debug(
+              "[GradeEntry] No subjects matched teacher assignment — falling back to all timetable subjects",
+            );
+            timetable.schedule.forEach((item: any) => {
+              if (!item.subjectId) return;
+              let subjectId = "";
+              let subjectName = "";
+              if (typeof item.subjectId === "string") {
+                subjectId = item.subjectId;
+                subjectName = item.subject || "Chưa xác định";
+              } else if (item.subjectId && typeof item.subjectId === "object") {
+                subjectId = item.subjectId._id || item.subjectId.id || "";
+                subjectName = item.subjectId.name || "Chưa xác định";
+              }
+              if (!subjectId) return;
+              if (!uniqueSubjects.has(subjectId)) {
+                uniqueSubjects.set(subjectId, {
+                  _id: subjectId,
+                  name: subjectName,
+                });
+              }
+            });
+          }
+
           setSubjects(Array.from(uniqueSubjects.values()));
         } else {
           setSubjects([]);
@@ -201,9 +338,14 @@ export default function GradeEntryFormPro() {
 
         setSelectedSubject("");
         setEditingGrades({});
-      } catch (err) {
+      } catch (err: any) {
         console.error("fetchStudentsAndSubjects error:", err);
-        toast.error("Lỗi tải dữ liệu");
+        // If timetable for class not found (404), just clear subjects without showing toast
+        if (err?.response?.status === 404) {
+          setSubjects([]);
+        } else {
+          toast.error("Lỗi tải dữ liệu");
+        }
       } finally {
         setLoading(false);
       }
@@ -233,9 +375,13 @@ export default function GradeEntryFormPro() {
         // Initialize editing state with existing grades
         const initialGrades: GradeData = {};
         gradesData.forEach((g) => {
-          initialGrades[g.studentId] = {};
+          const sid =
+            typeof g.studentId === "object"
+              ? g.studentId._id || String(g.studentId)
+              : String(g.studentId);
+          initialGrades[sid] = {};
           g.grades?.forEach((ge) => {
-            initialGrades[g.studentId][ge.type] = ge.score;
+            initialGrades[sid][ge.type] = ge.score;
           });
         });
         setEditingGrades(initialGrades);
@@ -326,7 +472,7 @@ export default function GradeEntryFormPro() {
       const gradesData = Object.entries(editingGrades)
         .filter(([, gradeObj]) => Object.keys(gradeObj).length > 0)
         .map(([studentId, gradeObj]) => ({
-          studentId,
+          studentId: String(studentId),
           subjectId,
           classId: selectedClass,
           grades: Object.entries(gradeObj).map(([type, score]) => ({
@@ -335,20 +481,81 @@ export default function GradeEntryFormPro() {
           })),
         }));
 
-      const res = await axiosInstance.post<{ success: boolean }>(
-        "/grades/batch",
-        {
-          grades: gradesData,
-        },
-      );
+      const res = await axiosInstance.post<{
+        success: boolean;
+        grades?: any[];
+      }>("/grades/batch", {
+        grades: gradesData,
+      });
 
       if (res.data?.success) {
         toast.success("✅ Lưu điểm thành công");
-        setSubmitDialogOpen(true);
+
+        // If backend returned saved grades, update local state so teacher sees them immediately
+        const saved = res.data?.grades || [];
+        if (saved && Array.isArray(saved) && saved.length > 0) {
+          // merge into grades state
+          setGrades((prev) => {
+            // Merge saved grades into existing grades array, keyed by studentId+subjectId+classId
+            const keyFor = (g: any) =>
+              `${String(g.studentId?._id || g.studentId)}-${String(
+                g.subjectId,
+              )}-${String(g.classId)}`;
+            const map: Record<string, any> = {};
+            prev.forEach((g) => (map[keyFor(g)] = g));
+            saved.forEach((s) => {
+              map[keyFor(s)] = s;
+            });
+            return Object.values(map);
+          });
+
+          // Merge saved grades into editingGrades so inputs continue to show values
+          const newEditing: GradeData = { ...editingGrades };
+
+          const resolveStudentId = (raw: any) => {
+            const candidate = raw && (raw._id || raw);
+            if (!candidate) return String(raw || "");
+
+            // If candidate matches an existing student _id, use it
+            const byId = students.find(
+              (st) => String(st._id) === String(candidate),
+            );
+            if (byId) return String(byId._id);
+
+            // If candidate matches student.studentId (code), find that student's _id
+            const byCode = students.find(
+              (st) => String(st.studentId) === String(candidate),
+            );
+            if (byCode) return String(byCode._id);
+
+            // fallback to candidate string
+            return String(candidate);
+          };
+
+          for (const s of saved) {
+            const rawSid =
+              (s.studentId && (s.studentId._id || s.studentId)) || s.studentId;
+            const sidResolved = resolveStudentId(rawSid);
+            newEditing[sidResolved] = {
+              ...(newEditing[sidResolved] || {}),
+            };
+            if (Array.isArray(s.grades)) {
+              for (const ge of s.grades) {
+                if (ge?.type) newEditing[sidResolved][ge.type] = ge.score;
+              }
+            }
+          }
+
+          setEditingGrades(newEditing);
+        }
+
+        return true;
       }
+      return false;
     } catch (err: any) {
       console.error("handleSaveGrades error:", err);
       toast.error(err.response?.data?.message || "Lưu điểm thất bại");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -363,10 +570,14 @@ export default function GradeEntryFormPro() {
 
     setIsSubmitting(true);
     try {
+      const gradesPayload = Object.fromEntries(
+        Object.entries(editingGrades).map(([k, v]) => [String(k), v]),
+      );
+
       const payload = {
         classId: selectedClass,
         subjectId,
-        grades: editingGrades,
+        grades: gradesPayload,
         sendToStudents,
         sendToAdmin,
         teacherId: authUser?.teacherId,
@@ -380,7 +591,9 @@ export default function GradeEntryFormPro() {
       if (res.data?.success) {
         toast.success("✅ Điểm đã được gửi thành công!");
         setSubmitDialogOpen(false);
-        setEditingGrades({});
+        // Keep editingGrades populated so teacher still sees saved values after sending.
+        // Clearing here caused the UI to lose visible grades immediately after submit.
+        // setEditingGrades({});
       }
     } catch (err: any) {
       console.error("handleSubmitGrades error:", err);
@@ -399,7 +612,7 @@ export default function GradeEntryFormPro() {
 
       {/* Header */}
       <div className="form-header">
-        <h1 className="title">📊 Nhập Điểm Học Sinh</h1>
+        <h1 className="title">Nhập Điểm Học Sinh</h1>
         <p className="subtitle">Hệ thống quản lí điểm chuyên nghiệp</p>
       </div>
 
@@ -489,7 +702,6 @@ export default function GradeEntryFormPro() {
                   const average = calculateAverage(student._id);
                   const result = getResult(average);
                   const percentage = Math.round(average * 10);
-
                   return (
                     <tr key={student._id}>
                       <td>{idx + 1}</td>
@@ -541,13 +753,15 @@ export default function GradeEntryFormPro() {
             </table>
           )}
         </div>
-
         {/* Action Buttons */}
         {validStudents.length > 0 && (
           <div className="action-buttons">
             <button
               className="btn-outlined"
-              onClick={handleSaveGrades}
+              onClick={async () => {
+                // await saving so UI remains stable until backend responds
+                await handleSaveGrades();
+              }}
               disabled={saving || gradeLock?.isLocked}
             >
               <SaveIcon />
@@ -555,9 +769,9 @@ export default function GradeEntryFormPro() {
             </button>
             <button
               className="btn-primary"
-              onClick={() => {
-                handleSaveGrades();
-                setTimeout(() => setSubmitDialogOpen(true), 500);
+              onClick={async () => {
+                const ok = await handleSaveGrades();
+                if (ok) setSubmitDialogOpen(true);
               }}
               disabled={saving || gradeLock?.isLocked}
             >
@@ -567,7 +781,6 @@ export default function GradeEntryFormPro() {
           </div>
         )}
       </div>
-
       {/* Submit Dialog */}
       <Dialog
         open={submitDialogOpen}
@@ -608,7 +821,7 @@ export default function GradeEntryFormPro() {
             onClick={handleSubmitGrades}
             disabled={isSubmitting || (!sendToStudents && !sendToAdmin)}
           >
-            {isSubmitting ? <CircularProgress size={20} /> : "✅ Gửi"}
+            {isSubmitting ? <CircularProgress size={20} /> : " Gửi"}
           </Button>
         </DialogActions>
       </Dialog>

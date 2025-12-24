@@ -2,7 +2,8 @@ import express from "express";
 import Timetable from "../../models/Timetable";
 import ClassModel from "../../models/Class";
 import Subject from "../../models/Subject";
-
+import User from "../../models/User";
+import { ITeacher } from "../../models/teacherModel";
 const router = express.Router();
 
 // Tạo thời khóa biểu cho lớp

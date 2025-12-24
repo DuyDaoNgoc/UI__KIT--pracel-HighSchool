@@ -9,7 +9,7 @@ const UserSchema = new Schema<IUserDocument>(
       type: String,
       unique: true,
       sparse: true, // ✅ cho phép nhiều null
-      required: function (this: IUserDocument) {
+      required: function (this: any) {
         return this.role === "student";
       },
     },
@@ -17,7 +17,7 @@ const UserSchema = new Schema<IUserDocument>(
       type: String,
       unique: true,
       sparse: true, // ✅ fix duplicate key khi null
-      required: function (this: IUserDocument) {
+      required: function (this: any) {
         return this.role === "teacher";
       },
     },
@@ -25,10 +25,15 @@ const UserSchema = new Schema<IUserDocument>(
       type: String,
       unique: true,
       sparse: true,
-      required: function (this: IUserDocument) {
+      required: function (this: any) {
         return this.role === "parent";
       },
     },
+
+    // Reference to Teacher document (if exists) to allow direct joins
+    teacherRef: { type: Schema.Types.ObjectId, ref: "Teacher", default: null },
+    // Reference to Student document (if exists)
+    studentRef: { type: Schema.Types.ObjectId, ref: "Student", default: null },
 
     customId: { type: String },
 
@@ -125,15 +130,16 @@ const UserSchema = new Schema<IUserDocument>(
 
 // ===== Pre-save Hook =====
 UserSchema.pre("save", function (next) {
-  if (this.isNew) {
-    if (this.role === "student" && !this.studentId) {
-      this.studentId = "STU-" + Math.floor(100000 + Math.random() * 900000);
+  const self: any = this;
+  if (self.isNew) {
+    if (self.role === "student" && !self.studentId) {
+      self.studentId = "STU-" + Math.floor(100000 + Math.random() * 900000);
     }
-    if (this.role === "teacher" && !this.teacherId) {
-      this.teacherId = "TEA-" + Math.floor(100000 + Math.random() * 900000);
+    if (self.role === "teacher" && !self.teacherId) {
+      self.teacherId = "TEA-" + Math.floor(100000 + Math.random() * 900000);
     }
-    if (this.role === "parent" && !this.parentId) {
-      this.parentId = "PAR-" + Math.floor(100000 + Math.random() * 900000);
+    if (self.role === "parent" && !self.parentId) {
+      self.parentId = "PAR-" + Math.floor(100000 + Math.random() * 900000);
     }
   }
   next();
