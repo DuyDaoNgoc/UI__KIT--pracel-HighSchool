@@ -31,25 +31,48 @@ router.post("/register", async (req, res) => {
 // ===== Lấy danh sách học sinh của giáo viên =====
 const getStudents: RequestHandler = async (req, res) => {
   const authReq = req as AuthRequest;
-  const teacher = authReq.user;
+  const tokenUser = authReq.user;
 
-  if (!teacher || !teacher._id) {
+  if (!tokenUser || !tokenUser.id) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
-    // Tìm học sinh theo teacherId
+    // Load full User doc for the requesting teacher to obtain teacherId/refs
+    const teacherUser = await User.findById(tokenUser.id).select(
+      "_id teacherId",
+    );
+    if (!teacherUser) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Build a filter that matches users by teacherRef (object ref) or by teacherId code
+    const orFilters: any[] = [];
+    try {
+      orFilters.push({ teacherRef: teacherUser._id });
+    } catch (e) {
+      // ignore
+    }
+    if (teacherUser.teacherId) {
+      orFilters.push({ teacherId: teacherUser.teacherId });
+      // also support matching teacherId if stored as the User._id string
+      orFilters.push({ teacherId: String(teacherUser._id) });
+    } else {
+      // fallback: match teacherId as the user._id string
+      orFilters.push({ teacherId: String(teacherUser._id) });
+    }
+
     const students: IUserDocument[] = await User.find({
       role: "student",
-      teacherId: teacher._id.toString(),
-    }).select("_id username class grades");
+      $or: orFilters,
+    }).select("_id username classCode grades");
 
     const response: IStudentResponse[] = students
-      .filter((s) => s._id) // loại bỏ trường hợp _id undefined
+      .filter((s) => s._id)
       .map((s) => ({
         _id: s._id!.toString(),
         username: s.username,
-        class: s.class || "Chưa có lớp",
+        class: (s as any).classCode || "Chưa có lớp",
         lastGrade: s.grades?.length
           ? s.grades[s.grades.length - 1].score
           : undefined,

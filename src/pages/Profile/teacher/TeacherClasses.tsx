@@ -40,10 +40,6 @@ interface Props {
 }
 
 export default function TeacherClasses({ assignedClass = [] }: Props) {
-  // If this component is rendered inside a teacher profile, a `teacherName`
-  // prop can be provided so we show the profile owner's name as the class
-  // teacher (avoids pulling a different user from class metadata and
-  // creating confusion).
   const profileTeacherName = (arguments[0] as any)?.teacherName;
 
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
@@ -57,8 +53,8 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
     new Set(),
   );
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<IStudent | null>(null);
 
-  // Initialize Socket.io connection
   useEffect(() => {
     const newSocket = io(getBackendURL(), {
       transports: ["websocket", "polling"],
@@ -68,35 +64,40 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
       console.log("✅ Connected to Socket.io");
     });
 
-    // Listen for student updates - refetch when admin adds new student
     newSocket.on("student:created", (data) => {
       console.log("🔔 New student created via Socket:", data);
-      // Invalidate cache for that class to force refetch
       if (data?.classCode) {
         setStudentsByClass((prev) => {
           const updated = { ...prev };
           delete updated[data.classCode];
           return updated;
         });
+        // If class is currently expanded, refresh immediately
+        if (data.classCode) fetchStudentsForClass(data.classCode);
       }
     });
 
     newSocket.on("student:updated", (data) => {
       console.log("🔔 Student updated via Socket:", data);
-      // Invalidate cache to refetch
       if (data?.classCode) {
         setStudentsByClass((prev) => {
           const updated = { ...prev };
           delete updated[data.classCode];
           return updated;
         });
+        // If class is currently expanded, refresh immediately
+        if (data.classCode) fetchStudentsForClass(data.classCode);
       }
     });
 
     setSocket(newSocket);
-
     return () => {
-      newSocket.close();
+      // ensure cleanup returns void (don't return value from close())
+      try {
+        newSocket.close();
+      } catch (e) {
+        console.warn("Socket close error during cleanup:", e);
+      }
     };
   }, []);
 
@@ -117,36 +118,23 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
   };
 
   const fetchStudentsForClass = async (classCode: string) => {
-    // Allow refetch if students change (from socket events)
     setLoadingStudents((prev) => new Set([...prev, classCode]));
     try {
-      // Fetch class info (includes mapped students) from /classes endpoint
       const res = await axiosInstance.get<any>("/classes");
       const classes: any[] = res.data?.data || [];
       const cls = classes.find((c) => c.classCode === classCode);
-      // Filter out invalid students (name="-", studentId="-")
       let classStudents: IStudent[] = (cls && cls.students) || [];
       classStudents = classStudents.filter(
         (s) => s.name && s.name !== "-" && s.studentId && s.studentId !== "-",
       );
-      setStudentsByClass((prev) => ({
-        ...prev,
-        [classCode]: classStudents,
-      }));
-      // store meta like teacherName for header display
+      setStudentsByClass((prev) => ({ ...prev, [classCode]: classStudents }));
       setClassMetaByCode((prev) => ({
         ...prev,
         [classCode]: { teacherName: cls?.teacherName || "" },
       }));
-      console.log(
-        `📚 Loaded ${classStudents.length} students for class ${classCode}`,
-      );
     } catch (err) {
       console.error("Error fetching students:", err);
-      setStudentsByClass((prev) => ({
-        ...prev,
-        [classCode]: [],
-      }));
+      setStudentsByClass((prev) => ({ ...prev, [classCode]: [] }));
     } finally {
       setLoadingStudents((prev) => {
         const updated = new Set(prev);
@@ -180,7 +168,6 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
 
             return (
               <div key={idx} style={{ marginBottom: "1.5rem" }}>
-                {/* Class Header */}
                 <div
                   onClick={() => toggleClassExpand(cls.classCode)}
                   style={{
@@ -194,18 +181,6 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "flex-start",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.boxShadow =
-                      "0 4px 8px rgba(0,0,0,0.1)";
-                    (e.currentTarget as HTMLElement).style.backgroundColor =
-                      "#f5f5f5";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.boxShadow =
-                      "0 2px 4px rgba(0,0,0,0.05)";
-                    (e.currentTarget as HTMLElement).style.backgroundColor =
-                      "#f9f9f9";
                   }}
                 >
                   <div style={{ flex: 1 }}>
@@ -236,7 +211,6 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
                           </p>
                         ) : null;
                       })()}
-                      {/* Major shown as abbreviation in header above */}
                       <p style={{ margin: 0 }}>
                         <b>Năm học:</b> {cls.schoolYear}
                       </p>
@@ -284,7 +258,6 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
                   />
                 </div>
 
-                {/* Students List (Expandable) */}
                 {isExpanded && (
                   <div
                     style={{
@@ -324,6 +297,13 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
                               border: "1px solid #ddd",
                               borderRadius: "6px",
                               fontSize: "0.9rem",
+                            }}
+                            onClick={() => setSelectedStudent(student)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ")
+                                setSelectedStudent(student);
                             }}
                           >
                             <p
@@ -378,6 +358,104 @@ export default function TeacherClasses({ assignedClass = [] }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {selectedStudent && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1200,
+            padding: "1rem",
+          }}
+          onClick={() => setSelectedStudent(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 720,
+              background: "#fff",
+              borderRadius: 8,
+              padding: "1.2rem",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0 }}>{selectedStudent.name}</h3>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 18,
+                  cursor: "pointer",
+                }}
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{ marginTop: "0.8rem", display: "grid", gap: "0.6rem" }}
+            >
+              <p style={{ margin: 0 }}>
+                <b>Mã HS:</b> {selectedStudent.studentId}
+              </p>
+              {selectedStudent.email && (
+                <p style={{ margin: 0 }}>
+                  <b>Email:</b> {selectedStudent.email}
+                </p>
+              )}
+              {selectedStudent.phone && (
+                <p style={{ margin: 0 }}>
+                  <b>SĐT:</b> {selectedStudent.phone}
+                </p>
+              )}
+              {selectedStudent.dob && (
+                <p style={{ margin: 0 }}>
+                  <b>Ngày sinh:</b>{" "}
+                  {new Date(selectedStudent.dob).toLocaleDateString()}
+                </p>
+              )}
+              {selectedStudent.gender && (
+                <p style={{ margin: 0 }}>
+                  <b>Giới tính:</b> {selectedStudent.gender}
+                </p>
+              )}
+              {selectedStudent.schoolYear && (
+                <p style={{ margin: 0 }}>
+                  <b>Niên khoá:</b> {selectedStudent.schoolYear}
+                </p>
+              )}
+
+              <div
+                style={{ marginTop: "0.6rem", display: "flex", gap: "0.6rem" }}
+              >
+                <button
+                  onClick={() => setSelectedStudent(null)}
+                  style={{
+                    padding: "0.5rem 0.8rem",
+                    background: "#eee",
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

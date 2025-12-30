@@ -131,6 +131,15 @@ export async function syncStudentToUser(studentData: any): Promise<void> {
       }
     }
 
+    // If studentData contains a teacherId (code), sync it to User.teacherId
+    if (studentData.teacherId) {
+      try {
+        updatePayload.teacherId = String(studentData.teacherId);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // major: convert to string (handle arrays or objects)
     if (studentData.major) {
       if (Array.isArray(studentData.major)) {
@@ -245,15 +254,39 @@ export async function syncStudentGradesToUser(
       `📝 [syncStudentGradesToUser] Syncing ${gradesPayload.length} grades for student ${studentId}`,
     );
 
+    // Resolve possible user filter: Users store `studentId` as the student code
+    // (e.g. 'HS0001') while some code calls this function with the Student
+    // document _id (ObjectId). Try to update by `studentRef` (string _id),
+    // or by `studentId` (code) if available.
+    let userFilter: any = { $or: [{ studentId: studentId }] };
+    try {
+      // if studentId looks like ObjectId, also try studentRef match
+      const maybeObj = new ObjectId(studentId);
+      userFilter.$or.push({ studentRef: String(maybeObj) });
+
+      // Also attempt to load Student doc to get its studentId/code
+      try {
+        const StudentModel = require("../models/Student").default;
+        const studentDoc = await StudentModel.findById(String(maybeObj)).lean();
+        if (studentDoc && studentDoc.studentId) {
+          userFilter.$or.push({ studentId: String(studentDoc.studentId) });
+        }
+      } catch (e) {
+        // ignore if Student model lookup fails
+      }
+    } catch (e) {
+      // not an ObjectId — still try matching studentId directly
+    }
+
     const result = await usersCollection.updateOne(
-      { studentId: studentId },
+      userFilter,
       { $set: { grades: gradesPayload } },
       { upsert: false },
     );
 
     if (result.matchedCount === 0) {
       console.warn(
-        `⚠️ [syncStudentGradesToUser] No user found for studentId ${studentId}`,
+        `⚠️ [syncStudentGradesToUser] No user found for student identifier ${studentId}`,
       );
     } else if (result.modifiedCount > 0) {
       console.log(

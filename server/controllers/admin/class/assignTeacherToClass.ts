@@ -4,7 +4,10 @@ import { Request, Response } from "express";
 import ClassModel from "../../../models/Class";
 import mongoose from "mongoose";
 import TeacherModel from "../../../models/teacherModel";
+import StudentModel from "../../../models/Student";
+import User from "../../../models/User";
 import { syncTeacherToUser } from "../../../utils/syncUserData";
+import { getIo } from "../../../utils/socketio";
 
 export const assignTeacherToClass = async (req: Request, res: Response) => {
   try {
@@ -59,6 +62,84 @@ export const assignTeacherToClass = async (req: Request, res: Response) => {
         console.error(
           "Failed to update Teacher.assignedClass:",
           e?.message || e,
+        );
+      }
+
+      // ✅ Also update student records (both StudentModel and User) for this class
+      try {
+        // Fetch teacher document to get teacherId string
+        const teacherDoc = await TeacherModel.findById(teacherObjectId).lean();
+        const teacherIdentifier = teacherDoc?.teacherId || null;
+
+        if (teacherIdentifier) {
+          // Update StudentModel documents' teacherId field
+          await StudentModel.updateMany(
+            { classCode: cls.classCode },
+            { $set: { teacherId: teacherIdentifier } },
+          );
+
+          // Update User documents for students in this class: set teacherId and teacherRef
+          await User.updateMany(
+            { classCode: cls.classCode, role: "student" },
+            {
+              $set: {
+                teacherId: teacherIdentifier,
+                teacherRef: teacherObjectId,
+              },
+            },
+          );
+
+          console.log(
+            `✅ Updated students in class ${cls.classCode} with teacher ${teacherIdentifier}`,
+          );
+
+          // Emit socket events to notify affected users and admins
+          try {
+            const io = getIo();
+            if (io) {
+              // Notify admins
+              io.to("role:admin").emit("class:teacherAssigned", {
+                classCode: cls.classCode,
+                teacherId: teacherIdentifier,
+                teacherName: teacherDoc?.name || null,
+              });
+
+              // Fetch students in this class to emit per-user updates
+              const studentsInClass = await User.find({
+                classCode: cls.classCode,
+                role: "student",
+              }).lean();
+              for (const s of studentsInClass) {
+                try {
+                  io.to(`user:${s.studentId}`).emit("student:updated", {
+                    studentId: s.studentId,
+                    classCode: cls.classCode,
+                    teacherId: teacherIdentifier,
+                  });
+                } catch (e) {
+                  /* ignore individual emit errors */
+                }
+              }
+
+              // Notify the teacher's user room as well
+              io.to(`user:${teacherIdentifier}`).emit(
+                "teacher:assignedToClass",
+                {
+                  classCode: cls.classCode,
+                },
+              );
+            }
+          } catch (emitErr) {
+            console.warn(
+              "⚠️ [assignTeacherToClass] Socket emit failed:",
+              emitErr,
+            );
+          }
+        }
+      } catch (updateStudentsErr) {
+        console.warn(
+          `⚠️ Could not update student/User records for class ${cls.classCode}:`,
+          updateStudentsErr,
         );
       }
     }

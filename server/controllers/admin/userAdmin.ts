@@ -57,8 +57,7 @@ export async function resetUserPasswordByAdmin(params: ResetParams) {
           : undefined,
       });
       await transporter.sendMail({
-        from:
-          process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`,
+        from: `"${process.env.MAIL_FROM_NAME || "Trường Đại Học .H"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
         to: user.email,
         subject: "[Hệ thống] Mật khẩu mới",
         text: `Mật khẩu mới của bạn: ${newPasswordPlain}`,

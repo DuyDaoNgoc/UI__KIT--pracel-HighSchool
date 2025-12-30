@@ -4,9 +4,14 @@ import axiosInstance from "../../../../api/axiosConfig";
 
 interface Grade {
   _id: string;
-  studentId: string;
-  subjectId: string;
-  score: number;
+  // fields may be either populated objects or simple ids depending on API
+  studentId: string | any;
+  subjectId: string | any;
+  classId?: string | any;
+  // support legacy single score and new structured grades
+  score?: number;
+  grades?: Array<{ type: string; score: number }>;
+  averageScore?: number;
   createdAt?: string;
   updatedAt?: string;
   studentName?: string;

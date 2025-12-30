@@ -60,19 +60,17 @@ export default function Home() {
           },
         ]}
       />
-
       {/* BACKGROUND 2 */}
       <Background2
         list={[
           {
-            title: "Get Your Free Version",
+            title: "TẦM NHÌN VÀ PHÁT TRIỂN GIÁO DỤC",
             subtitle:
-              "Having used discount toner cartridges for twenty years, there have been a lot of changes in the toner cartridge market. The market today is approximately a twenty billion dollar business.",
+              "Trong quá trình phát triển lâu dài, giáo dục luôn đóng vai trò trung tâm trong việc đào tạo nguồn nhân lực chất lượng cao. Hiện nay, các định hướng giáo dục đang tập trung vào đổi mới và phát triển bền vững trong tương lai.",
             br2: br2,
           },
         ]}
       />
-
       {/* TESTIMONIALS */}
       <Testimonials
         list={[
@@ -101,9 +99,8 @@ export default function Home() {
           },
         ]}
       />
-
       {/* PRICING */}
-      <Pricing
+      {/* <Pricing
         list={[
           {
             title: "Choose Your Plan",
@@ -127,9 +124,8 @@ export default function Home() {
             price3: "299",
           },
         ]}
-      />
+      /> */}
 
-      {/* PORTFOLIO */}
       <Portfolio
         list={[
           {
@@ -153,7 +149,6 @@ export default function Home() {
           },
         ]}
       />
-
       {/* BACKGROUND 3 */}
       <Background3
         list={[
@@ -165,7 +160,6 @@ export default function Home() {
           },
         ]}
       />
-
       {/* CONTACT PHONE */}
       <ContactPhone
         list={[

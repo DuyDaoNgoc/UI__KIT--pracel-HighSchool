@@ -10,8 +10,8 @@
         "clean": "rimraf .parcel-cache dist",
         "fix:svg": "node fix-svg-attrs.js",
         "/* cloudflared helper scripts (ADDED) */": "/* keep these for quick tunnel control */",
-        "tunnel": "C:\\\\cloudflared\\\\cloudflared.exe tunnel --url http://localhost:8000",
-        "tunnel:run": "C:\\\\cloudflared\\\\cloudflared.exe tunnel --config C:\\\\Users\\\\Admin\\\\Documents\\\\UI-KIT-pracel\\\\.cloudflared\\\\config.yml run my-app",
+        "tunnel": "D:\\highschool\\UI__KIT--pracel-HighSchool\\cloudflared\\cloudflared.exe tunnel --url http://localhost:8000",
+        "tunnel:run": "D:\\highschool\\UI__KIT--pracel-HighSchool\\cloudflared\\cloudflared.exe tunnel --config D:\\highschool\\UI__KIT--pracel-HighSchool\\.cloudflared\\config.yml run my-app",
         "dev:cloud": "cross-env-shell \"npm run client\" \"npm run server\" \"npm run tunnel:run\"",
         "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix"
@@ -72,6 +72,8 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.37.0",
+        "@parcel/packager-raw-url": "^2.15.4",
+        "@parcel/transformer-jsonld": "^2.15.4",
         "@parcel/transformer-sass": "^2.15.4",
         "@types/aos": "^3.0.7",
         "@types/axios": "^0.9.36",

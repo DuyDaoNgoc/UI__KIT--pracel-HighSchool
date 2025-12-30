@@ -92,6 +92,73 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
     };
   }, []);
 
+  // allowed timetables (admin-granted classes) — fetched on demand
+  const [allowedTimetables, setAllowedTimetables] = useState<any[] | null>(
+    null,
+  );
+  const [loadingAllowed, setLoadingAllowed] = useState(false);
+  const [allowedError, setAllowedError] = useState<string | null>(null);
+  const [selectedAllowedClass, setSelectedAllowedClass] = useState<
+    string | null
+  >(null);
+
+  // derive a deduplicated list of allowed classes with stable id and label
+  const allowedClassList = React.useMemo(() => {
+    if (!allowedTimetables || !Array.isArray(allowedTimetables)) return [];
+    const map = new Map<string, { id: string; label: string }>();
+    for (const t of allowedTimetables) {
+      const raw = (t && t.classId) || null;
+      const cid =
+        raw &&
+        (typeof raw === "string"
+          ? raw
+          : raw._id
+            ? String(raw._id)
+            : String(raw));
+      if (!cid) continue;
+      const label =
+        (raw && raw.classCode) ||
+        (raw && raw.className) ||
+        classesMap[cid] ||
+        cid;
+      if (!map.has(cid)) map.set(cid, { id: cid, label });
+    }
+    return Array.from(map.values());
+  }, [allowedTimetables, classesMap]);
+
+  const getClassId = (raw: any) => {
+    if (!raw) return "";
+    if (typeof raw === "string") return raw;
+    if (raw._id) return String(raw._id);
+    return String(raw);
+  };
+
+  const getClassLabel = (raw: any) => {
+    const id = getClassId(raw);
+    if (!id) return "";
+    return (
+      classesMap[id] || (raw && raw.classCode) || (raw && raw.className) || id
+    );
+  };
+
+  const fetchAllowedTimetables = async () => {
+    setAllowedError(null);
+    setLoadingAllowed(true);
+    try {
+      const res = await axiosInstance.get<any>("/timetables/allowed");
+      const list = res.data?.data || res.data || [];
+      setAllowedTimetables(list);
+      // reset selection when new list arrives
+      setSelectedAllowedClass(null);
+    } catch (e: any) {
+      console.error("Failed to fetch allowed timetables:", e);
+      setAllowedError(e?.message || "Lỗi khi tải dữ liệu");
+      setAllowedTimetables([]);
+    } finally {
+      setLoadingAllowed(false);
+    }
+  };
+
   const submitPostponeRequest = async () => {
     if (!selectedItem) return;
     const key =
@@ -171,14 +238,40 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
       socket.off("timetable:updated", handler);
     };
   }, [socket]);
-  // build flattened rows per day; if day empty add a Trống row
+  // build flattened rows per day; support toggling to allowedTimetables when present
+  const effectiveSchedules: IScheduleItem[] | any[] = (() => {
+    if (allowedTimetables && Array.isArray(allowedTimetables)) {
+      // if a class was selected, show only that class' timetable
+      if (selectedAllowedClass) {
+        return (allowedTimetables as any[])
+          .filter((t) => getClassId(t.classId) === String(selectedAllowedClass))
+          .flatMap((t) =>
+            (t.schedule || []).map((s: any) => ({
+              ...(s || {}),
+              timetableId: t._id,
+              classId: t.classId,
+            })),
+          );
+      }
+      // otherwise, don't override teacher's own schedule until they pick a class
+      return schedule;
+    }
+    return schedule;
+  })();
+
+  const effectiveGroupedByDay: Record<string, IScheduleItem[]> = {};
+  for (const item of effectiveSchedules) {
+    const day = item?.day || "";
+    if (!effectiveGroupedByDay[day]) effectiveGroupedByDay[day] = [];
+    effectiveGroupedByDay[day].push(item as IScheduleItem);
+  }
+
   const flattenedRows: Array<any> = [];
   for (const day of sortedDays) {
-    const items = groupedByDay[day] || [];
+    const items = effectiveGroupedByDay[day] || [];
     if (!items || items.length === 0) {
       flattenedRows.push({ day, isEmpty: true });
     } else {
-      // sort items by startTime
       items.sort((a, b) =>
         (a.startTime || "") < (b.startTime || "") ? -1 : 1,
       );
@@ -229,6 +322,41 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
             {w}
           </button>
         ))}
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => fetchAllowedTimetables()}
+          disabled={loadingAllowed}
+          title="Xem thời khóa biểu các lớp được admin gán cho giáo viên"
+        >
+          {loadingAllowed ? "Đang tải..." : "Các lớp được gán"}
+        </button>
+        {allowedTimetables && Array.isArray(allowedTimetables) && (
+          <>
+            <span style={{ marginLeft: 8, color: "#2c3e50" }}>
+              {allowedTimetables.length} lớp được gán
+            </span>
+            <select
+              value={selectedAllowedClass || ""}
+              onChange={(e) => setSelectedAllowedClass(e.target.value || null)}
+              style={{ marginLeft: 12, padding: "6px 8px" }}
+            >
+              <option value="">-- Chọn lớp --</option>
+              {allowedClassList.map((cl) => (
+                <option key={cl.id} value={cl.id}>
+                  {cl.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        {allowedError && (
+          <span style={{ color: "#c0392b", marginLeft: 8 }}>
+            {allowedError}
+          </span>
+        )}
       </div>
       {/* Pagination Prev/Next for weeks */}
       {weeks.length > 1 && (
@@ -316,10 +444,33 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
 
                 const item = r.item;
                 const key = item._id || `${r.day}-${item.startTime}-${idx}`;
+                const subjectLabel =
+                  item.subject ||
+                  (item.subjectId &&
+                    (item.subjectId.name || item.subjectId.title)) ||
+                  item.subjectName ||
+                  "-";
+                const rawTeacher: any =
+                  (item as any).teacherId || (item as any).teacher || null;
+                const teacherLabel =
+                  (item as any).teacherName ||
+                  (rawTeacher &&
+                    (rawTeacher.name ||
+                      rawTeacher.username ||
+                      rawTeacher.fullName ||
+                      rawTeacher.teacherId ||
+                      String(rawTeacher._id))) ||
+                  "-";
+                const dateLabel =
+                  item.periodFrom ||
+                  item.date ||
+                  ((item as any).canceledDates &&
+                    (item as any).canceledDates[0]) ||
+                  "-";
                 return (
                   <tr key={key}>
                     <td>{r.day}</td>
-                    <td>{item.subject}</td>
+                    <td>{subjectLabel}</td>
                     <td>
                       {Array.isArray((item as any).canceledDates) &&
                         (item as any).canceledDates.length > 0 && (
@@ -333,15 +484,16 @@ export default function TeacherSchedule({ schedule: initialSchedule }: Props) {
                             Đã hoãn
                           </div>
                         )}
-                      {item.classId
-                        ? classesMap[item.classId] || item.classId
-                        : "-"}
+                      {(() => {
+                        const cid = getClassId(item.classId);
+                        return cid ? getClassLabel(item.classId) : "-";
+                      })()}
                     </td>
-                    <td>{(item as any).teacherName || "-"}</td>
+                    <td>{teacherLabel}</td>
                     <td>{item.startTime || "-"}</td>
                     <td>{item.endTime || "-"}</td>
                     <td>{item.week || "-"}</td>
-                    <td>{item.date || "-"}</td>
+                    <td>{dateLabel}</td>
                     <td>
                       {postponeState[key] === "approved" ? (
                         <span style={{ color: "green", fontWeight: 600 }}>

@@ -112,118 +112,92 @@ router.post(
 
       console.log("📊 Processing", gradesData.length, "grade entries");
 
-      // 🔒 AUTHORIZATION CHECK for teachers
+      // 🔒 AUTHORIZATION CHECK for teachers - perform per-entry validation
+      const failedAuthorization: any[] = [];
       if (requestUser?.role === "teacher") {
-        // Check if teacher is authorized for this class/subject
-        if (gradesData.length > 0) {
-          const { classId, subjectId } = gradesData[0];
+        for (const gd of gradesData) {
+          try {
+            const { classId, subjectId } = gd as any;
+            const cls = await ClassModel.findById(classId).lean();
+            if (!cls) {
+              failedAuthorization.push({
+                gradeData: gd,
+                reason: "class_not_found",
+              });
+              continue;
+            }
 
-          const cls = await ClassModel.findById(classId);
-          if (!cls) {
-            console.error("❌ Class not found:", classId);
-            return res.status(404).json({ message: "Class not found" });
-          }
+            const tokenIdsLocal = tokenIds.slice();
+            let isAllowed = false;
 
-          // Check if teacher is homeroom or subject teacher
-          let clsTeacherId =
-            (cls.teacherId && (cls.teacherId._id || cls.teacherId)) || null;
-          let isHomeroom = tokenIds.includes(String(clsTeacherId));
+            // homeroom check
+            if (cls.teacherId && tokenIdsLocal.includes(String(cls.teacherId)))
+              isAllowed = true;
 
-          // If class top-level teacherId is an ObjectId pointing to Teacher doc,
-          // try resolving to teacher code or linked User._id as a fallback.
-          if (!isHomeroom && clsTeacherId) {
-            try {
-              const maybeId = String(clsTeacherId);
-              if (/^[0-9a-fA-F]{24}$/.test(maybeId)) {
-                const tdoc = await TeacherModel.findById(maybeId).lean();
-                if (tdoc) {
-                  if (
-                    tdoc.teacherId &&
-                    tokenIds.includes(String(tdoc.teacherId))
-                  ) {
-                    isHomeroom = true;
-                  }
-                  // try linked User via teacherRef or teacherId
-                  if (!isHomeroom) {
-                    const linkedUser = await User.findOne({
-                      $or: [
-                        { teacherRef: tdoc._id },
-                        { teacherId: tdoc.teacherId },
-                      ],
-                    }).lean();
-                    if (
-                      linkedUser &&
-                      tokenIds.includes(String(linkedUser._id))
-                    ) {
-                      isHomeroom = true;
-                    }
-                  }
+            // subjectTeachers check
+            if (!isAllowed && Array.isArray((cls as any).subjectTeachers)) {
+              for (const st of (cls as any).subjectTeachers) {
+                const stTid = st.teacherId?._id || st.teacherId;
+                const subjectMatch =
+                  String(st.subjectId?._id || st.subjectId) ===
+                  String(subjectId);
+                if (
+                  stTid &&
+                  tokenIdsLocal.includes(String(stTid)) &&
+                  subjectMatch
+                ) {
+                  isAllowed = true;
+                  break;
                 }
               }
-            } catch (e) {
-              console.warn(
-                "Could not resolve class teacherId to Teacher doc:",
-                e,
-              );
             }
-          }
 
-          // Subject teacher check with fallback resolution
-          const isSubjectTeacher = !!(await (async () => {
-            const arr = cls.subjectTeachers || [];
-            for (const st of arr) {
-              const stTeacherId = st.teacherId?._id || st.teacherId || null;
-              let teacherMatch = tokenIds.includes(String(stTeacherId));
-              const subjectMatch =
-                String(st.subjectId?._id || st.subjectId) === String(subjectId);
-
-              if (!teacherMatch && stTeacherId) {
-                try {
-                  const maybe = String(stTeacherId);
-                  if (/^[0-9a-fA-F]{24}$/.test(maybe)) {
-                    const tdoc = await TeacherModel.findById(maybe).lean();
-                    if (tdoc) {
-                      if (
-                        tdoc.teacherId &&
-                        tokenIds.includes(String(tdoc.teacherId))
-                      ) {
-                        teacherMatch = true;
-                      }
-                      if (!teacherMatch) {
-                        const linkedUser = await User.findOne({
-                          $or: [
-                            { teacherRef: tdoc._id },
-                            { teacherId: tdoc.teacherId },
-                          ],
-                        }).lean();
-                        if (
-                          linkedUser &&
-                          tokenIds.includes(String(linkedUser._id))
-                        ) {
-                          teacherMatch = true;
-                        }
-                      }
-                    }
+            // explicit allowedViewTeachers (view may not imply grade edit, but admin-granted view included here as permissive)
+            if (!isAllowed && Array.isArray((cls as any).allowedViewTeachers)) {
+              for (const tId of (cls as any).allowedViewTeachers) {
+                if (tokenIdsLocal.includes(String(tId))) {
+                  // only allow if the grade's subject is one of the subjects this teacher teaches in that class
+                  if (Array.isArray((cls as any).subjectTeachers)) {
+                    const teachesThisSubject = (
+                      cls as any
+                    ).subjectTeachers.some(
+                      (st: any) =>
+                        String(st.subjectId) === String(subjectId) &&
+                        (st.teacherId?._id || st.teacherId) &&
+                        tokenIdsLocal.includes(
+                          String(st.teacherId?._id || st.teacherId),
+                        ),
+                    );
+                    if (teachesThisSubject) isAllowed = true;
                   }
-                } catch (e) {
-                  console.warn(
-                    "Could not resolve subject teacherId to Teacher doc:",
-                    e,
-                  );
                 }
+                if (isAllowed) break;
               }
-
-              if (teacherMatch && subjectMatch) return true;
             }
-            return false;
-          })());
 
-          if (!isHomeroom && !isSubjectTeacher) {
-            console.error("❌ Teacher not authorized for this class/subject");
-            return res.status(403).json({
-              message: "Bạn không có quyền nhập điểm cho lớp/môn học này",
+            if (!isAllowed) {
+              failedAuthorization.push({
+                gradeData: gd,
+                reason: "not_authorized",
+              });
+            }
+          } catch (e) {
+            failedAuthorization.push({
+              gradeData: gd,
+              reason: "exception",
+              error: String(e),
             });
           }
+        }
+
+        if (failedAuthorization.length > 0) {
+          return res
+            .status(403)
+            .json({
+              message:
+                "Một số mục không được phép chỉnh sửa hoặc không tồn tại",
+              failed: failedAuthorization,
+            });
         }
       }
 
@@ -382,12 +356,14 @@ router.post(
           await grade.save();
           savedGrades.push(grade);
           studentIds.add(String(student._id));
-        } catch (e) {
+        } catch (e: any) {
           console.error("Error processing gradeData entry:", gradeData, e);
           failedEntries.push({
             gradeData,
             reason: "exception",
-            error: e?.message || e,
+            error:
+              (e && (e as any).message) ||
+              (typeof e === "string" ? e : String(e)),
           });
           continue;
         }
@@ -426,15 +402,61 @@ router.get("/statistics", verifyToken, async (req, res) => {
     const { classId, subjectId } = req.query;
     const filter: any = {};
 
+    console.log("[grades/statistics] entry", { classId, subjectId });
+
     if (classId) filter.classId = classId;
     if (subjectId) filter.subjectId = subjectId;
 
-    const grades = await Grade.find(filter);
+    // Fetch class to determine enrollment (total students)
+    let totalStudents = 0;
+    if (classId) {
+      try {
+        const cls = await ClassModel.findById(String(classId)).lean();
+        if (cls) {
+          totalStudents = Array.isArray((cls as any).studentIds)
+            ? (cls as any).studentIds.length
+            : 0;
+          console.log("[grades/statistics] class found", {
+            classId: String(classId),
+            classSnapshot: {
+              _id: (cls as any)?._id,
+              studentIdsLength: Array.isArray((cls as any).studentIds)
+                ? (cls as any).studentIds.length
+                : 0,
+            },
+          });
+        } else {
+          console.log("[grades/statistics] class not found for id", classId);
+        }
+      } catch (e) {
+        console.warn("Could not resolve class for statistics:", classId, e);
+      }
+    }
 
+    // Load all matching grade documents for the filter (may be 0)
+    const grades = await Grade.find(filter).lean();
+    console.log("[grades/statistics] grades fetched", {
+      filter,
+      count: Array.isArray(grades) ? grades.length : 0,
+      sample: Array.isArray(grades)
+        ? grades.slice(0, 5).map((g: any) => ({
+            _id: g._id,
+            studentId: g.studentId,
+            gradesCount: Array.isArray(g.grades) ? g.grades.length : 0,
+            averageScore: g.averageScore,
+          }))
+        : [],
+    });
+
+    // If no grades exist, return totals (students) with zeros for stats
     if (grades.length === 0) {
+      console.log(
+        "[grades/statistics] no grade docs found; returning enrollment-only stats",
+        { totalStudents },
+      );
       return res.status(200).json({
         data: {
-          totalStudents: 0,
+          totalStudents: totalStudents || 0,
           averageGrade: 0,
           excellentCount: 0,
           goodCount: 0,
@@ -445,38 +467,69 @@ router.get("/statistics", verifyToken, async (req, res) => {
       });
     }
 
-    const totalStudents = grades.length;
-    const computeAvg = (g: any) => {
-      if (typeof g.averageScore === "number") return g.averageScore;
+    // Compute per-grade-document average
+    const computeDocAvg = (g: any) => {
+      if (typeof g.averageScore === "number") return Number(g.averageScore);
       if (Array.isArray(g.grades) && g.grades.length > 0)
         return (
-          g.grades.reduce((s: number, ge: any) => s + (ge.score || 0), 0) /
-          g.grades.length
+          g.grades.reduce(
+            (s: number, ge: any) => s + (Number(ge.score) || 0),
+            0,
+          ) / g.grades.length
         );
+      if (typeof g.score === "number") return Number(g.score);
       return 0;
     };
-    const scores = grades.map((g) => computeAvg(g));
-    const averageGrade = scores.length
-      ? scores.reduce((a, b) => a + b, 0) / scores.length
+
+    // Aggregate by studentId -> compute student average across their grade docs
+    const studentMap: Record<string, number[]> = {};
+    for (const g of grades) {
+      const sid = String(g.studentId);
+      const avg = computeDocAvg(g);
+      if (!studentMap[sid]) studentMap[sid] = [];
+      studentMap[sid].push(avg);
+    }
+    console.log("[grades/statistics] built studentMap", {
+      studentCount: Object.keys(studentMap).length,
+      sampleKeys: Object.keys(studentMap).slice(0, 5),
+    });
+
+    const studentAvgs: number[] = [];
+    for (const sid of Object.keys(studentMap)) {
+      const arr = studentMap[sid];
+      if (arr.length === 0) continue;
+      const sAvg = arr.reduce((a, b) => a + b, 0) / arr.length;
+      studentAvgs.push(sAvg);
+    }
+
+    const computedStudentsWithGrades = studentAvgs.length;
+    const averageGrade = computedStudentsWithGrades
+      ? studentAvgs.reduce((a, b) => a + b, 0) / computedStudentsWithGrades
       : 0;
 
-    const excellentCount = scores.filter((s) => s >= 9).length; // 9-10
-    const goodCount = scores.filter((s) => s >= 8 && s < 9).length; // 8-8.9
-    const fairCount = scores.filter((s) => s >= 7 && s < 8).length; // 7-7.9
-    const poorCount = scores.filter((s) => s >= 5 && s < 7).length; // 5-6.9
-    const failCount = scores.filter((s) => s < 5).length; // <5
-
-    res.status(200).json({
-      data: {
-        totalStudents,
-        averageGrade: Math.round(averageGrade * 100) / 100,
-        excellentCount,
-        goodCount,
-        fairCount,
-        poorCount,
-        failCount,
-      },
+    console.log("[grades/statistics] computed studentAvgs", {
+      computedStudentsWithGrades,
+      averageGrade: Math.round(averageGrade * 100) / 100,
+      sampleStudentAvgs: studentAvgs.slice(0, 6),
     });
+
+    const excellentCount = studentAvgs.filter((s) => s >= 9).length; // 9-10
+    const goodCount = studentAvgs.filter((s) => s >= 8 && s < 9).length;
+    const fairCount = studentAvgs.filter((s) => s >= 7 && s < 8).length;
+    const poorCount = studentAvgs.filter((s) => s >= 5 && s < 7).length;
+    const failCount = studentAvgs.filter((s) => s < 5).length;
+
+    const responsePayload = {
+      totalStudents: totalStudents || computedStudentsWithGrades || 0,
+      averageGrade: Math.round(averageGrade * 100) / 100,
+      excellentCount,
+      goodCount,
+      fairCount,
+      poorCount,
+      failCount,
+    };
+    console.log("[grades/statistics] responding", responsePayload);
+    res.status(200).json({ data: responsePayload });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error", error: err });
@@ -498,6 +551,150 @@ router.get("/:id", verifyToken, async (req, res) => {
     res.status(500).json({ message: "Server error", error: err });
   }
 });
+
+// Cập nhật một điểm (hỗ trợ legacy `score` hoặc `grades` array)
+router.put(
+  "/:id",
+  verifyToken,
+  checkRole(["teacher", "admin"]),
+  async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const requestUser = authReq.user;
+
+      const grade = await Grade.findById(req.params.id);
+      if (!grade) return res.status(404).json({ message: "Grade not found" });
+
+      // Check grade lock for this document
+      const lock = await GradeLock.findOne({
+        classId: grade.classId,
+        subjectId: grade.subjectId,
+      });
+      if (lock?.isLocked) {
+        return res
+          .status(403)
+          .json({ message: "Grades are locked for this subject" });
+      }
+
+      // Authorization for teachers: only allow if teacher is assigned to class/subject
+      if (requestUser?.role === "teacher") {
+        const tokenIds = [
+          requestUser?.id,
+          (requestUser as any)?._id,
+          (requestUser as any)?.teacherId,
+        ]
+          .filter(Boolean)
+          .map(String);
+
+        const cls = await ClassModel.findById(String(grade.classId));
+        let authorized = false;
+        if (cls) {
+          const clsTeacherId =
+            (cls as any).teacherId?._id || (cls as any).teacherId || null;
+          if (clsTeacherId && tokenIds.includes(String(clsTeacherId)))
+            authorized = true;
+
+          // check subjectTeachers
+          if (!authorized && Array.isArray((cls as any).subjectTeachers)) {
+            for (const st of (cls as any).subjectTeachers) {
+              const stTid = st.teacherId?._id || st.teacherId || null;
+              const subjectMatch =
+                String(st.subjectId?._id || st.subjectId) ===
+                String(grade.subjectId);
+              if (subjectMatch && stTid && tokenIds.includes(String(stTid))) {
+                authorized = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!authorized) {
+          return res
+            .status(403)
+            .json({ message: "Bạn không có quyền chỉnh sửa điểm này" });
+        }
+      }
+
+      // Apply updates: support { score } (legacy) or { grades: [{type,score}] }
+      const { score, grades: gradesPayload } = req.body as any;
+
+      if (gradesPayload && Array.isArray(gradesPayload)) {
+        // validate scores
+        for (const g of gradesPayload) {
+          const sc = Number(g.score);
+          if (isNaN(sc) || sc < 0 || sc > 10) {
+            return res.status(400).json({ message: "Invalid grade score" });
+          }
+        }
+        const allowedTypes = [
+          "final",
+          "midterm",
+          "oral",
+          "semester1",
+          "semester2",
+          "test15",
+          "test1period",
+        ] as const;
+
+        grade.grades = gradesPayload.map((g: any) => {
+          const rawType = String(g.type || "").trim();
+          const type = (
+            allowedTypes.includes(rawType as any) ? rawType : "final"
+          ) as any;
+          return {
+            type,
+            score: Number(g.score),
+            date: g.date ? new Date(g.date) : undefined,
+            note: g.note || undefined,
+          };
+        });
+        // recompute average
+        const vals = grade.grades
+          .map((gg: any) => Number(gg.score))
+          .filter((n: number) => !isNaN(n));
+        grade.averageScore = vals.length
+          ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length
+          : undefined;
+      } else if (score !== undefined) {
+        const sc = Number(score);
+        if (isNaN(sc) || sc < 0 || sc > 10)
+          return res.status(400).json({ message: "Invalid score" });
+        // write as a single 'final' entry and set averageScore
+        grade.grades = [{ type: "final", score: sc } as any];
+        grade.averageScore = sc;
+      } else {
+        return res.status(400).json({ message: "Nothing to update" });
+      }
+
+      await grade.save();
+
+      // Sync to User and emit events
+      try {
+        await syncStudentGradesToUser(String(grade.studentId));
+        const io = getIo();
+        if (io) {
+          io.emit("grade:updated", {
+            studentId: String(grade.studentId),
+            grade,
+            ts: new Date(),
+          });
+        }
+      } catch (e) {
+        console.warn("Could not sync/emit after grade update:", e);
+      }
+
+      const populated = await Grade.findById(grade._id)
+        .populate("studentId")
+        .populate("subjectId")
+        .populate("classId");
+      res.status(200).json({ grade: populated });
+    } catch (err) {
+      console.error("PUT /grades/:id error:", err);
+      res.status(500).json({ message: "Server error", error: err });
+    }
+  },
+);
 
 // Xóa điểm
 router.delete(

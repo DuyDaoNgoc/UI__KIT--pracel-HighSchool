@@ -17,6 +17,7 @@ export interface IClass extends Document {
     teacherId: Types.ObjectId;
     teacherName: string;
   }[];
+  allowedViewTeachers?: Types.ObjectId[];
 
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +58,11 @@ const ClassSchema = new Schema<IClass>(
           teacherName: { type: String, required: true },
         },
       ],
+      default: [],
+    },
+    // Admin can explicitly allow teachers to view this class' timetable
+    allowedViewTeachers: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
       default: [],
     },
   },

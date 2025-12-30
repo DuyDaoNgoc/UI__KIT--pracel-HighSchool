@@ -113,7 +113,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       s.on("connect", () => {
         console.log("✅ Socket connected:", s.id);
-        toast.success("Đã kết nối");
+        // remove any previous connect/disconnect toasts and show a short-lived success
+        try {
+          toast.dismiss();
+        } catch (e) {}
+        toast.success("Đã kết nối", { duration: 3000 });
         setLoading(false);
         setError(null);
         // Auto-join rooms based on logged-in user info (if present in localStorage)
@@ -144,7 +148,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       s.on("connect_error", (err: any) => {
         console.error("❌ Socket connect_error:", err.message || err);
-        toast.error("Không có kết nối internet");
+        try {
+          toast.dismiss();
+        } catch (e) {}
+        toast.error("Không có kết nối internet", { duration: 5000 });
         setLoading(false);
       });
 
@@ -152,7 +159,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       s.io.on("reconnect_attempt", () => setLoading(true));
       s.io.on("reconnect_failed", () => {
         setLoading(false);
-        toast.error("Không có kết nối internet");
+        try {
+          toast.dismiss();
+        } catch (e) {}
+        toast.error("Không có kết nối internet", { duration: 5000 });
       });
 
       return () => {

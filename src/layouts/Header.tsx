@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HeaderImg from "../../public/assets/imgs/background/background.png";
+import HeaderImg from "../../public/assets/imgs/background/background-highschool.png";
 import HamburgerIcon from "../icons/Hamburger";
 import VideoFrame from "../Components/settings/VideoFrame";
 import AuthButtons from "../Components/settings/auth/AuthButtons";

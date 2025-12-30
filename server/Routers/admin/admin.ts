@@ -104,17 +104,20 @@ router.post(
           });
 
           await transporter.sendMail({
-            from:
-              process.env.SMTP_FROM ||
-              `no-reply@${process.env.DOMAIN || "local"}`,
+            from: `"${process.env.MAIL_FROM_NAME || "Trường Đại Học .H"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
             to: user.email,
             subject: "[Hệ thống] Mật khẩu tài khoản học sinh",
-            text: `Tài khoản của bạn:\nMã: ${studentId}\nEmail: ${user.email}\nMật khẩu: ${rawPassword}\n\nVui lòng đăng nhập và đổi mật khẩu ngay.`,
+            text: `Tài khoản của bạn:
+Mã: ${studentId}
+Email: ${user.email}
+Mật khẩu: ${rawPassword}
+
+Vui lòng đăng nhập và đổi mật khẩu ngay.`,
             html: `<p>Tài khoản của bạn:</p>
 <ul>
-<li><strong>Mã:</strong> ${studentId}</li>
-<li><strong>Email:</strong> ${user.email}</li>
-<li><strong>Mật khẩu:</strong> ${rawPassword}</li>
+  <li><strong>Mã:</strong> ${studentId}</li>
+  <li><strong>Email:</strong> ${user.email}</li>
+  <li><strong>Mật khẩu:</strong> ${rawPassword}</li>
 </ul>
 <p>Vui lòng đăng nhập và đổi mật khẩu ngay.</p>`,
           });
@@ -355,9 +358,7 @@ router.post(
           });
 
           await transporter.sendMail({
-            from:
-              process.env.SMTP_FROM ||
-              `no-reply@${process.env.DOMAIN || "local"}`,
+            from: `"${process.env.MAIL_FROM_NAME || "Trường Đại Học .H"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
             to: student.email,
             subject: "[Hệ thống] Tài khoản học sinh",
             text: `Tài khoản đã được tạo. Mã: ${student.studentId}\nEmail: ${student.email}\nMật khẩu: ${rawPassword}`,
@@ -499,9 +500,7 @@ router.post(
           });
 
           await transporter.sendMail({
-            from:
-              process.env.SMTP_FROM ||
-              `no-reply@${process.env.DOMAIN || "local"}`,
+            from: `"${process.env.MAIL_FROM_NAME || "Trường Đại Học .H"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
             to: teacher.email,
             subject: "[Hệ thống] Tài khoản giáo viên",
             text: `Tài khoản đã được tạo. Mã: ${teacher.teacherId}\nEmail: ${teacher.email}\nMật khẩu: ${rawPassword}`,

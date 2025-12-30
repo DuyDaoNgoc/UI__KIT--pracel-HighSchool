@@ -31,7 +31,7 @@ export default function Background2({ list }: Background2Props) {
               {items.subtitle}
             </p>
             <button className="btn__background-2 btn--active pricing__items--light-yellow">
-              DOWNLOAD
+              Xem Thêm
             </button>
           </div>
         </section>

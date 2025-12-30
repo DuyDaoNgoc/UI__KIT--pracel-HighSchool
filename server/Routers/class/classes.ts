@@ -136,11 +136,38 @@ router.get(
       });
 
       // 🔒 Query: lớp mà giáo viên là chủ nhiệm HOẶC là giáo viên bộ môn
-      // Try with string comparison first
+      // Prepare possible teacher identifiers: token user id and teacher code -> TeacherModel._id
+      const possibleTeacherIds: any[] = [];
+      if (teacherId) possibleTeacherIds.push(teacherId);
+
+      // If token includes a teacher code (e.g., GV00002), try resolving to TeacherModel._id
+      try {
+        const tokenTeacherCode = req.user?.teacherId;
+        if (tokenTeacherCode) {
+          const resolvedTeacher = await TeacherModel.findOne({
+            teacherId: String(tokenTeacherCode),
+          }).select("_id teacherId").lean();
+          if (resolvedTeacher && resolvedTeacher._id) {
+            possibleTeacherIds.push(String(resolvedTeacher._id));
+            console.log(
+              "🔍 Resolved token teacher code to TeacherModel._id:",
+              resolvedTeacher._id,
+              "(code:", resolvedTeacher.teacherId, ")",
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Could not resolve teacher code to TeacherModel:", e);
+      }
+
+      // Deduplicate
+      const uniqIds = Array.from(new Set(possibleTeacherIds.map(String)));
+
+      // Query classes where teacherId or subjectTeachers.teacherId matches any of the possible ids
       const classes = await ClassModel.find({
         $or: [
-          { teacherId: teacherId }, // chủ nhiệm - string comparison
-          { "subjectTeachers.teacherId": teacherId }, // giáo viên bộ môn - string comparison
+          { teacherId: { $in: uniqIds } },
+          { "subjectTeachers.teacherId": { $in: uniqIds } },
         ],
       })
         .populate("teacherId", "_id username email")
@@ -155,45 +182,9 @@ router.get(
         .lean();
 
       console.log(
-        `✅ Found ${classes.length} classes for teacher ${teacherId} (string comparison)`,
+        `✅ Found ${classes.length} classes for teacher identifiers:`,
+        uniqIds,
       );
-
-      if (classes.length === 0) {
-        console.log(
-          "⚠️ No classes found with string comparison. Trying with ObjectId...",
-        );
-        // If no results, try converting to ObjectId
-        try {
-          const teacherObjectId = new mongoose.Types.ObjectId(teacherId);
-          const classesWithObjectId = await ClassModel.find({
-            $or: [
-              { teacherId: teacherObjectId },
-              { "subjectTeachers.teacherId": teacherObjectId },
-            ],
-          })
-            .populate("teacherId", "_id username email")
-            .populate({
-              path: "subjectTeachers.teacherId",
-              select: "_id username email",
-            })
-            .populate({
-              path: "subjectTeachers.subjectId",
-              select: "_id name",
-            })
-            .lean();
-
-          console.log(
-            `✅ Found ${classesWithObjectId.length} classes with ObjectId conversion`,
-          );
-          if (classesWithObjectId.length > classes.length) {
-            // ObjectId version found more classes, use it
-            classes.length = 0;
-            classes.push(...classesWithObjectId);
-          }
-        } catch (e) {
-          console.error("❌ Error converting to ObjectId:", e);
-        }
-      }
 
       console.log(`📋 Final result: ${classes.length} classes`);
 

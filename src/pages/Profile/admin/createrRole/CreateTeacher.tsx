@@ -149,8 +149,28 @@ export default function CreateTeacherWithTable() {
         await axiosInstance.put(`/teachers/${editingId}`, payload);
         toast.success(" Cập nhật giáo viên thành công!");
       } else {
-        await axiosInstance.post("/teachers", payload);
-        toast.success(" Thêm giáo viên thành công!");
+        const res = await axiosInstance.post<any>("/teachers", payload);
+
+        // Server response shape: { success, message, data: { teacher, emailSent, rawPassword } }
+        const serverData = res?.data?.data ?? res?.data ?? null;
+        const emailSent = serverData?.emailSent ?? false;
+        const rawPassword = serverData?.rawPassword ?? null;
+        const returnedTeacherEmail =
+          serverData?.teacher?.email ||
+          serverData?.teacher?.emailAddress ||
+          payload.email;
+
+        if (emailSent) {
+          toast.success(
+            `Thêm giáo viên thành công! Mã đã được gửi tới email ${returnedTeacherEmail || "(đã cung cấp)"}`,
+          );
+        } else if (rawPassword) {
+          toast.success(
+            `Thêm giáo viên thành công! SMTP chưa cấu hình — mật khẩu: ${rawPassword}`,
+          );
+        } else {
+          toast.success("Thêm giáo viên thành công!");
+        }
       }
       resetForm();
       fetchTeachers();

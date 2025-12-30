@@ -500,7 +500,7 @@ export default function ClassesTab({
                                   <TableCell
                                     sx={{ fontWeight: 600, color: "white" }}
                                   >
-                                    Sinh Nhật
+                                    Năm Sinh
                                   </TableCell>
                                   <TableCell
                                     sx={{ fontWeight: 600, color: "white" }}

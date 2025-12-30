@@ -314,9 +314,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         });
 
         await transporter.sendMail({
-          from:
-            process.env.SMTP_FROM ||
-            `no-reply@${process.env.DOMAIN || "local"}`,
+          from: `"${process.env.MAIL_FROM_NAME || "Trường Đại Học .H"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
           to: adminEmail,
           subject: "[Yêu cầu] Đặt lại mật khẩu người dùng",
           text: mailBody,

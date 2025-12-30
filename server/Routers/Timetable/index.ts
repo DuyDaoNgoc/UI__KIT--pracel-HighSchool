@@ -6,54 +6,217 @@ import Subject from "../../models/Subject";
 import User from "../../models/User";
 import Teacher from "../../models/teacherModel";
 import { ITeacher } from "../../models/teacherModel";
-import { verifyToken, requireAdmin } from "../../middleware/authMiddleware";
+import {
+  verifyToken,
+  requireAdmin,
+  checkRole,
+  AuthRequest,
+} from "../../middleware/authMiddleware";
+
+// Helper: given a raw stored teacher reference (could be ObjectId, User._id, Teacher._id, or teacher code like 'GV00002'),
+// attempt to resolve to a User or Teacher document (lean). Returns the doc or null.
+const resolveTeacherByRawId = async (raw: any) => {
+  if (!raw) return null;
+  const looksLikeObjectId = (v: string) => /^[0-9a-fA-F]{24}$/.test(v);
+  try {
+    // Try as User._id
+    if (looksLikeObjectId(String(raw))) {
+      const u = await User.findById(String(raw))
+        .select("_id username name teacherId")
+        .lean();
+      if (u) return u;
+      // Try Teacher by _id
+      const t = await Teacher.findById(String(raw)).lean();
+      if (t) return t;
+    }
+
+    // If raw is a string teacher code like 'GV00002', try User.teacherId or Teacher.teacherId
+    if (typeof raw === "string") {
+      const u2 = await User.findOne({ teacherId: raw })
+        .select("_id username name teacherId")
+        .lean();
+      if (u2) return u2;
+      const t2 = await Teacher.findOne({ teacherId: raw }).lean();
+      if (t2) return t2;
+    }
+  } catch (e) {
+    // ignore resolution errors
+  }
+  return null;
+};
 
 const router = express.Router();
 
-// Lấy tất cả thời khóa biểu
-router.get("/", async (req, res) => {
+// Lấy tất cả thời khóa biểu: admin => tất cả; teacher => chỉ các lớp được phép
+router.get("/", verifyToken, async (req, res) => {
   try {
-    let timetables = await Timetable.find()
-      .populate("classId")
-      .populate("schedule.subjectId")
-      .populate("schedule.teacherId");
+    const authReq = req as AuthRequest;
+    const reqUser = authReq.user;
 
-    // Fallback: for any schedule items where populate returned null, try load from Teacher collection
-    for (const t of timetables) {
-      try {
-        const raw = await Timetable.findById(t._id).lean();
-        if (!raw || !Array.isArray(raw.schedule) || !Array.isArray(t.schedule))
-          continue;
-        for (let i = 0; i < t.schedule.length; i++) {
-          const popItem: any = t.schedule[i] as any;
-          const rawItem: any = raw.schedule?.[i];
+    // Admin: return all timetables (same as before)
+    if (reqUser && reqUser.role === "admin") {
+      let timetables = await Timetable.find()
+        .populate("classId")
+        .populate("schedule.subjectId")
+        .populate("schedule.teacherId");
+
+      // Fallback: for any schedule items where populate returned null, try load from Teacher collection
+      for (const t of timetables) {
+        try {
+          const raw = await Timetable.findById(t._id).lean();
           if (
-            (!popItem.teacherId || popItem.teacherId === null) &&
-            rawItem &&
-            rawItem.teacherId
-          ) {
-            try {
-              const teacherDoc = await Teacher.findById(rawItem.teacherId);
-              if (teacherDoc) popItem.teacherId = teacherDoc;
-            } catch (e) {
-              // ignore
+            !raw ||
+            !Array.isArray(raw.schedule) ||
+            !Array.isArray(t.schedule)
+          )
+            continue;
+          for (let i = 0; i < t.schedule.length; i++) {
+            const popItem: any = t.schedule[i] as any;
+            const rawItem: any = raw.schedule?.[i];
+            if (
+              (!popItem.teacherId || popItem.teacherId === null) &&
+              rawItem &&
+              rawItem.teacherId
+            ) {
+              try {
+                const teacherDoc = await resolveTeacherByRawId(
+                  rawItem.teacherId,
+                );
+                if (teacherDoc) popItem.teacherId = teacherDoc;
+              } catch (e) {
+                // ignore
+              }
             }
           }
+        } catch (e) {
+          // ignore per-timetable errors
         }
-      } catch (e) {
-        // ignore per-timetable errors
       }
+
+      return res.status(200).json({ data: timetables });
     }
 
-    res.status(200).json({ data: timetables });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error", error: err });
+    // Teacher: return timetables only for classes they are allowed to view
+    if (reqUser && reqUser.role === "teacher") {
+      const rawTokens = [
+        reqUser?.id,
+        (reqUser as any)?._id,
+        (reqUser as any)?.teacherId,
+      ]
+        .filter(Boolean)
+        .map(String);
+
+      console.debug("[GET /timetables] reqUser:", reqUser);
+      console.debug("[GET /timetables] rawTokens:", rawTokens);
+
+      const looksLikeObjectId = (v: string) => /^[0-9a-fA-F]{24}$/.test(v);
+
+      const objectIdTokens = rawTokens.filter(looksLikeObjectId);
+      const nonObjectTokens = rawTokens.filter((t) => !looksLikeObjectId(t));
+
+      // Resolve non-object tokens (eg teacher code like GV00002) to User._id where possible
+      const resolvedUserIds = new Set<string>(objectIdTokens.map(String));
+      for (const tok of nonObjectTokens) {
+        try {
+          // Try find User by teacherId field
+          const u = await User.findOne({ teacherId: tok }).select("_id").lean();
+          if (u && u._id) {
+            resolvedUserIds.add(String(u._id));
+            continue;
+          }
+          // Try find Teacher doc then linked User
+          const tdoc = await Teacher.findOne({ teacherId: tok }).lean();
+          if (tdoc) {
+            const linked = await User.findOne({
+              $or: [{ teacherRef: tdoc._id }, { teacherId: tdoc.teacherId }],
+            })
+              .select("_id")
+              .lean();
+            if (linked && linked._id) {
+              resolvedUserIds.add(String(linked._id));
+            }
+          }
+        } catch (e) {
+          console.warn("Could not resolve token to user id:", tok, e);
+        }
+      }
+
+      const tokenUserIds = Array.from(resolvedUserIds);
+      console.debug("[GET /timetables] resolved tokenUserIds:", tokenUserIds);
+
+      const classes = await ClassModel.find({
+        $or: [
+          { teacherId: { $in: tokenUserIds } },
+          { "subjectTeachers.teacherId": { $in: tokenUserIds } },
+          { allowedViewTeachers: { $in: tokenUserIds } },
+        ],
+      }).select("_id");
+
+      const classIds = classes.map((c: any) => c._id);
+      console.debug(
+        "[GET /timetables] classes found:",
+        classes.length,
+        "classIds:",
+        classIds,
+      );
+      let timetables = [] as any[];
+      if (classIds.length > 0) {
+        timetables = await Timetable.find({ classId: { $in: classIds } })
+          .populate("classId")
+          .populate("schedule.subjectId")
+          .populate("schedule.teacherId");
+
+        // apply same teacher fallback population
+        for (const t of timetables) {
+          try {
+            const raw = await Timetable.findById(t._id).lean();
+            if (
+              !raw ||
+              !Array.isArray(raw.schedule) ||
+              !Array.isArray(t.schedule)
+            )
+              continue;
+            for (let i = 0; i < t.schedule.length; i++) {
+              const popItem: any = t.schedule[i] as any;
+              const rawItem: any = raw.schedule?.[i];
+              if (
+                (!popItem.teacherId || popItem.teacherId === null) &&
+                rawItem &&
+                rawItem.teacherId
+              ) {
+                try {
+                  const teacherDoc = await resolveTeacherByRawId(
+                    rawItem.teacherId,
+                  );
+                  if (teacherDoc) popItem.teacherId = teacherDoc;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            }
+          } catch (e) {
+            // ignore per-timetable errors
+          }
+        }
+      }
+
+      return res.status(200).json({ data: timetables });
+    }
+
+    // Other roles: forbidden
+    return res
+      .status(403)
+      .json({ message: "Forbidden: Insufficient permissions" });
+  } catch (err: any) {
+    console.error(err && err.stack ? err.stack : err);
+    res
+      .status(500)
+      .json({ message: "Server error", error: err?.message || String(err) });
   }
 });
 
-// Lấy thời khóa biểu theo lớp
-router.get("/class/:classId", async (req, res) => {
+// Lấy thời khóa biểu theo lớp (require auth; teachers only if allowed)
+router.get("/class/:classId", verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     const timetable = await Timetable.findOne({ classId })
@@ -62,15 +225,201 @@ router.get("/class/:classId", async (req, res) => {
       .populate("schedule.teacherId");
     if (!timetable)
       return res.status(404).json({ message: "Timetable not found" });
+
+    // Authorization: admin can view any; teachers only if they are assigned or explicitly allowed
+    const authReq = req as AuthRequest;
+    const reqUser = authReq.user;
+    if (reqUser && reqUser.role === "teacher") {
+      const rawTokens = [
+        reqUser?.id,
+        (reqUser as any)?._id,
+        (reqUser as any)?.teacherId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      const looksLikeObjectId = (v: string) => /^[0-9a-fA-F]{24}$/.test(v);
+      const objectIdTokens = rawTokens.filter(looksLikeObjectId);
+      const nonObjectTokens = rawTokens.filter((t) => !looksLikeObjectId(t));
+      const resolvedUserIds = new Set<string>(objectIdTokens.map(String));
+      for (const tok of nonObjectTokens) {
+        try {
+          const u = await User.findOne({ teacherId: tok }).select("_id").lean();
+          if (u && u._id) {
+            resolvedUserIds.add(String(u._id));
+            continue;
+          }
+          const tdoc = await Teacher.findOne({ teacherId: tok }).lean();
+          if (tdoc) {
+            const linked = await User.findOne({
+              $or: [{ teacherRef: tdoc._id }, { teacherId: tdoc.teacherId }],
+            })
+              .select("_id")
+              .lean();
+            if (linked && linked._id) resolvedUserIds.add(String(linked._id));
+          }
+        } catch (e) {
+          console.warn("Could not resolve token to user id:", tok, e);
+        }
+      }
+
+      const tokenUserIds = Array.from(resolvedUserIds);
+
+      // load class doc to verify
+      const cls = await ClassModel.findById(classId).lean();
+      let allowed = false;
+      if (cls) {
+        if (cls.teacherId && tokenUserIds.includes(String(cls.teacherId)))
+          allowed = true;
+        // subjectTeachers entries
+        if (!allowed && Array.isArray((cls as any).subjectTeachers)) {
+          for (const st of (cls as any).subjectTeachers) {
+            const stTid = st.teacherId?._id || st.teacherId;
+            if (stTid && tokenUserIds.includes(String(stTid))) {
+              allowed = true;
+              break;
+            }
+          }
+        }
+        // explicit allowedViewTeachers
+        if (!allowed && Array.isArray((cls as any).allowedViewTeachers)) {
+          for (const tId of (cls as any).allowedViewTeachers) {
+            if (tokenUserIds.includes(String(tId))) {
+              allowed = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!allowed) {
+        return res.status(403).json({
+          message: "Bạn không có quyền xem thời khóa biểu của lớp này",
+        });
+      }
+    }
     res.status(200).json({ data: timetable });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error", error: err });
+  } catch (err: any) {
+    console.error(err && err.stack ? err.stack : err);
+    res
+      .status(500)
+      .json({ message: "Server error", error: err?.message || String(err) });
   }
 });
 
-// Lấy chi tiết một thời khóa biểu
-router.get("/:id", async (req, res) => {
+// GET timetables the current teacher is allowed to view
+router.get(
+  "/allowed",
+  verifyToken,
+  checkRole(["teacher", "admin"]),
+  async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const reqUser = authReq.user;
+
+      // Admin gets all
+      if (reqUser && reqUser.role === "admin") {
+        const timetables = await Timetable.find()
+          .populate("classId")
+          .populate("schedule.subjectId")
+          .populate("schedule.teacherId");
+        return res.status(200).json({ data: timetables });
+      }
+
+      // Build token ids similar to grade route
+      const rawTokens = [
+        reqUser?.id,
+        (reqUser as any)?._id,
+        (reqUser as any)?.teacherId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      const looksLikeObjectId = (v: string) => /^[0-9a-fA-F]{24}$/.test(v);
+      const objectIdTokens = rawTokens.filter(looksLikeObjectId);
+      const nonObjectTokens = rawTokens.filter((t) => !looksLikeObjectId(t));
+      const resolvedUserIds = new Set<string>(objectIdTokens.map(String));
+      for (const tok of nonObjectTokens) {
+        try {
+          const u = await User.findOne({ teacherId: tok }).select("_id").lean();
+          if (u && u._id) {
+            resolvedUserIds.add(String(u._id));
+            continue;
+          }
+          const tdoc = await Teacher.findOne({ teacherId: tok }).lean();
+          if (tdoc) {
+            const linked = await User.findOne({
+              $or: [{ teacherRef: tdoc._id }, { teacherId: tdoc.teacherId }],
+            })
+              .select("_id")
+              .lean();
+            if (linked && linked._id) resolvedUserIds.add(String(linked._id));
+          }
+        } catch (e) {
+          console.warn("Could not resolve token to user id:", tok, e);
+        }
+      }
+
+      const tokenUserIds = Array.from(resolvedUserIds);
+
+      // Find classes where teacher is homeroom, subject teacher, or explicitly allowed
+      const classes = await ClassModel.find({
+        $or: [
+          { teacherId: { $in: tokenUserIds } },
+          { "subjectTeachers.teacherId": { $in: tokenUserIds } },
+          { allowedViewTeachers: { $in: tokenUserIds } },
+        ],
+      }).select("_id");
+
+      const classIds = classes.map((c: any) => c._id);
+      const timetables = await Timetable.find({ classId: { $in: classIds } })
+        .populate("classId")
+        .populate("schedule.subjectId")
+        .populate("schedule.teacherId");
+
+      // Fallback: for any schedule items where populate returned null, try load from Teacher collection
+      for (const t of timetables) {
+        try {
+          const raw = await Timetable.findById(t._id).lean();
+          if (
+            !raw ||
+            !Array.isArray(raw.schedule) ||
+            !Array.isArray(t.schedule)
+          )
+            continue;
+          for (let i = 0; i < t.schedule.length; i++) {
+            const popItem: any = t.schedule[i] as any;
+            const rawItem: any = raw.schedule?.[i];
+            if (
+              (!popItem.teacherId || popItem.teacherId === null) &&
+              rawItem &&
+              rawItem.teacherId
+            ) {
+              try {
+                const teacherDoc = await resolveTeacherByRawId(
+                  rawItem.teacherId,
+                );
+                if (teacherDoc) popItem.teacherId = teacherDoc;
+              } catch (e) {
+                // ignore missing teacher fallback
+              }
+            }
+          }
+        } catch (e) {
+          // ignore per-timetable errors
+        }
+      }
+
+      res.status(200).json({ data: timetables });
+    } catch (err: any) {
+      console.error(err && err.stack ? err.stack : err);
+      res
+        .status(500)
+        .json({ message: "Server error", error: err?.message || String(err) });
+    }
+  },
+);
+
+// Lấy chi tiết một thời khóa biểu (require auth; teachers only if allowed)
+router.get("/:id", verifyToken, async (req, res) => {
   try {
     const timetable = await Timetable.findById(req.params.id)
       .populate("classId")
@@ -95,7 +444,7 @@ router.get("/:id", async (req, res) => {
             rawItem.teacherId
           ) {
             try {
-              const teacherDoc = await Teacher.findById(rawItem.teacherId);
+              const teacherDoc = await resolveTeacherByRawId(rawItem.teacherId);
               if (teacherDoc) popItem.teacherId = teacherDoc;
             } catch (e) {
               // ignore
@@ -107,10 +456,84 @@ router.get("/:id", async (req, res) => {
       // ignore
     }
 
+    // Authorization: admin can view any; teachers only if they are assigned or explicitly allowed
+    const authReq = req as AuthRequest;
+    const reqUser = authReq.user;
+    if (reqUser && reqUser.role === "teacher") {
+      const rawTokens = [
+        reqUser?.id,
+        (reqUser as any)?._id,
+        (reqUser as any)?.teacherId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      const looksLikeObjectId = (v: string) => /^[0-9a-fA-F]{24}$/.test(v);
+      const objectIdTokens = rawTokens.filter(looksLikeObjectId);
+      const nonObjectTokens = rawTokens.filter((t) => !looksLikeObjectId(t));
+      const resolvedUserIds = new Set<string>(objectIdTokens.map(String));
+      for (const tok of nonObjectTokens) {
+        try {
+          const u = await User.findOne({ teacherId: tok }).select("_id").lean();
+          if (u && u._id) {
+            resolvedUserIds.add(String(u._id));
+            continue;
+          }
+          const tdoc = await Teacher.findOne({ teacherId: tok }).lean();
+          if (tdoc) {
+            const linked = await User.findOne({
+              $or: [{ teacherRef: tdoc._id }, { teacherId: tdoc.teacherId }],
+            })
+              .select("_id")
+              .lean();
+            if (linked && linked._id) {
+              resolvedUserIds.add(String(linked._id));
+            }
+          }
+        } catch (e) {
+          console.warn("Could not resolve token to user id:", tok, e);
+        }
+      }
+
+      const tokenUserIds = Array.from(resolvedUserIds);
+
+      // load class doc to verify
+      const cls = await ClassModel.findById(timetable.classId).lean();
+      let allowed = false;
+      if (cls) {
+        if (cls.teacherId && tokenUserIds.includes(String(cls.teacherId)))
+          allowed = true;
+        if (!allowed && Array.isArray((cls as any).subjectTeachers)) {
+          for (const st of (cls as any).subjectTeachers) {
+            const stTid = st.teacherId?._id || st.teacherId;
+            if (stTid && tokenUserIds.includes(String(stTid))) {
+              allowed = true;
+              break;
+            }
+          }
+        }
+        if (!allowed && Array.isArray((cls as any).allowedViewTeachers)) {
+          for (const tId of (cls as any).allowedViewTeachers) {
+            if (tokenUserIds.includes(String(tId))) {
+              allowed = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!allowed) {
+        return res
+          .status(403)
+          .json({ message: "Bạn không có quyền xem thời khóa biểu này" });
+      }
+    }
+
     res.status(200).json({ data: timetable });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error", error: err });
+  } catch (err: any) {
+    console.error(err && err.stack ? err.stack : err);
+    res
+      .status(500)
+      .json({ message: "Server error", error: err?.message || String(err) });
   }
 });
 
@@ -291,7 +714,7 @@ router.post("/", async (req, res) => {
             rawItem.teacherId
           ) {
             try {
-              const teacherDoc = await Teacher.findById(rawItem.teacherId);
+              const teacherDoc = await resolveTeacherByRawId(rawItem.teacherId);
               if (teacherDoc) popItem.teacherId = teacherDoc;
             } catch (err) {
               // ignore and leave as null
@@ -328,6 +751,128 @@ router.post("/", async (req, res) => {
         startTime: s.startTime,
         endTime: s.endTime,
       }));
+
+      // --- Update class.subjectTeachers and teacher.subjectClasses based on schedule ---
+      try {
+        for (const item of rawSaved?.schedule || []) {
+          if (!item || !item.subjectId || !item.teacherId) continue;
+          const subjectIdStr = String(item.subjectId);
+          const teacherObjId = item.teacherId;
+
+          // Resolve subject doc
+          const subjDoc: any = await Subject.findById(subjectIdStr).lean();
+          if (!subjDoc) continue;
+
+          // Resolve teacher: prefer User, fallback to Teacher
+          let userTeacher = await User.findById(teacherObjId).lean();
+          let teacherDoc = null as any;
+          if (!userTeacher) {
+            teacherDoc = await Teacher.findById(teacherObjId).lean();
+            if (teacherDoc) {
+              userTeacher = await User.findOne({
+                $or: [
+                  { teacherRef: teacherDoc._id },
+                  { teacherId: teacherDoc.teacherId },
+                ],
+              }).lean();
+            }
+          } else {
+            if (userTeacher.teacherRef) {
+              teacherDoc = await Teacher.findById(
+                userTeacher.teacherRef,
+              ).lean();
+            } else if (userTeacher.teacherId) {
+              teacherDoc = await Teacher.findOne({
+                teacherId: userTeacher.teacherId,
+              }).lean();
+            }
+          }
+
+          const finalUserId = userTeacher?._id || null;
+          const teacherName =
+            (userTeacher && (userTeacher.username || userTeacher.name)) ||
+            (teacherDoc && teacherDoc.name) ||
+            null;
+
+          // Update ClassModel.subjectTeachers: upsert entry for subjectId
+          try {
+            const clsDoc: any = await ClassModel.findById(cls._id);
+            if (clsDoc) {
+              const existing: any = (clsDoc.subjectTeachers || []).find(
+                (st: any) => String(st.subjectId) === String(subjectIdStr),
+              ) as any;
+              if (existing) {
+                existing.teacherId = finalUserId || existing.teacherId;
+                existing.teacherName = teacherName || existing.teacherName;
+                existing.subjectName = subjDoc.name || existing.subjectName;
+              } else if (finalUserId) {
+                clsDoc.subjectTeachers = clsDoc.subjectTeachers || [];
+                clsDoc.subjectTeachers.push({
+                  subjectId: (subjDoc._id as any) || String(subjDoc._id),
+                  subjectName:
+                    (subjDoc as any).name ||
+                    (subjDoc as any).title ||
+                    String((subjDoc as any)._id),
+                  teacherId:
+                    (finalUserId as any) ||
+                    (existing && existing.teacherId) ||
+                    null,
+                  teacherName: teacherName || "",
+                });
+              }
+              await clsDoc.save();
+            }
+          } catch (e) {
+            console.warn("⚠️ Could not update Class.subjectTeachers:", e);
+          }
+
+          // Update TeacherModel.subjectClasses (store subject names)
+          try {
+            if (teacherDoc || userTeacher) {
+              let tdoc = teacherDoc;
+              if (!tdoc && userTeacher?.teacherRef) {
+                tdoc = await Teacher.findById(userTeacher.teacherRef).lean();
+              }
+              if (!tdoc && userTeacher?.teacherId) {
+                tdoc = await Teacher.findOne({
+                  teacherId: userTeacher.teacherId,
+                }).lean();
+              }
+              if (tdoc) {
+                const current = tdoc.subjectClasses || [];
+                const subjName =
+                  (subjDoc as any).name ||
+                  (subjDoc as any).title ||
+                  String((subjDoc as any)._id);
+                if (!current.includes(subjName)) {
+                  await Teacher.updateOne(
+                    { _id: tdoc._id },
+                    { $addToSet: { subjectClasses: subjName } },
+                  );
+                  try {
+                    const {
+                      syncTeacherToUser,
+                    } = require("../../utils/syncUserData");
+                    await syncTeacherToUser(tdoc);
+                  } catch (e) {
+                    console.warn(
+                      "⚠️ syncTeacherToUser failed for timetable update:",
+                      e,
+                    );
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("⚠️ Could not update Teacher.subjectClasses:", e);
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "⚠️ Error while updating class/teacher subject assignments:",
+          err,
+        );
+      }
 
       const clsStudents = (cls.studentIds || []).map((id: any) => id);
       if (clsStudents.length > 0) {
@@ -501,6 +1046,131 @@ router.patch("/:id", async (req, res) => {
         startTime: s.startTime,
         endTime: s.endTime,
       }));
+
+      // --- Update class.subjectTeachers and teacher.subjectClasses based on schedule (PATCH flow) ---
+      try {
+        const rawSaved = await Timetable.findById(timetable._id).lean();
+        for (const item of rawSaved?.schedule || []) {
+          if (!item || !item.subjectId || !item.teacherId) continue;
+          const subjectIdStr = String(item.subjectId);
+          const teacherObjId = item.teacherId;
+
+          const subjDoc = await Subject.findById(subjectIdStr).lean();
+          if (!subjDoc) continue;
+
+          let userTeacher = await User.findById(teacherObjId).lean();
+          let teacherDoc = null as any;
+          if (!userTeacher) {
+            teacherDoc = await Teacher.findById(teacherObjId).lean();
+            if (teacherDoc) {
+              userTeacher = await User.findOne({
+                $or: [
+                  { teacherRef: teacherDoc._id },
+                  { teacherId: teacherDoc.teacherId },
+                ],
+              }).lean();
+            }
+          } else {
+            if (userTeacher.teacherRef) {
+              teacherDoc = await Teacher.findById(
+                userTeacher.teacherRef,
+              ).lean();
+            } else if (userTeacher.teacherId) {
+              teacherDoc = await Teacher.findOne({
+                teacherId: userTeacher.teacherId,
+              }).lean();
+            }
+          }
+
+          const finalUserId = userTeacher?._id || null;
+          const teacherName =
+            (userTeacher && (userTeacher.username || userTeacher.name)) ||
+            (teacherDoc && teacherDoc.name) ||
+            null;
+
+          try {
+            const clsDoc: any = await ClassModel.findById(timetable.classId);
+            if (clsDoc) {
+              const existing: any = (clsDoc.subjectTeachers || []).find(
+                (st: any) => String(st.subjectId) === String(subjectIdStr),
+              ) as any;
+              if (existing) {
+                existing.teacherId = finalUserId || existing.teacherId;
+                existing.teacherName = teacherName || existing.teacherName;
+                existing.subjectName = subjDoc.name || existing.subjectName;
+              } else if (finalUserId) {
+                clsDoc.subjectTeachers = clsDoc.subjectTeachers || [];
+                clsDoc.subjectTeachers.push({
+                  subjectId: (subjDoc._id as any) || String(subjDoc._id),
+                  subjectName:
+                    (subjDoc as any).name ||
+                    (subjDoc as any).title ||
+                    String((subjDoc as any)._id),
+                  teacherId:
+                    (finalUserId as any) ||
+                    (existing && existing.teacherId) ||
+                    null,
+                  teacherName: teacherName || "",
+                });
+              }
+              await clsDoc.save();
+            }
+          } catch (e) {
+            console.warn(
+              "⚠️ Could not update Class.subjectTeachers (PATCH):",
+              e,
+            );
+          }
+
+          try {
+            if (teacherDoc || userTeacher) {
+              let tdoc = teacherDoc;
+              if (!tdoc && userTeacher?.teacherRef) {
+                tdoc = await Teacher.findById(userTeacher.teacherRef).lean();
+              }
+              if (!tdoc && userTeacher?.teacherId) {
+                tdoc = await Teacher.findOne({
+                  teacherId: userTeacher.teacherId,
+                }).lean();
+              }
+              if (tdoc) {
+                const current = tdoc.subjectClasses || [];
+                const subjName =
+                  (subjDoc as any).name ||
+                  (subjDoc as any).title ||
+                  String((subjDoc as any)._id);
+                if (!current.includes(subjName)) {
+                  await Teacher.updateOne(
+                    { _id: tdoc._id },
+                    { $addToSet: { subjectClasses: subjName } },
+                  );
+                  try {
+                    const {
+                      syncTeacherToUser,
+                    } = require("../../utils/syncUserData");
+                    await syncTeacherToUser(tdoc);
+                  } catch (e) {
+                    console.warn(
+                      "⚠️ syncTeacherToUser failed for timetable PATCH:",
+                      e,
+                    );
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(
+              "⚠️ Could not update Teacher.subjectClasses (PATCH):",
+              e,
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "⚠️ Error while updating class/teacher subject assignments (PATCH):",
+          err,
+        );
+      }
 
       const cls = await ClassModel.findById(timetable.classId);
       const clsStudents = (cls?.studentIds || []).map((id: any) => id);

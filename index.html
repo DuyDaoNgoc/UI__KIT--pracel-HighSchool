@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="./src/stylesheets/main.scss" />
     <title>Hofmann-UI-Kit-Page-Templates</title>
   </head>
-  <body>
+  <body class="">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
     <script src="./src/Components/settings/aos.js"></script>
@@ -31,6 +31,87 @@
         duration: 800,
         delay: 100,
         once: true,
+      });
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "itemListElement": [
+          {
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": "Emily Rodriguez"
+            },
+            "reviewBody": "The flexible schedule allowed me to balance work and studies perfectly. The instructors were incredibly supportive and understanding of my commitments.",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": "5"
+            }
+          },
+          {
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": "Michael Chen"
+            },
+            "reviewBody": "Enrolling in the part-time program was the best decision I made. I gained practical skills while maintaining my career, and the networking opportunities were invaluable.",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": "5"
+            }
+          },
+          {
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": "Sarah Thompson"
+            },
+            "reviewBody": "As a working parent, the evening classes were perfect for me. The curriculum was engaging and directly applicable to my professional goals. Highly recommend!",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": "5"
+            }
+          },
+          {
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": "David Patel"
+            },
+            "reviewBody": "The part-time program exceeded my expectations. The quality of education matched full-time programs, and I could immediately apply what I learned at work.",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": "5"
+            }
+          }
+        ]
+      }
+    </script>
+
+    <script>
+      // Pagination functionality
+      const paginationBtns = document.querySelectorAll(".items--btn");
+
+      paginationBtns.forEach((btn, index) => {
+        btn.addEventListener("click", () => {
+          paginationBtns.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          console.log(`Chuyển sang trang ${index + 1}`);
+        });
+      });
+
+      // Card click handler
+      const portfolioCards = document.querySelectorAll(".card__items");
+
+      portfolioCards.forEach((card) => {
+        card.addEventListener("click", () => {
+          const img = card.querySelector("img");
+          if (img) {
+            console.log(`Clicked: ${img.alt}`);
+          }
+        });
       });
     </script>
   </body>

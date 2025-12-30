@@ -232,20 +232,22 @@ export const createTeacher = async (req: Request, res: Response) => {
               teacherData.email,
             );
 
+            const toEmail = teacherData.email as string;
             await transporter.sendMail({
               from:
                 process.env.SMTP_FROM ||
                 `no-reply@${process.env.DOMAIN || "local"}`,
-              to: teacherData.email,
+              to: toEmail,
               subject: "[Hệ thống] Tài khoản giáo viên",
               html: `<p>Tài khoản của bạn ${teacherData.name} đã được tạo:</p>
 <ul>
-<li><strong>Mã giáo viên:</strong> ${teacherData.teacherId}</li>
-<li><strong>Email:</strong> ${teacherData.email}</li>
-<li><strong>Mật khẩu:</strong> ${rawPassword}</li>
+  <li><strong>Mã giáo viên:</strong> ${teacherData.teacherId}</li>
+  <li><strong>Email:</strong> ${toEmail}</li>
+  <li><strong>Mật khẩu:</strong> ${rawPassword}</li>
 </ul>
 <p>Vui lòng đăng nhập và đổi mật khẩu ngay.</p>`,
             });
+
             emailSent = true;
             console.log(
               `✅ [EMAIL] Password email sent to ${teacherData.email}`,

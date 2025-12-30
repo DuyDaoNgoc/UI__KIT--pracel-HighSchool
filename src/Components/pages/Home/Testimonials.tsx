@@ -1,171 +1,89 @@
-// src/components/Testimonials.tsx
-import React from "react";
-import LinkedinIcon from "../../../icons/Linkedin";
-import GooglePlusIcon from "../../../icons/GooglePlus";
-import FacebookIcon from "../../../icons/Facebook";
-import TwitterIcon from "../../../icons/Twitter";
+import React, { useEffect } from "react";
+import "../../../stylesheets/components/_highschools.scss";
+import AOS from "aos";
+import "aos/dist/aos.css"; // Import AOS styles
 
 interface TestimonialsProps {
   list: {
     title: string;
-    user1: string;
-    subtitle_user1: string;
-    content_user1: string;
-    person1: string;
-
-    user2: string;
-    subtitle_user2: string;
-    content_user2: string;
-    person2: string;
-
-    user3: string;
-    subtitle_user3: string;
-    content_user3: string;
-    person3: string;
-
-    user4: string;
-    subtitle_user4: string;
-    content_user4: string;
-    person4: string;
   }[];
 }
 
 export default function Testimonials({ list }: TestimonialsProps) {
+  // Initialize AOS
+  useEffect(() => {
+    AOS.init({
+      duration: 1000, // Animation duration
+      once: true, // Whether animation should happen only once
+      offset: 100, // Offset from the original trigger point
+    });
+  }, []);
+
+  const testimonialData = [
+    {
+      name: "Emily Rodriguez",
+      role: "Part-time Student at Marketing School",
+      image: "https://c.animaapp.com/mjlp8gt8euLIrx/img/ai_1.png",
+      quote:
+        "The flexible schedule allowed me to balance work and studies perfectly. The instructors were incredibly supportive and understanding of my commitments.",
+    },
+    {
+      name: "Michael Chen",
+      role: "Part-time Student at Business School",
+      image: "https://c.animaapp.com/mjlp8gt8euLIrx/img/ai_2.png",
+      quote:
+        "Enrolling in the part-time program was the best decision I made. I gained practical skills while maintaining my career, and the networking opportunities were invaluable.",
+    },
+    {
+      name: "Sarah Thompson",
+      role: "Part-time Student at Design School",
+      image: "https://c.animaapp.com/mjlp8gt8euLIrx/img/ai_3.png",
+      quote:
+        "As a working parent, the evening classes were perfect for me. The curriculum was engaging and directly applicable to my professional goals.",
+    },
+    {
+      name: "David Patel",
+      role: "Part-time Student at Technology School",
+      image: "https://c.animaapp.com/mjlp8gt8euLIrx/img/ai_4.png",
+      quote:
+        "The part-time program exceeded my expectations. The quality of education matched full-time programs, and I could immediately apply what I learned at work.",
+    },
+  ];
+
   return (
     <>
-      {list.map((items, index) => (
-        <section key={index} className="main__content--mgt section">
-          <h2 className="title" data-aos="zoom-in-down">
-            {items.title}
-          </h2>
+      {list.map((_, index) => (
+        <section key={index} className="testimonials-section">
+          <div className="testimonials-container">
+            <h2 className="testimonials-heading" data-aos="zoom-in-down">
+              Student Testimonials
+            </h2>
 
-          <div className="testimonials testimonials__grid">
-            {/* content 1 */}
-            <div
-              className="testimonials__items--content testimonials__items--hover"
-              data-aos="zoom-in-down"
-            >
-              <img
-                src={items.person1}
-                alt="user1"
-                className="person__img--size person__img--circle"
-              />
-              <div>
-                <h3 className="title__content--size-18 title-2">
-                  {items.user1}
-                </h3>
-                <p className="hr">{items.subtitle_user1}</p>
-                <p className="testimonials__items--description text__wrapper--ellipsis-2">
-                  {items.content_user1}
-                </p>
-                <div className="main__icons product-list__item">
-                  <div className="icons--fill icons--size">
-                    <LinkedinIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <TwitterIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <GooglePlusIcon width={18} height={18} />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div className="testimonials-grid">
+              {testimonialData.map((testimonial, idx) => (
+                <article
+                  key={idx}
+                  className="testimonial-card title"
+                  data-aos="zoom-in-down"
+                >
+                  <div className="testimonial-content" data-aos="zoom-in-down">
+                    <div className="testimonial-avatar-wrapper">
+                      <img
+                        src={testimonial.image}
+                        alt={testimonial.name}
+                        className="testimonial-avatar"
+                        loading="lazy"
+                      />
+                    </div>
 
-            {/* content 2 */}
-            <div
-              className="testimonials__items--content testimonials__items--hover"
-              data-aos="zoom-in-down"
-            >
-              <img
-                src={items.person2}
-                alt="user2"
-                className="person__img--size person__img--circle"
-              />
-              <div>
-                <h3 className="text__content--size-18 title-2">
-                  {items.user2}
-                </h3>
-                <p className="hr">{items.subtitle_user2}</p>
-                <p className="testimonials__items--description text__wrapper--ellipsis-2">
-                  {items.content_user2}
-                </p>
-                <div className="main__icons product-list__item">
-                  <div className="icons--fill icons--size">
-                    <FacebookIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <TwitterIcon width={18} height={18} />
-                  </div>
-                </div>
-              </div>
-            </div>
+                    <h3 className="testimonial-name">{testimonial.name}</h3>
 
-            {/* content 3 */}
-            <div
-              className="testimonials__items--content testimonials__items--hover"
-              data-aos="zoom-in-down"
-            >
-              <img
-                src={items.person3}
-                alt="user3"
-                className="person__img--size person__img--circle"
-              />
-              <div>
-                <h3 className="text__content--size-18 title-2">
-                  {items.user3}
-                </h3>
-                <p className="hr">{items.subtitle_user3}</p>
-                <p className="testimonials__items--description text__wrapper--ellipsis-2">
-                  {items.content_user3}
-                </p>
-                <div className="main__icons product-list__item">
-                  <div className="icons--fill icons--size">
-                    <FacebookIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <LinkedinIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <GooglePlusIcon width={18} height={18} />
-                  </div>
-                </div>
-              </div>
-            </div>
+                    <p className="testimonial-role">{testimonial.role}</p>
 
-            {/* content 4 */}
-            <div
-              className="testimonials__items--content testimonials__items--hover"
-              data-aos="fade-up"
-            >
-              <img
-                src={items.person4}
-                alt="user4"
-                className="person__img--size person__img--circle"
-              />
-              <div>
-                <h3 className="text__content--size-18 title-2">
-                  {items.user4}
-                </h3>
-                <p className="hr">{items.subtitle_user4}</p>
-                <p className="testimonials__items--description text__wrapper--ellipsis-2">
-                  {items.content_user4}
-                </p>
-                <div className="main__icons product-list__item">
-                  <div className="icons--fill icons--size">
-                    <FacebookIcon width={18} height={18} />
+                    <p className="testimonial-quote">"{testimonial.quote}"</p>
                   </div>
-                  <div className="icons--fill icons--size">
-                    <LinkedinIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <TwitterIcon width={18} height={18} />
-                  </div>
-                  <div className="icons--fill icons--size">
-                    <GooglePlusIcon width={18} height={18} />
-                  </div>
-                </div>
-              </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>

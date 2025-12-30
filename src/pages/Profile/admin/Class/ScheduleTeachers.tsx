@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import axiosInstance from "../../../../api/axiosConfig";
+import "../../../../stylesheets/admin/ScheduleTeachers.scss";
 
 export interface Teacher {
   _id: string;
@@ -121,14 +122,15 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
   };
 
   return (
-    <div style={{ padding: 12 }}>
+    <div className="schedule-teachers">
       <h2>Xếp giáo viên vào lớp</h2>
-      <div style={{ marginTop: 10 }}>
+
+      <div className="st-select-teacher">
         <label>Chọn giáo viên:</label>
         <select
+          className="st-teacher-select"
           value={selectedTeacher}
           onChange={(e) => setSelectedTeacher(e.target.value)}
-          style={{ marginLeft: 8 }}
         >
           <option value="">-- Chọn giáo viên --</option>
           {teachers.map((t) => (
@@ -138,7 +140,8 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
           ))}
         </select>
       </div>
-      <div style={{ marginTop: 20 }}>
+
+      <div className="st-classes-list">
         {loading ? (
           <p>Đang tải lớp...</p>
         ) : classes.length > 0 ? (
@@ -150,13 +153,14 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
               (c) => c.classCode === cls.classCode && c.type === "subject",
             );
             return (
-              <div key={cls._id} style={{ marginTop: 6 }}>
-                <span>
+              <div key={cls._id} className="st-class-row">
+                <span className="st-class-info">
                   {cls.grade}
                   {cls.classLetter} - {cls.major} ({cls.schoolYear}) —{" "}
                   {cls.teacherName}
                 </span>
-                <label style={{ marginLeft: 12 }}>
+
+                <label className="st-class-label">
                   <input
                     type="checkbox"
                     checked={isHomeroom}
@@ -170,7 +174,8 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
                   />{" "}
                   Chủ nhiệm
                 </label>
-                <label style={{ marginLeft: 12 }}>
+
+                <label className="st-class-label">
                   <input
                     type="checkbox"
                     checked={isSubject}
@@ -191,10 +196,8 @@ const ScheduleTeachers: React.FC<ScheduleTeachersProps> = ({
           <p>Chưa có lớp.</p>
         )}
       </div>
-      <button
-        onClick={handleSubmit}
-        style={{ marginTop: 20, padding: "6px 12px", cursor: "pointer" }}
-      >
+
+      <button onClick={handleSubmit} className="st-assign-button">
         Xếp giáo viên
       </button>
     </div>

@@ -195,12 +195,13 @@ export const registerUser = async (req: Request, res: Response) => {
         });
 
         await transporter.sendMail({
-          from:
-            process.env.SMTP_FROM ||
-            `no-reply@${process.env.DOMAIN || "local"}`,
+          from: `"${process.env.MAIL_FROM_NAME || "Hệ thống"}" <${process.env.SMTP_FROM || `no-reply@${process.env.DOMAIN || "local"}`}>`,
           to: email,
           subject: "[Hệ thống] Thông tin đăng nhập",
-          text: `Bạn đã được tạo tài khoản. Mã: ${newUser.studentId || newUser.teacherId || "-"}\nEmail: ${email}\nMật khẩu: ${rawPassword}`,
+          text: `Bạn đã được tạo tài khoản.
+Mã: ${newUser.studentId || newUser.teacherId || "-"}
+Email: ${email}
+Mật khẩu: ${rawPassword}`,
         });
       } else {
         // Dev fallback

@@ -49,6 +49,11 @@ export default function useTeacherData() {
   const [schedule, setSchedule] = useState<IScheduleItem[]>([]);
   const [grades, setGrades] = useState<IGrade[]>([]);
   const [statistics, setStatistics] = useState<IStatistics>({});
+  const [agg, setAgg] = useState<Record<string, any> | null>(null);
+  const [perClassStats, setPerClassStats] = useState<Record<
+    string,
+    any
+  > | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = async (
@@ -71,6 +76,7 @@ export default function useTeacherData() {
           break;
         case "statistics":
           await fetchStatistics(teacherId, assignedClass);
+          await fetchPerClassAggregates(teacherId);
           break;
         default:
           break;
@@ -301,14 +307,14 @@ export default function useTeacherData() {
       await fetchClasses(teacherId, assignedClass);
 
       // Calculate statistics from classes
-      const response = await get<{ data: IClass[] }>("/classes");
-      const classesRes = response?.data || response || [];
-      const teacherClasses = (classesRes || []).filter(
-        (cls: any) => cls.teacherId === teacherId,
-      );
+      // Use server-side filtered endpoint to get classes for this teacher
+      const response = (await get<any>("/classes/my-classes")) || {};
+      const teacherClasses: IClass[] = (response?.data ||
+        response ||
+        []) as IClass[];
 
       const totalStudents = teacherClasses.reduce(
-        (sum, cls) => sum + (cls.studentIds?.length || 0),
+        (sum: number, cls: IClass) => sum + (cls.studentIds?.length || 0),
         0,
       );
 
@@ -318,11 +324,128 @@ export default function useTeacherData() {
         subjectCount: 0, // Will be calculated if needed
         avgStudentGrade: 0, // Will be calculated from grades
       });
+      // Reset agg/perClassStats when basic statistics fetched
+      setAgg(null);
+      setPerClassStats(null);
     } catch (err: any) {
       console.error("Error fetching statistics:", err);
       setStatistics({});
     }
   };
 
-  return { classes, schedule, grades, statistics, error, fetchAll };
+  const fetchPerClassAggregates = async (teacherId: string) => {
+    try {
+      // Fetch teacher-specific classes from server to avoid client-side
+      // matching issues (server knows how to resolve teacher references).
+      const classesResp = (await get<any>("/classes/my-classes")) || {};
+      const clsList = classesResp.data || classesResp || [];
+
+      // Filter classes relevant to this teacher
+      const teacherClasses = (clsList || []).filter((cls: any) => {
+        try {
+          if (!cls) return false;
+          if (String(cls.teacherId) === String(teacherId)) return true;
+          if (Array.isArray(cls.subjectTeachers)) {
+            return cls.subjectTeachers.some(
+              (st: any) => String(st.teacherId) === String(teacherId),
+            );
+          }
+          return false;
+        } catch (err) {
+          return false;
+        }
+      });
+
+      if (!Array.isArray(teacherClasses) || teacherClasses.length === 0) {
+        setAgg({
+          totalStudents: 0,
+          classCount: 0,
+          subjectCount: 0,
+          avgStudentGrade: 0,
+          excellentCount: 0,
+          goodCount: 0,
+          fairCount: 0,
+          poorCount: 0,
+          failCount: 0,
+        });
+        setPerClassStats({});
+        return;
+      }
+
+      const promises = teacherClasses.map((c: any) =>
+        get<any>("/grades/statistics", { params: { classId: c._id } }).then(
+          (r) => r?.data?.data || null,
+        ),
+      );
+      const results = await Promise.allSettled(promises);
+
+      let totalStudents = 0;
+      let weightedSum = 0;
+      let excellent = 0,
+        good = 0,
+        fair = 0,
+        poor = 0,
+        fail = 0;
+      const classStatsMap: Record<string, any> = {};
+
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i];
+        const c = teacherClasses[i];
+        if (res.status !== "fulfilled" || !res.value) continue;
+        const d = res.value as any;
+        const ts = Number(d.totalStudents || 0);
+        const avg = Number(d.averageGrade || 0);
+        totalStudents += ts;
+        weightedSum += avg * ts;
+        excellent += Number(d.excellentCount || 0);
+        good += Number(d.goodCount || 0);
+        fair += Number(d.fairCount || 0);
+        poor += Number(d.poorCount || 0);
+        fail += Number(d.failCount || 0);
+        if (c && c._id) {
+          classStatsMap[String(c._id)] = {
+            classCode: c.classCode,
+            totalStudents: ts,
+            averageGrade: Math.round(avg * 100) / 100,
+            excellentCount: Number(d.excellentCount || 0),
+            goodCount: Number(d.goodCount || 0),
+            fairCount: Number(d.fairCount || 0),
+            poorCount: Number(d.poorCount || 0),
+            failCount: Number(d.failCount || 0),
+          };
+        }
+      }
+
+      const avgStudentGrade = totalStudents ? weightedSum / totalStudents : 0;
+
+      setAgg({
+        totalStudents,
+        classCount: teacherClasses.length,
+        subjectCount: 0,
+        avgStudentGrade: Math.round(avgStudentGrade * 100) / 100,
+        excellentCount: excellent,
+        goodCount: good,
+        fairCount: fair,
+        poorCount: poor,
+        failCount: fail,
+      });
+      setPerClassStats(classStatsMap);
+    } catch (e) {
+      console.warn("fetchPerClassAggregates error:", e);
+      setAgg(null);
+      setPerClassStats(null);
+    }
+  };
+
+  return {
+    classes,
+    schedule,
+    grades,
+    statistics,
+    error,
+    fetchAll,
+    agg,
+    perClassStats,
+    fetchPerClassAggregates,
+  };
 }

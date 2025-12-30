@@ -27,8 +27,17 @@ export default function TeacherProfile() {
   const [activeTab, setActiveTab] = useState("info");
   const [user, setUser] = useState<IUserProfile | null>(authUser);
 
-  const { classes, schedule, grades, statistics, error, fetchAll } =
-    useTeacherData();
+  const teacherData = useTeacherData();
+  const {
+    classes,
+    schedule,
+    grades,
+    statistics,
+    error,
+    fetchAll,
+    agg,
+    perClassStats,
+  } = teacherData || {};
 
   useEffect(() => {
     setUser(authUser);
@@ -197,7 +206,12 @@ export default function TeacherProfile() {
           <TeacherGrades teacherId={user.teacherId!} classes={classes} />
         )}
         {activeTab === "statistics" && (
-          <TeacherStatistics statistics={statistics} classes={classes} />
+          <TeacherStatistics
+            statistics={statistics}
+            classes={classes}
+            agg={agg || undefined}
+            perClassStats={perClassStats || undefined}
+          />
         )}
 
         {activeTab === "reports" && (

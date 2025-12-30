@@ -1,0 +1,152 @@
+/* Professional styles for ScheduleTeachers component */
+
+$primary: #1565c0;
+$primary-dark: #0f4a86;
+$muted: #6b7280;
+$surface: #ffffff;
+$accent-border: #e6eef9;
+
+.schedule-teachers {
+  padding: 20px;
+  max-width: 980px;
+  margin: 0 auto;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial;
+
+  h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #12263a;
+  }
+
+  .st-select-teacher {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    label {
+      font-weight: 600;
+      color: #0f1724;
+      min-width: 120px;
+    }
+
+    .st-teacher-select {
+      padding: 8px 10px;
+      border: 1px solid $accent-border;
+      border-radius: 8px;
+      background: $surface;
+      min-width: 260px;
+      box-shadow: 0 1px 2px rgba(15, 23, 36, 0.03);
+      color: #0b1b2b;
+    }
+  }
+
+  .st-classes-list {
+    margin-top: 18px;
+
+    p {
+      color: $muted;
+      margin: 8px 0;
+    }
+
+    /* grid of cards */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+
+    .st-class-row {
+      background: linear-gradient(180deg, #fbfdff, #ffffff);
+      border: 1px solid $accent-border;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 6px 16px rgba(16, 24, 40, 0.04);
+      transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
+
+      &:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px rgba(16, 24, 40, 0.06);
+      }
+
+      .st-class-info {
+        flex: 1 1 auto;
+        color: #0b1722;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .st-class-meta {
+        color: $muted;
+        font-size: 0.85rem;
+        margin-top: 4px;
+        display: block;
+        font-weight: 400;
+      }
+
+      .st-class-labels {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .st-class-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: #0b1722;
+      }
+
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        accent-color: $primary;
+      }
+    }
+  }
+
+  .st-assign-button {
+    margin-top: 20px;
+    padding: 10px 16px;
+    cursor: pointer;
+    background: $primary;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    box-shadow: 0 6px 18px rgba(21, 101, 192, 0.18);
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
+
+    &:hover {
+      background: $primary-dark;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(15, 74, 134, 0.16);
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .schedule-teachers {
+    padding: 14px;
+    .st-classes-list {
+      grid-template-columns: 1fr;
+    }
+  }
+}
