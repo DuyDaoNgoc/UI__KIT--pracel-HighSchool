@@ -220,7 +220,7 @@ router.post(
 );
 
 /**
- * 🏫 GET: Lấy danh sách học sinh theo lớp
+ *  GET: Lấy danh sách học sinh theo lớp
  * Route: GET /api/admin/students/by-class/:classCode
  */
 router.get(

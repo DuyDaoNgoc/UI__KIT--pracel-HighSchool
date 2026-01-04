@@ -189,7 +189,7 @@ export default function Profile({
 
         {activeTab === "info" && <ProfileInfo user={user} />}
         {activeTab === "grades" && <ProfileGrades grades={grades} />}
-        {activeTab === "credits" && <ProfileCredits credits={credits} />}
+
         {activeTab === "schedule" && <ProfileSchedule schedule={schedule} />}
         {activeTab === "tuition" && <ProfileTuition tuition={tuition} />}
         {activeTab === "statistics" && (
