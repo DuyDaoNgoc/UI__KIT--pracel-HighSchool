@@ -6,7 +6,8 @@ export interface ITuitionSubject {
 }
 
 export interface ITuition extends Document {
-  majorId: Types.ObjectId;
+  classId: Types.ObjectId;
+  schoolYear?: string; // e.g., "2024-2025"
   semester: number; // 1, 2
   subjects: ITuitionSubject[]; // Danh sách môn + giá
   totalAmount: number; // Tổng học phí = tổng giá tất cả môn
@@ -18,10 +19,17 @@ export interface ITuition extends Document {
 
 const TuitionSchema = new Schema<ITuition>(
   {
-    majorId: {
+    classId: {
       type: Schema.Types.ObjectId,
-      ref: "Major",
+      ref: "Class",
       required: true,
+    },
+    schoolYear: {
+      type: String,
+      default: function () {
+        const currentYear = new Date().getFullYear();
+        return `${currentYear}-${currentYear + 1}`;
+      },
     },
     semester: {
       type: Number,
@@ -60,7 +68,7 @@ const TuitionSchema = new Schema<ITuition>(
   { timestamps: true, collection: "tuitions" },
 );
 
-// Index để tìm kiếm nhanh theo major + semester
-TuitionSchema.index({ majorId: 1, semester: 1 });
+// Index để tìm kiếm nhanh theo class + semester + schoolYear
+TuitionSchema.index({ classId: 1, semester: 1, schoolYear: 1 });
 
 export default mongoose.model<ITuition>("Tuition", TuitionSchema);

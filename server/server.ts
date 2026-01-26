@@ -29,6 +29,8 @@ import gradeLockRoutes from "./Routers/grades/gradeLock";
 import gradeRoutes from "./Routers/grades/gradeRoutes";
 import reportsRouter from "./Routers/reports/reportsRouter";
 import tuitionRoutes from "./Routers/Tuition/index";
+import studentTuitionRoutes from "./Routers/StudentTuition/index";
+import majorsRoutes from "./Routers/Major/index";
 
 import { connectDB, ensureIndexes } from "./configs/db";
 import { verifyToken, checkRole } from "./middleware/authMiddleware";
@@ -101,6 +103,9 @@ app.use("/api/reports", reportsRouter);
 
 // Tuition Management
 app.use("/api/tuitions", tuitionRoutes);
+app.use("/api/student-tuition", studentTuitionRoutes);
+// Majors
+app.use("/api/majors", majorsRoutes);
 
 //  Admin
 app.use("/api/admin", adminRoutes);
@@ -134,6 +139,12 @@ app.get("/socket-url", (req, res) => {
   }
 });
 
+// ================== Error Handler ==================
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("❌ Server Error:", err);
+  res.status(500).json({ message: "Internal Server Error" });
+});
+
 // ================== Static Routes ==================
 app.use(
   "/uploads",
@@ -161,12 +172,6 @@ app.use(
 // ================== SPA Fallback ==================
 app.get("*", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
-});
-
-// ================== Error Handler ==================
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error("❌ Server Error:", err);
-  res.status(500).json({ message: "Internal Server Error" });
 });
 
 // ================== HTTP + Socket.IO ==================
@@ -237,7 +242,7 @@ function getLocalIP() {
       const localIP = getLocalIP();
       console.log("\n🚀 Backend + Frontend + Socket.IO running at:");
       console.log(`   → Local:   http://localhost:${PORT}`);
-      console.log(`   → LAN:     http://${localIP}:5000`);
+      console.log(`   → LAN:     http://${localIP}:${PORT}`);
       console.log(`📰 News API:      http://${localIP}:${PORT}/api/news`);
       console.log(`🔑 Auth API:      http://${localIP}:${PORT}/api/auth/login`);
       console.log(`📊 Grades API:    http://${localIP}:${PORT}/api/grades`);

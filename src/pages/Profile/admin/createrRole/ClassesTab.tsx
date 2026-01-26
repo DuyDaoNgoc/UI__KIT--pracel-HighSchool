@@ -122,7 +122,20 @@ export default function ClassesTab({
     const fetchClasses = async () => {
       setLoading(true);
       try {
+        console.log("🔍 [ClassesTab] Fetching classes...");
         const res = await axiosInstance.get<{ data: any[] }>("/classes");
+
+        console.log("📦 [ClassesTab] Classes response:", res.data);
+        console.log(
+          "📊 [ClassesTab] Classes count:",
+          res.data?.data?.length || 0,
+        );
+        if (res.data?.data?.length > 0) {
+          console.log(
+            "📌 [ClassesTab] First class structure:",
+            JSON.stringify(res.data.data[0], null, 2),
+          );
+        }
 
         const mapped: ClassData[] = (res.data?.data || []).map((cls: any) => {
           let students: ICreatedStudent[] = (cls.students || []).map(

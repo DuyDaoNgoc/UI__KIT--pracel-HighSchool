@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "scripts": {
         "predev": "npm run clean",
+        "preclient": "npm run clean",
         "client": "parcel index.html --dist-dir dist --public-url / --port 5000 --host 0.0.0.0",
         "server": "cd server && ts-node-dev index.ts",
         "dev": "concurrently \"npm run client\" \"npm run server\"",

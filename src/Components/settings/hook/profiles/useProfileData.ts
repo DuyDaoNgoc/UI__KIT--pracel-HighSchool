@@ -26,6 +26,11 @@ export default function useProfileData() {
         case "grades":
           setGrades(await fetchGrades(userId));
           break;
+        case "statistics":
+          // Statistics also needs grades and tuition
+          setGrades(await fetchGrades(userId));
+          setTuition(await fetchTuition(userId));
+          break;
         case "credits":
           setCredits(await fetchCredits(userId));
           break;

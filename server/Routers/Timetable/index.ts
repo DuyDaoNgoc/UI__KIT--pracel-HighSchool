@@ -203,6 +203,80 @@ router.get("/", verifyToken, async (req, res) => {
       return res.status(200).json({ data: timetables });
     }
 
+    // Student: return timetable for their own class
+    if (reqUser && reqUser.role === "student") {
+      const classCode =
+        typeof reqUser.classCode === "string"
+          ? reqUser.classCode
+          : reqUser.classCode?.className || 
+            reqUser.classCode?.classCode || 
+            null;
+
+      if (!classCode) {
+        return res
+          .status(400)
+          .json({ message: "Student has no assigned class" });
+      }
+
+      // Find the student's class
+      const cls = await ClassModel.findOne({
+        $or: [
+          { classCode },
+          { className: classCode },
+        ],
+      }).lean();
+
+      if (!cls) {
+        return res
+          .status(404)
+          .json({ message: "Class not found" });
+      }
+
+      // Find timetable for this class
+      let timetable = await Timetable.findOne({ classId: cls._id })
+        .populate("classId")
+        .populate("schedule.subjectId")
+        .populate("schedule.teacherId");
+
+      if (!timetable) {
+        // No timetable yet, return empty data
+        return res.status(200).json({ data: [] });
+      }
+
+      // Fallback: for schedule items where populate returned null, try load from Teacher collection
+      try {
+        const raw = await Timetable.findById(timetable._id).lean();
+        if (
+          raw &&
+          Array.isArray(raw.schedule) &&
+          Array.isArray(timetable.schedule)
+        ) {
+          for (let i = 0; i < timetable.schedule.length; i++) {
+            const popItem: any = timetable.schedule[i] as any;
+            const rawItem: any = raw.schedule?.[i];
+            if (
+              (!popItem.teacherId || popItem.teacherId === null) &&
+              rawItem &&
+              rawItem.teacherId
+            ) {
+              try {
+                const teacherDoc = await resolveTeacherByRawId(
+                  rawItem.teacherId,
+                );
+                if (teacherDoc) popItem.teacherId = teacherDoc;
+              } catch (e) {
+                // ignore
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+
+      return res.status(200).json({ data: [timetable] });
+    }
+
     // Other roles: forbidden
     return res
       .status(403)

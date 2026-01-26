@@ -191,11 +191,14 @@ export default function Profile({
         {activeTab === "grades" && <ProfileGrades grades={grades} />}
 
         {activeTab === "schedule" && <ProfileSchedule schedule={schedule} />}
-        {activeTab === "tuition" && <ProfileTuition tuition={tuition} />}
+        {activeTab === "tuition" && (
+          <ProfileTuition tuition={tuition} studentId={user?._id} />
+        )}
         {activeTab === "statistics" && (
           <ProfileStatistics
             grades={grades}
             tuition={tuition}
+            studentId={user?._id}
             schoolYear={user?.schoolYear}
           />
         )}

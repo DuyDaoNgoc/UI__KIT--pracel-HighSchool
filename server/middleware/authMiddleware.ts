@@ -2,6 +2,8 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
+import User from "../models/User";
+import { connectDB } from "../configs/db";
 
 dotenv.config();
 
@@ -25,7 +27,7 @@ export interface AuthRequest extends Request {
 }
 
 // ----- Verify JWT -----
-export const verifyToken: RequestHandler = (
+export const verifyToken: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -63,10 +65,48 @@ export const verifyToken: RequestHandler = (
       console.error("❌ Invalid token payload:", decoded);
       return res.status(403).json({ message: "Invalid token payload" });
     }
-    // Gán trực tiếp vào req.user
-    (req as AuthRequest).user = decoded;
 
-    next();
+    // Try to enrich the token payload with user's classCode and other fields
+    try {
+      const userDoc = await User.findById(String(decoded.id)).lean();
+      let classCode: any = userDoc?.classCode || null;
+
+      // If student and no classCode on user, try to load from students collection
+      if (
+        !classCode &&
+        userDoc &&
+        userDoc.role === "student" &&
+        userDoc.studentId
+      ) {
+        try {
+          const db = await connectDB();
+          const students = db.collection("students");
+          const studentRec = await students.findOne({
+            studentId: userDoc.studentId,
+          });
+          if (studentRec) {
+            classCode = studentRec.classCode || studentRec.classLetter || null;
+          }
+        } catch (e) {
+          console.warn(
+            "Could not enrich classCode from students collection:",
+            e,
+          );
+        }
+      }
+
+      (req as AuthRequest).user = {
+        ...decoded,
+        classCode,
+        teacherId: userDoc?.teacherId || decoded.teacherId || null,
+        studentId: userDoc?.studentId || decoded.studentId || null,
+      } as AuthPayload;
+    } catch (e) {
+      // If enrichment fails, fall back to token payload only
+      (req as AuthRequest).user = decoded;
+    }
+
+    return next();
   } catch (err) {
     console.error("❌ JWT verify error:", err);
     return res.status(403).json({ message: "Invalid or expired token" });

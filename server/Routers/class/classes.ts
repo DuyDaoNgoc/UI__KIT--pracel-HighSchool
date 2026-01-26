@@ -146,13 +146,17 @@ router.get(
         if (tokenTeacherCode) {
           const resolvedTeacher = await TeacherModel.findOne({
             teacherId: String(tokenTeacherCode),
-          }).select("_id teacherId").lean();
+          })
+            .select("_id teacherId")
+            .lean();
           if (resolvedTeacher && resolvedTeacher._id) {
             possibleTeacherIds.push(String(resolvedTeacher._id));
             console.log(
               "🔍 Resolved token teacher code to TeacherModel._id:",
               resolvedTeacher._id,
-              "(code:", resolvedTeacher.teacherId, ")",
+              "(code:",
+              resolvedTeacher.teacherId,
+              ")",
             );
           }
         }

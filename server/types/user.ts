@@ -60,6 +60,7 @@ export interface IUser {
   schedule?: {
     day: string;
     subject: string;
+    teacher?: string | null;
     startTime: string;
     endTime: string;
   }[];

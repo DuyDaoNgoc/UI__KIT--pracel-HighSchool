@@ -27,6 +27,26 @@ import theme from "../admin/Dashboard/themes/theme";
 import config from "../admin/Dashboard/themes/config";
 import { motion } from "framer-motion";
 import { get } from "../../../api/axiosConfig";
+import axiosInstance from "../../../api/axiosConfig";
+
+// Helper function to compute average grade from a grade object
+function computeAverageFromGrades(g: any) {
+  if (!g) return null;
+  if (g.averageScore !== undefined) return g.averageScore;
+  if (Array.isArray(g.grades) && g.grades.length > 0) {
+    const vals = g.grades
+      .map((x: any) => Number(x.score))
+      .filter((n: number) => !isNaN(n));
+    if (vals.length === 0) return null;
+    return (
+      Math.round(
+        (vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10,
+      ) / 10
+    );
+  }
+  if (g.score !== undefined) return Number(g.score);
+  return null;
+}
 
 interface IStatistics {
   totalStudents?: number;
@@ -39,6 +59,7 @@ interface IClass {
   _id: string;
   classCode: string;
   studentIds?: string[];
+  students?: any[];
   subjectTeachers?: Array<{ subjectId?: any; subjectName?: string }>;
 }
 
@@ -131,8 +152,57 @@ export default function TeacherStatistics({
   const [perClassStats, setPerClassStats] = useState<Record<string, any>>(
     perClassStatsProp ?? {},
   );
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const appTheme = theme(config as any);
+
+  // Get display data based on selected class or all classes
+  const displayAgg =
+    selectedClassId && perClassStats[selectedClassId]
+      ? {
+          totalStudents: perClassStats[selectedClassId].totalStudents || 0,
+          classCount: agg.classCount,
+          subjectCount: agg.subjectCount,
+          avgStudentGrade: perClassStats[selectedClassId].averageGrade || 0,
+          excellentCount: perClassStats[selectedClassId].excellentCount || 0,
+          goodCount: perClassStats[selectedClassId].goodCount || 0,
+          fairCount: perClassStats[selectedClassId].fairCount || 0,
+          poorCount: perClassStats[selectedClassId].poorCount || 0,
+          failCount: perClassStats[selectedClassId].failCount || 0,
+        }
+      : agg;
+
+  // Debug logs
+  React.useEffect(() => {
+    console.log("[TeacherStats] Classes:", classes);
+    console.log(
+      "[TeacherStats] Classes full structure:",
+      classes.map((c) => ({
+        _id: c._id,
+        classCode: c.classCode,
+        studentIds: c.studentIds,
+        "studentIds.length": Array.isArray(c.studentIds)
+          ? c.studentIds.length
+          : "N/A",
+      })),
+    );
+    console.log("[TeacherStats] Aggregated Data (agg):", agg);
+    console.log("[TeacherStats] Per Class Stats:", perClassStats);
+    console.log(
+      "[TeacherStats] Per Class Stats Keys:",
+      Object.keys(perClassStats),
+    );
+    console.log("[TeacherStats] Selected Class ID:", selectedClassId);
+    console.log(
+      "[TeacherStats] Selected Class Data:",
+      selectedClassId ? perClassStats[selectedClassId] : "N/A",
+    );
+    console.log(
+      "[TeacherStats] Does selectedClassId exist in perClassStats?",
+      selectedClassId && selectedClassId in perClassStats,
+    );
+    console.log("[TeacherStats] Display Agg:", displayAgg);
+  }, [agg, perClassStats, selectedClassId, classes]);
 
   useEffect(() => {
     let mounted = true;
@@ -142,58 +212,171 @@ export default function TeacherStatistics({
         return;
       }
 
-      const promises = classes.map((cls) =>
-        get<any>("/grades/statistics", { params: { classId: cls._id } }).then(
-          (r) => r?.data?.data || null,
-        ),
-      );
-
       try {
-        const results = await Promise.allSettled(promises);
+        // Fetch full class details EXACTLY like ClassesTab does
+        console.log("[TeacherStats] Fetching classes using axiosInstance...");
+        const res = await axiosInstance.get<{ data: any[] }>("/classes");
+        console.log(
+          "[TeacherStats] Full /classes response structure:",
+          res?.data,
+        );
+        console.log(
+          "[TeacherStats] Full /classes RAW data - first 3 classes:",
+          (res?.data?.data || []).slice(0, 3).map((c: any) => ({
+            classCode: c.classCode,
+            studentCount: (c.students || []).length,
+            firstStudentRaw: (c.students || [])[0],
+            allStudents: c.students,
+          })),
+        );
+
+        // Process classes exactly like ClassesTab does
+        const fullClasses = (res.data?.data || []).map((cls: any) => {
+          // Get students from cls.students and filter out invalid ones
+          const rawStudents = cls.students || [];
+          console.log(
+            `[TeacherStats] Processing class ${cls.classCode}:`,
+            rawStudents,
+          );
+
+          let students: any[] = rawStudents.map((s: any) => {
+            const mapped = {
+              _id: s._id,
+              studentId: s.studentId || "-",
+              name: s.name || s.username || "-",
+            };
+            console.log(
+              `[TeacherStats] Mapped student: raw=${s}, mapped=${mapped}`,
+            );
+            return mapped;
+          });
+
+          console.log(
+            `[TeacherStats] Class ${cls.classCode} before filter:`,
+            students,
+          );
+
+          // CRITICAL: Filter out invalid students (just like ClassesTab!)
+          students = students.filter((s) => {
+            const isValid = s._id && s.name && s.studentId !== "-";
+            console.log(
+              `[TeacherStats] Filter check: _id=${s._id}, name=${s.name}, studentId=${s.studentId} => valid=${isValid}`,
+            );
+            return isValid;
+          });
+
+          console.log(
+            `[TeacherStats] Class ${cls.classCode}: raw students=${rawStudents.length}, filtered students=${students.length}`,
+          );
+
+          return {
+            _id: cls._id,
+            classCode: cls.classCode,
+            students, // This is the filtered, valid students
+          };
+        });
+
+        // Filter to only include classes the teacher teaches
+        const teacherClassIds = new Set(classes.map((c) => String(c._id)));
+        const relevantClasses = fullClasses.filter((c) =>
+          teacherClassIds.has(String(c._id)),
+        );
+
+        console.log(
+          "[TeacherStats] Filtered teacher classes:",
+          relevantClasses.map((c) => ({
+            classCode: c.classCode,
+            studentCount: c.students.length,
+          })),
+        );
+
+        // Fetch grades for each class
+        const gradePromises = relevantClasses.map((cls) => {
+          console.log(
+            `[TeacherStats] Fetching grades for class ${cls.classCode} (id: ${cls._id})...`,
+          );
+          return axiosInstance
+            .get<any>("/grades", { params: { classId: cls._id } })
+            .then((r) => {
+              console.log(
+                `[TeacherStats] Grades response for ${cls.classCode}:`,
+                r?.data,
+              );
+              return {
+                classId: String(cls._id),
+                grades: Array.isArray(r?.data?.data) ? r?.data?.data : [],
+              };
+            })
+            .catch((err) => {
+              console.error(
+                `[TeacherStats] Error fetching grades for ${cls.classCode}:`,
+                err,
+              );
+              return { classId: String(cls._id), grades: [] };
+            });
+        });
+
+        const gradesResults = await Promise.all(gradePromises);
+        console.log("[TeacherStats] Grades Results:", gradesResults);
 
         let totalStudents = 0;
-        let weightedSum = 0; // sum(avg * students)
+        let weightedSum = 0;
         let excellent = 0,
           good = 0,
           fair = 0,
           poor = 0,
           fail = 0;
         const classStatsMap: Record<string, any> = {};
-        for (let i = 0; i < results.length; i++) {
-          const res = results[i];
-          const cls = classes[i];
-          // Default fallback values
-          let ts = 0;
+
+        for (let i = 0; i < relevantClasses.length; i++) {
+          const cls = relevantClasses[i];
+          const gradeData = gradesResults[i];
+          const allGrades = gradeData?.grades || [];
+
+          // Get student count from the filtered students array
+          const ts = cls.students.length;
+
+          console.log(
+            `[TeacherStats] Class ${cls.classCode}: ${ts} students, ${allGrades.length} grades`,
+          );
+          console.log(
+            `[TeacherStats] Raw grades for ${cls.classCode}:`,
+            allGrades.slice(0, 3),
+          );
+
           let avg = 0;
           let ex = 0,
             gd = 0,
             fr = 0,
             pr = 0,
             fl = 0;
+          let totalScore = 0;
 
-          if (res.status === "fulfilled" && res.value) {
-            const d = res.value as any;
-            ts = Number(d.totalStudents || 0);
-            avg = Number(d.averageGrade || 0);
-            ex = Number(d.excellentCount || 0);
-            gd = Number(d.goodCount || 0);
-            fr = Number(d.fairCount || 0);
-            pr = Number(d.poorCount || 0);
-            fl = Number(d.failCount || 0);
-          } else {
-            // no API data: fallback to class studentIds length if available
-            if (cls && Array.isArray(cls.studentIds))
-              ts = cls.studentIds.length;
-            // try to get average from provided perClassStatsProp if available
-            const fallbackPer = perClassStatsProp?.[String(cls?._id)];
-            if (fallbackPer) {
-              avg = Number(fallbackPer.averageGrade || 0);
-              ex = Number(fallbackPer.excellentCount || 0);
-              gd = Number(fallbackPer.goodCount || 0);
-              fr = Number(fallbackPer.fairCount || 0);
-              pr = Number(fallbackPer.poorCount || 0);
-              fl = Number(fallbackPer.failCount || 0);
+          // Calculate from grades data - using helper function
+          if (allGrades.length > 0) {
+            // Calculate average using helper function for each grade
+            const gradeAverages = allGrades
+              .map((g: any) => computeAverageFromGrades(g))
+              .filter((a): a is number => a !== null);
+
+            console.log(
+              `[TeacherStats] ${cls.classCode} grade averages:`,
+              gradeAverages,
+            );
+
+            if (gradeAverages.length > 0) {
+              totalScore = gradeAverages.reduce((a, b) => a + b, 0);
+              avg = totalScore / gradeAverages.length;
             }
+
+            // Count grade distribution based on calculated averages
+            gradeAverages.forEach((score) => {
+              if (score >= 9) ex++;
+              else if (score >= 8) gd++;
+              else if (score >= 7) fr++;
+              else if (score >= 5) pr++;
+              else fl++;
+            });
           }
 
           totalStudents += ts;
@@ -204,23 +387,31 @@ export default function TeacherStatistics({
           poor += pr;
           fail += fl;
 
-          if (cls && cls._id) {
-            classStatsMap[String(cls._id)] = {
-              classCode: cls.classCode,
-              totalStudents: ts,
-              averageGrade: ts
+          console.log(
+            `[TeacherStats] Class ${cls.classCode} stats: students=${ts}, avg=${avg}, total=${totalScore}`,
+          );
+
+          classStatsMap[String(cls._id)] = {
+            classCode: cls.classCode,
+            totalStudents: ts,
+            totalScore,
+            averageGrade:
+              ts && avg > 0
                 ? Math.round((avg + Number.EPSILON) * 100) / 100
                 : "N/A",
-              excellentCount: ex,
-              goodCount: gd,
-              fairCount: fr,
-              poorCount: pr,
-              failCount: fl,
-            };
-          }
+            excellentCount: ex,
+            goodCount: gd,
+            fairCount: fr,
+            poorCount: pr,
+            failCount: fl,
+          };
+
+          console.log(
+            `[TeacherStats] Saved class ${cls.classCode}: ${ts} students, scores: ${allGrades.length}, total: ${totalScore}, avg: ${Math.round((avg + Number.EPSILON) * 100) / 100}`,
+          );
         }
 
-        // determine subjectCount from classes.subjectTeachers if present
+        // Determine subjectCount from classes.subjectTeachers if present
         const subjectSet = new Set<string>();
         for (const c of classes) {
           if (Array.isArray(c.subjectTeachers)) {
@@ -231,15 +422,17 @@ export default function TeacherStatistics({
           }
         }
 
-        const avgStudentGrade = totalStudents ? weightedSum / totalStudents : 0;
+        const avgStudentGrade = totalStudents
+          ? Math.round((weightedSum / totalStudents) * 100) / 100
+          : 0;
 
         if (mounted) {
           if (!aggProp) {
             setAgg({
               totalStudents,
-              classCount: classes.length,
+              classCount: relevantClasses.length,
               subjectCount: subjectSet.size || statistics.subjectCount || 0,
-              avgStudentGrade: Math.round(avgStudentGrade * 100) / 100,
+              avgStudentGrade,
               excellentCount: excellent,
               goodCount: good,
               fairCount: fair,
@@ -247,10 +440,16 @@ export default function TeacherStatistics({
               failCount: fail,
             });
           }
-          if (!perClassStatsProp) setPerClassStats(classStatsMap);
+          if (!perClassStatsProp) {
+            console.log(
+              "[TeacherStats] Setting Per Class Stats Map:",
+              classStatsMap,
+            );
+            setPerClassStats(classStatsMap);
+          }
         }
       } catch (e) {
-        console.warn("Could not fetch per-class statistics:", e);
+        console.error("[TeacherStats] ERROR fetching stats:", e);
       }
     };
     fetchStats();
@@ -261,11 +460,15 @@ export default function TeacherStatistics({
 
   // build aggregated chart data from aggregated counts
   const gradeChartData = [
-    { name: "Xuất sắc (9-10)", count: agg.excellentCount, color: "#28a745" },
-    { name: "Tốt (8-8.9)", count: agg.goodCount, color: "#17a2b8" },
-    { name: "Khá (7-7.9)", count: agg.fairCount, color: "#ffc107" },
-    { name: "Yếu (5-6.9)", count: agg.poorCount, color: "#fd7e14" },
-    { name: "Kém (<5)", count: agg.failCount, color: "#dc3545" },
+    {
+      name: "Xuất sắc (9-10)",
+      count: displayAgg.excellentCount,
+      color: "#28a745",
+    },
+    { name: "Tốt (8-8.9)", count: displayAgg.goodCount, color: "#17a2b8" },
+    { name: "Khá (7-7.9)", count: displayAgg.fairCount, color: "#ffc107" },
+    { name: "Yếu (5-6.9)", count: displayAgg.poorCount, color: "#fd7e14" },
+    { name: "Kém (<5)", count: displayAgg.failCount, color: "#dc3545" },
   ];
 
   const gradeChartOptions: ApexOptions = {
@@ -313,12 +516,12 @@ export default function TeacherStatistics({
 
   // Use deterministic variation so charts reflect real aggregates
   const monthlyAvgSeries = months.map((_, i) => {
-    const base = Number(agg.avgStudentGrade || 0);
+    const base = Number(displayAgg.avgStudentGrade || 0);
     return Math.round(base * (0.9 + (i / months.length) * 0.2) * 100) / 100;
   });
 
   const monthlyStudentsSeries = months.map((_, i) => {
-    const base = Number(agg.totalStudents || 0);
+    const base = Number(displayAgg.totalStudents || 0);
     return Math.round(base * (0.85 + (i / months.length) * 0.3));
   });
 
@@ -377,6 +580,15 @@ export default function TeacherStatistics({
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 Giáo viên
               </Typography>
+              {selectedClassId && (
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary", mt: 1, cursor: "pointer" }}
+                  onClick={() => setSelectedClassId(null)}
+                >
+                  (Ấn để xem tất cả)
+                </Typography>
+              )}
             </Box>
           </Box>
 
@@ -396,27 +608,27 @@ export default function TeacherStatistics({
             <StatCard
               icon={<PeopleIcon sx={{ fontSize: 36 }} />}
               title="Tổng Học Sinh"
-              value={agg.totalStudents}
+              value={displayAgg.totalStudents}
               color="#1976d2"
             />
             <StatCard
               icon={<SchoolIcon sx={{ fontSize: 36 }} />}
               title="Lớp Dạy"
-              value={agg.classCount}
+              value={displayAgg.classCount}
               color="#7b1fa2"
             />
             <StatCard
               icon={<BookIcon sx={{ fontSize: 36 }} />}
               title="Môn Dạy"
-              value={agg.subjectCount || 0}
+              value={displayAgg.subjectCount || 0}
               color="#388e3c"
             />
             <StatCard
               icon={<TrendingUpIcon sx={{ fontSize: 36 }} />}
               title="Điểm TB"
               value={
-                agg.avgStudentGrade
-                  ? Number(agg.avgStudentGrade).toFixed(2)
+                displayAgg.avgStudentGrade
+                  ? Number(displayAgg.avgStudentGrade).toFixed(2)
                   : "N/A"
               }
               color="#f57c00"
@@ -483,7 +695,7 @@ export default function TeacherStatistics({
                       Số môn
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      {agg.subjectCount}
+                      {displayAgg.subjectCount}
                     </Typography>
                   </Box>
                   <Box>
@@ -494,7 +706,7 @@ export default function TeacherStatistics({
                       Điểm TB
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      {agg.avgStudentGrade}
+                      {displayAgg.avgStudentGrade}
                     </Typography>
                   </Box>
                   <Box sx={{ mt: 2 }}>
@@ -510,11 +722,11 @@ export default function TeacherStatistics({
                         legend: { position: "bottom" },
                       }}
                       series={[
-                        agg.excellentCount,
-                        agg.goodCount,
-                        agg.fairCount,
-                        agg.poorCount,
-                        agg.failCount,
+                        displayAgg.excellentCount,
+                        displayAgg.goodCount,
+                        displayAgg.fairCount,
+                        displayAgg.poorCount,
+                        displayAgg.failCount,
                       ]}
                       type="donut"
                       height={180}
@@ -551,12 +763,40 @@ export default function TeacherStatistics({
               return (
                 <Card
                   key={cls._id}
+                  onClick={() => {
+                    const classId = String(cls._id);
+                    console.log(
+                      "[TeacherStats] Clicked class:",
+                      cls.classCode,
+                      "ID:",
+                      classId,
+                    );
+                    console.log(
+                      "[TeacherStats] Class data in map:",
+                      perClassStats[classId],
+                    );
+                    setSelectedClassId(classId);
+                  }}
                   sx={{
                     p: 1,
                     minHeight: 260,
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    border:
+                      selectedClassId === String(cls._id)
+                        ? "3px solid #1976d2"
+                        : "1px solid #e0e0e0",
+                    backgroundColor:
+                      selectedClassId === String(cls._id)
+                        ? "#f5f5f5"
+                        : "transparent",
+                    "&:hover": {
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      transform: "translateY(-2px)",
+                    },
                   }}
                 >
                   <CardContent sx={{ pb: 1 }}>

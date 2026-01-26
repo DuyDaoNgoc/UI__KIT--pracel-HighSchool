@@ -81,6 +81,13 @@ const AdminDashboard: React.FC = () => {
     {},
   );
 
+  // Tuition data
+  const [studentTuitions, setStudentTuitions] = useState<any[]>([]);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState<string | null>(
+    null,
+  );
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+
   // per-year state
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
@@ -97,18 +104,21 @@ const AdminDashboard: React.FC = () => {
   // ===== FETCH DATA =====
   const fetchData = async () => {
     try {
-      const [students, teachers, classesRes, payments] = await Promise.all([
-        get<IStudent[]>("/admin/students"),
-        get<ITeacher[]>("/admin/teachers"),
-        // classes endpoint may return { success, data } or an array — use any to avoid TS errors
-        get<any>("/classes"),
-        get<any>("/payments"),
-      ]);
+      const [students, teachers, classesRes, payments, tuitionsRes] =
+        await Promise.all([
+          get<IStudent[]>("/admin/students"),
+          get<ITeacher[]>("/admin/teachers"),
+          // classes endpoint may return { success, data } or an array — use any to avoid TS errors
+          get<any>("/classes"),
+          get<any>("/payments"),
+          get<any>("/student-tuition"),
+        ]);
 
       console.log("📌 Students:", students);
       console.log("📌 Teachers:", teachers);
       console.log("📌 Classes:", classesRes);
       console.log("📌 Payments:", payments);
+      console.log("📌 StudentTuitions:", tuitionsRes);
 
       // FIX CHUẨN — chỉ lấy mảng đúng
       let classesArray: IClass[] = [];
@@ -129,10 +139,24 @@ const AdminDashboard: React.FC = () => {
         paymentsArray = payments.data;
       }
 
+      // Extract tuitions array
+      let tuitionsArray: any[] = [];
+      if (Array.isArray(tuitionsRes)) {
+        tuitionsArray = tuitionsRes;
+      } else if (Array.isArray(tuitionsRes?.data)) {
+        tuitionsArray = tuitionsRes.data;
+      }
+      console.log(
+        "✅ Extracted StudentTuitions:",
+        tuitionsArray.length,
+        "records",
+      );
+
       setStudentsData(students || []);
       setTeachersData(teachers || []);
       setClassesData(classesArray || []);
       setPaymentsData(paymentsArray || []);
+      setStudentTuitions(tuitionsArray || []);
 
       // Calculate revenue by year (only paid payments)
       const revenue: Record<number, number> = {};
@@ -142,6 +166,32 @@ const AdminDashboard: React.FC = () => {
           revenue[year] = (revenue[year] || 0) + payment.amount;
         }
       });
+
+      // Add tuition revenue (paid amounts from StudentTuition)
+      tuitionsArray.forEach((tuition: any) => {
+        if (tuition.paidAmount && tuition.paidAmount > 0) {
+          // Use schoolYear if available, otherwise parse year from createdAt
+          let year = new Date().getFullYear();
+          if (tuition.schoolYear) {
+            // Extract year from "2024-2025"
+            year = parseInt(tuition.schoolYear.split("-")[0]);
+          } else if (tuition.createdAt) {
+            year = new Date(tuition.createdAt).getFullYear();
+          }
+          revenue[year] = (revenue[year] || 0) + tuition.paidAmount;
+          console.log("💰 [AdminDashboard] Adding tuition revenue:", {
+            year,
+            schoolYear: tuition.schoolYear,
+            semester: tuition.semester,
+            paidAmount: tuition.paidAmount,
+            studentId: tuition.studentId,
+            totalAmount: tuition.totalAmount,
+            remainingAmount: tuition.remainingAmount,
+          });
+        }
+      });
+
+      console.log("💹 [AdminDashboard] Total revenue by year:", revenue);
       setRevenueByYear(revenue);
 
       // ===== Per-year aggregates =====
@@ -323,6 +373,10 @@ const AdminDashboard: React.FC = () => {
       console.log("[AdminDashboard] socket subject event:", payload);
       fetchData();
     };
+    const onTuition = (payload: any) => {
+      console.log("[AdminDashboard] socket tuition event:", payload);
+      fetchData();
+    };
 
     socket.on("payment:created", onPayment);
     socket.on("payment:updated", onPayment);
@@ -332,6 +386,8 @@ const AdminDashboard: React.FC = () => {
     socket.on("teacher:created", onTeacher);
     socket.on("teacher:updated", onTeacher);
     socket.on("subject:created", onSubject);
+    socket.on("student-tuition:created", onTuition);
+    socket.on("student-tuition:updated", onTuition);
 
     return () => {
       socket.off("payment:created", onPayment);
@@ -342,6 +398,8 @@ const AdminDashboard: React.FC = () => {
       socket.off("teacher:created", onTeacher);
       socket.off("teacher:updated", onTeacher);
       socket.off("subject:created", onSubject);
+      socket.off("student-tuition:created", onTuition);
+      socket.off("student-tuition:updated", onTuition);
     };
   }, [socket]);
 

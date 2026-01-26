@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { IGrade, ITuition } from "../../../types/profiles";
 import { BarChart3, TrendingUp } from "lucide-react";
 import {
@@ -13,37 +13,415 @@ import config from "../admin/Dashboard/themes/config";
 import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { motion } from "framer-motion";
+import axiosInstance from "../../../api/axiosConfig";
+import { useSocket } from "../../../Components/settings/hook/IOserver/useSocket";
 
 interface ProfileStatisticsProps {
   grades?: IGrade[];
   tuition?: ITuition | null;
+  studentId?: string;
   schoolYear?: string;
+}
+
+interface StudentTuition {
+  _id: string;
+  tuitionId: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: "unpaid" | "partial" | "paid";
+}
+
+// Helper function to compute average from a single grade object
+function computeAverageFromGrades(g: any) {
+  if (!g) return null;
+  if (g.averageScore !== undefined) return g.averageScore;
+  if (Array.isArray(g.grades) && g.grades.length > 0) {
+    const vals = g.grades
+      .map((x: any) => Number(x.score))
+      .filter((n: number) => !isNaN(n));
+    if (vals.length === 0) return null;
+    return (
+      Math.round(
+        (vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10,
+      ) / 10
+    );
+  }
+  if (g.score !== undefined) return Number(g.score);
+  return null;
 }
 
 export default function ProfileStatistics({
   grades = [],
   tuition,
+  studentId,
   schoolYear = "2024-2025",
 }: ProfileStatisticsProps) {
   const appTheme = theme(config as any);
+  const [studentTuitions, setStudentTuitions] = useState<StudentTuition[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Tính thống kê điểm
+  // Fetch student tuitions if studentId provided
+  useEffect(() => {
+    console.log(
+      "📌 [ProfileStats] useEffect triggered - studentId:",
+      studentId,
+    );
+
+    if (studentId) {
+      console.log("✅ [ProfileStats] StudentId valid, starting fetch...");
+      const fetchTuitions = async () => {
+        setLoading(true);
+        try {
+          console.log(
+            "🔍 [ProfileStats] Fetching tuitions for studentId:",
+            studentId,
+            "Type:",
+            typeof studentId,
+          );
+          const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+            `/student-tuition/student/${studentId}`,
+          );
+
+          console.log("📦 [ProfileStats] API Response status:", res.status);
+          console.log("📦 [ProfileStats] API Response received:", res.data);
+
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data || [];
+
+          console.log(
+            "✅ [ProfileStats] Loaded student tuitions:",
+            data.length,
+            "records",
+          );
+          console.log("📋 [ProfileStats] Data details:", data);
+          if (data.length > 0) {
+            console.log(
+              "💰 [ProfileStats] First record paidAmount:",
+              data[0]?.paidAmount,
+            );
+          }
+          setStudentTuitions(data);
+        } catch (err: any) {
+          console.error("❌ [ProfileStats] Fetch student tuitions error:", {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status,
+            url: err.config?.url,
+            studentId,
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchTuitions();
+    } else {
+      console.warn(
+        "⚠️ [ProfileStats] No studentId provided - cannot fetch tuitions",
+      );
+    }
+  }, [studentId]);
+
+  // Socket listeners for real-time tuition updates
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket || !studentId) {
+      console.warn(
+        "🔴 [ProfileStats] Socket or studentId missing - socket:",
+        !!socket,
+        "studentId:",
+        studentId,
+      );
+      return;
+    }
+    console.log(
+      "🟢 [ProfileStats] Setting up socket listeners - studentId:",
+      studentId,
+      "socket.id:",
+      socket.id,
+    );
+
+    const onTuitionUpdate = (payload: any) => {
+      console.log(
+        "🔔 [ProfileStats] Received student-tuition:updated event:",
+        payload,
+      );
+      // Refetch data when tuition updates
+      const fetchTuitions = async () => {
+        try {
+          const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+            `/student-tuition/student/${studentId}`,
+          );
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data || [];
+          console.log(
+            "🔄 [ProfileStats] Refetched after socket event:",
+            data.length,
+            "records",
+          );
+          setStudentTuitions(data);
+        } catch (err: any) {
+          console.error(
+            "❌ [ProfileStats] Refetch after socket event failed:",
+            err.message,
+          );
+        }
+      };
+      fetchTuitions();
+    };
+
+    const onTuitionCreate = (payload: any) => {
+      console.log(
+        "🔔 [ProfileStats] Received student-tuition:created event:",
+        payload,
+      );
+      // Refetch data when new tuition is created
+      const fetchTuitions = async () => {
+        try {
+          const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+            `/student-tuition/student/${studentId}`,
+          );
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data || [];
+          console.log(
+            "🔄 [ProfileStats] Refetched after socket create event:",
+            data.length,
+            "records",
+          );
+          setStudentTuitions(data);
+        } catch (err: any) {
+          console.error(
+            "❌ [ProfileStats] Refetch after socket create event failed:",
+            err.message,
+          );
+        }
+      };
+      fetchTuitions();
+    };
+
+    const onReconnect = () => {
+      console.log("🔌 [ProfileStats] Socket reconnected, refetching data");
+      const fetchTuitions = async () => {
+        try {
+          const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+            `/student-tuition/student/${studentId}`,
+          );
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data || [];
+          console.log(
+            "🔄 [ProfileStats] Refetched after reconnect:",
+            data.length,
+            "records",
+          );
+          setStudentTuitions(data);
+        } catch (err: any) {
+          console.error(
+            "❌ [ProfileStats] Refetch after reconnect failed:",
+            err.message,
+          );
+        }
+      };
+      fetchTuitions();
+    };
+
+    const onTuitionDelete = (payload: any) => {
+      console.log(
+        "🗑️ [ProfileStats] Received student-tuition:deleted event:",
+        payload,
+      );
+      // Remove deleted tuition records from state
+      if (payload?.tuitionId) {
+        setStudentTuitions((prev) => {
+          const filtered = prev.filter(
+            (st) => st.tuitionId !== payload.tuitionId,
+          );
+          console.log(
+            `🗑️ [ProfileStats] Removed tuitionId: ${payload.tuitionId} - Remaining: ${filtered.length} records`,
+          );
+          return filtered;
+        });
+      }
+      // Refetch to ensure complete sync
+      const fetchTuitions = async () => {
+        try {
+          const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+            `/student-tuition/student/${studentId}`,
+          );
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data || [];
+          console.log(
+            "🔄 [ProfileStats] Refetched after delete event - Final count:",
+            data.length,
+            "records",
+          );
+          setStudentTuitions(data);
+        } catch (err: any) {
+          console.error(
+            "❌ [ProfileStats] Refetch after delete failed:",
+            err.message,
+          );
+        }
+      };
+      setTimeout(() => fetchTuitions(), 300);
+    };
+
+    socket.on("student-tuition:updated", onTuitionUpdate);
+    socket.on("student-tuition:created", onTuitionCreate);
+    socket.on("student-tuition:deleted", onTuitionDelete);
+    socket.on("reconnect", onReconnect);
+    console.log(
+      "✅ [ProfileStats] Socket listeners registered for events: updated, created, deleted, reconnect",
+    );
+
+    return () => {
+      socket.off("student-tuition:updated", onTuitionUpdate);
+      socket.off("student-tuition:created", onTuitionCreate);
+      socket.off("student-tuition:deleted", onTuitionDelete);
+      socket.off("reconnect", onReconnect);
+      console.log("🧹 [ProfileStats] Socket listeners cleaned up");
+    };
+  }, [socket, studentId]);
+
+  // Polling fallback for tuition updates (every 5 seconds)
+  useEffect(() => {
+    if (!studentId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log("⏱️ [ProfileStats] Polling refetch (backup)");
+        const res = await axiosInstance.get<{ data: StudentTuition[] }>(
+          `/student-tuition/student/${studentId}`,
+        );
+        const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        setStudentTuitions(data);
+      } catch (err: any) {
+        console.error("❌ [ProfileStats] Polling failed:", err.message);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [studentId]);
+
+  // Tính thống kê điểm - sử dụng hàm helper để tính điểm từng môn
   const gradeCount = grades.length;
+
+  // Calculate average for each grade using the helper function
+  const gradeAverages = grades
+    .map((g) => computeAverageFromGrades(g as any))
+    .filter((avg): avg is number => avg !== null);
+
+  console.log("[ProfileStats] Grades received:", grades);
+  console.log("[ProfileStats] Grade averages calculated:", gradeAverages);
+  console.log(
+    "[ProfileStats] gradeCount:",
+    gradeCount,
+    "gradeAverages.length:",
+    gradeAverages.length,
+  );
+
   const avgGrade =
-    gradeCount > 0
-      ? (grades.reduce((sum, g) => sum + g.score, 0) / gradeCount).toFixed(2)
+    gradeAverages.length > 0
+      ? (
+          gradeAverages.reduce((a, b) => a + b, 0) / gradeAverages.length
+        ).toFixed(2)
       : 0;
 
-  const excellentCount = grades.filter((g) => g.score >= 9).length;
-  const goodCount = grades.filter((g) => g.score >= 8 && g.score < 9).length;
-  const fairCount = grades.filter((g) => g.score >= 7 && g.score < 8).length;
-  const poorCount = grades.filter((g) => g.score >= 5 && g.score < 7).length;
-  const failCount = grades.filter((g) => g.score < 5).length;
+  console.log("[ProfileStats] avgGrade:", avgGrade);
 
-  // Tính % học phí
-  const tuitionTotal = tuition?.total ?? 0;
-  const tuitionPaid = tuition?.paid ?? 0;
-  const tuitionRemaining = tuition?.remaining ?? 0;
+  const excellentCount = gradeAverages.filter((score) => score >= 9).length;
+  const goodCount = gradeAverages.filter(
+    (score) => score >= 8 && score < 9,
+  ).length;
+  const fairCount = gradeAverages.filter(
+    (score) => score >= 7 && score < 8,
+  ).length;
+  const poorCount = gradeAverages.filter(
+    (score) => score >= 5 && score < 7,
+  ).length;
+  const failCount = gradeAverages.filter((score) => score < 5).length;
+
+  // Tính % học phí - từ studentTuitions hoặc từ tuition prop
+  // Filter ra những bản ghi hợp lệ (có studentId) và theo schoolYear
+  // Note: Old records may not have schoolYear field - show them for fallback
+  console.log(
+    "🔍 [ProfileStats] All studentTuitions:",
+    studentTuitions.map((st) => ({
+      id: st._id,
+      schoolYear: st.schoolYear,
+      semester: st.semester,
+      tuitionId: st.tuitionId,
+    })),
+  );
+
+  const validStudentTuitions = studentTuitions.filter((st) => {
+    // Include records that match schoolYear OR records without schoolYear (old data)
+    const hasMatchingYear = st?.schoolYear === schoolYear;
+    const hasNoYear = !st?.schoolYear;
+    return st && st._id && (hasMatchingYear || hasNoYear);
+  });
+
+  let tuitionTotal = 0;
+  let tuitionPaid = 0;
+  let tuitionRemaining = 0;
+
+  console.log(
+    "📊 [ProfileStats] Computing tuition stats - schoolYear:",
+    schoolYear,
+    "validStudentTuitions.length:",
+    validStudentTuitions.length,
+  );
+
+  if (validStudentTuitions.length > 0) {
+    console.log(
+      "✅ [ProfileStats] Using studentTuitions data for schoolYear:",
+      schoolYear,
+    );
+    // Tính tổng từ tất cả StudentTuition records của năm này
+    tuitionTotal = validStudentTuitions.reduce((sum, st) => {
+      const amount = st.totalAmount || 0;
+      console.log("📊 [ProfileStats] Processing tuition record:", {
+        id: st._id,
+        schoolYear: st.schoolYear || "(no schoolYear - old data)",
+        semester: st.semester,
+        totalAmount: amount,
+      });
+      return sum + amount;
+    }, 0);
+    tuitionPaid = validStudentTuitions.reduce(
+      (sum, st) => sum + (st.paidAmount || 0),
+      0,
+    );
+    tuitionRemaining = validStudentTuitions.reduce(
+      (sum, st) => sum + (st.remainingAmount || 0),
+      0,
+    );
+    console.log(
+      "📊 [ProfileStats] Tuition totals calculated for",
+      schoolYear,
+      ":",
+      {
+        tuitionTotal,
+        tuitionPaid,
+        tuitionRemaining,
+      },
+    );
+  } else {
+    // Fallback to tuition prop
+    tuitionTotal = tuition?.total ?? 0;
+    tuitionPaid = tuition?.paid ?? 0;
+    tuitionRemaining = tuition?.remaining ?? 0;
+    console.warn(
+      "⚠️ [ProfileStats] No studentTuitions for",
+      schoolYear,
+      "using tuition prop fallback",
+    );
+  }
+
   const paidPercent =
     tuitionTotal > 0 ? ((tuitionPaid / tuitionTotal) * 100).toFixed(0) : 0;
 

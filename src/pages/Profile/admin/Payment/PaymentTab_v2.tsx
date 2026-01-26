@@ -1,20 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { toast, Toaster } from "react-hot-toast";
-import axiosInstance from "../../../../api/axiosConfig";
-import { useSocket } from "../../../../Components/settings/hook/IOserver/useSocket";
-
-interface Student {
-  _id: string;
-  studentId: string;
-  name: string;
-}
+// Deprecated file - use PaymentTab.tsx instead
+// This file can be safely deleted
 
 interface StudentTuition {
   _id: string;
   tuitionId: string;
   studentId: Student;
-  schoolYear?: string;
-  semester?: number;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -44,51 +34,14 @@ export default function PaymentTab() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log("📥 [PaymentTab] Fetching all student tuitions");
       const res = await axiosInstance.get<{ data: StudentTuition[] }>(
         "/student-tuition",
       );
       const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
-      console.log(
-        "✅ [PaymentTab] Loaded student tuitions:",
-        data.length,
-        "records",
-      );
-
-      // Log detail of each record
-      data.forEach((st, idx) => {
-        console.log(`📋 [PaymentTab] Record ${idx}:`, {
-          id: st._id,
-          studentName: st.studentId?.name,
-          studentId: st.studentId?._id,
-          paidAmount: st.paidAmount,
-          totalAmount: st.totalAmount,
-          remainingAmount: st.remainingAmount,
-          status: st.status,
-        });
-      });
-
-      // Filter out records with invalid/missing studentId
-      const validRecords = data.filter((st) => {
-        const isValid = st.studentId && st.studentId._id;
-        if (!isValid) {
-          console.warn(
-            `⚠️ [PaymentTab] Skipping invalid record:`,
-            st._id,
-            "- studentId:",
-            st.studentId,
-          );
-        }
-        return isValid;
-      });
-
-      console.log(
-        `📊 [PaymentTab] Filtered records - Valid: ${validRecords.length} / Total: ${data.length}`,
-      );
-
-      setStudentTuitions(validRecords);
+      setStudentTuitions(data);
+      console.log("✅ Loaded student tuitions:", data.length);
     } catch (err: any) {
-      console.error("❌ [PaymentTab] Fetch error:", err);
+      console.error("❌ Fetch error:", err);
       toast.error(err.response?.data?.message || "Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
@@ -99,33 +52,12 @@ export default function PaymentTab() {
   const { socket } = useSocket();
   useEffect(() => {
     if (!socket) return;
-    const reload = () => {
-      console.log("🔄 [PaymentTab] Reloading data from socket event");
-      fetchData();
-    };
+    const reload = () => fetchData();
     socket.on("student-tuition:updated", reload);
     socket.on("student-tuition:created", reload);
-    socket.on("student-tuition:deleted", (payload: any) => {
-      console.log(
-        "🗑️ [PaymentTab] Received student-tuition:deleted event:",
-        payload,
-      );
-      // Remove deleted student tuitions from state immediately
-      if (payload?.tuitionId) {
-        setStudentTuitions((prev) =>
-          prev.filter((st) => st.tuitionId !== payload.tuitionId),
-        );
-        toast.info(
-          `Deleted ${payload.deletedCount || 0} student tuition records`,
-        );
-      }
-      // Then refetch all data to ensure sync
-      setTimeout(() => reload(), 500);
-    });
     return () => {
       socket.off("student-tuition:updated", reload);
       socket.off("student-tuition:created", reload);
-      socket.off("student-tuition:deleted", reload);
     };
   }, [socket]);
 
@@ -136,12 +68,6 @@ export default function PaymentTab() {
     }
 
     try {
-      console.log("📝 [PaymentTab] Updating payment:", {
-        studentTuitionId,
-        paidAmount: editingAmount,
-        status: editingStatus,
-      });
-
       const res = await axiosInstance.put<{ data: StudentTuition }>(
         `/student-tuition/${studentTuitionId}`,
         {
@@ -150,119 +76,26 @@ export default function PaymentTab() {
         },
       );
 
-      console.log("✅ [PaymentTab] Update response:", res.data);
-
       if (res.data?.data) {
-        console.log("💰 [PaymentTab] Updated record:", {
-          id: res.data.data._id,
-          paidAmount: res.data.data.paidAmount,
-          remainingAmount: res.data.data.remainingAmount,
-          status: res.data.data.status,
-        });
-
-        // Update local state immediately
         setStudentTuitions((prev) =>
-          prev.map((st) => {
-            if (st._id === studentTuitionId) {
-              console.log(
-                "🔄 [PaymentTab] Updating state for record:",
-                studentTuitionId,
-              );
-              return res.data.data;
-            }
-            return st;
-          }),
+          prev.map((st) => (st._id === studentTuitionId ? res.data.data : st)),
         );
         setEditingId(null);
         toast.success("✅ Cập nhật thành công");
-
-        // Refetch data after 1s to ensure backend has saved
-        setTimeout(() => {
-          console.log("🔄 [PaymentTab] Refetching data after update");
-          fetchData();
-        }, 1000);
-      } else {
-        console.error("❌ [PaymentTab] No data in response:", res.data);
-        toast.error("Không nhận được dữ liệu từ server");
       }
     } catch (err: any) {
-      console.error("❌ [PaymentTab] Update error:", err);
+      console.error("❌ Update error:", err);
       toast.error(err.response?.data?.message || "Cập nhật thất bại");
     }
   };
 
-  const handleDeleteStudentTuition = async (
-    studentTuitionId: string,
-    studentName: string,
-  ) => {
-    const confirmed = window.confirm(
-      `Xác nhận xóa khoản học phí của học sinh: ${studentName}?`,
-    );
-
-    if (!confirmed) {
-      console.log("❌ [PaymentTab] Delete cancelled by user");
-      return;
-    }
-
-    try {
-      console.log(
-        "🗑️ [PaymentTab] Deleting student tuition:",
-        studentTuitionId,
-      );
-
-      const res = await axiosInstance.delete(
-        `/student-tuition/${studentTuitionId}`,
-      );
-
-      console.log("✅ [PaymentTab] Delete response:", res.data);
-
-      // Remove from local state immediately
-      setStudentTuitions((prev) =>
-        prev.filter((st) => st._id !== studentTuitionId),
-      );
-
-      toast.success("✅ Xóa khoản học phí thành công");
-
-      // Refetch data after 300ms to ensure sync
-      setTimeout(() => {
-        console.log("🔄 [PaymentTab] Refetching data after delete");
-        fetchData();
-      }, 300);
-    } catch (err: any) {
-      console.error("❌ [PaymentTab] Delete error:", err);
-      toast.error(err.response?.data?.message || "Xóa khoản học phí thất bại");
-    }
-  };
-
   const filteredTuitions = studentTuitions.filter((st) => {
-    // Chỉ hiển thị những bản ghi có studentId hợp lệ
-    if (!st.studentId || !st.studentId._id) {
-      console.warn("⚠️ [PaymentTab] Invalid record - no studentId:", st._id);
-      return false;
-    }
-
     const matchStatus = filterStatus === "all" || st.status === filterStatus;
     const matchSearch =
       st.studentId?.name.toLowerCase().includes(search.toLowerCase()) ||
       st.studentId?.studentId.toLowerCase().includes(search.toLowerCase());
-
-    const isIncluded = matchStatus && matchSearch;
-    if (!isIncluded) {
-      console.log("❌ [PaymentTab] Record filtered out:", {
-        id: st._id,
-        name: st.studentId?.name,
-        filterStatus,
-        matchStatus,
-        search,
-        matchSearch,
-      });
-    }
-    return isIncluded;
+    return matchStatus && matchSearch;
   });
-
-  console.log(
-    `📋 [PaymentTab] Filtered tuitions display: ${filteredTuitions.length} / ${studentTuitions.length}`,
-  );
 
   const totalAmount = filteredTuitions.reduce(
     (sum, st) => sum + st.totalAmount,
@@ -278,8 +111,8 @@ export default function PaymentTab() {
   );
 
   return (
-    <div className="profile__card">
-      <h2 className="profile__title"> Quản lý thanh toán học phí</h2>
+    <div className="profile__card"
+      <h2 className="profile__title">    Quản lý thanh toán học phí</h2>
 
       {/* Thống kê tổng quan */}
       <div className="stats-container mb-3">
@@ -357,8 +190,6 @@ export default function PaymentTab() {
               <tr>
                 <th>Mã HS</th>
                 <th>Tên học sinh</th>
-                <th>Năm Học</th>
-                <th>Kì</th>
                 <th>Tổng nợ (VND)</th>
                 <th>Đã trả (VND)</th>
                 <th>Còn nợ (VND)</th>
@@ -383,19 +214,6 @@ export default function PaymentTab() {
                     {st.studentId?.studentId || "-"}
                   </td>
                   <td>{st.studentId?.name || "-"}</td>
-                  <td
-                    style={{
-                      textAlign: "center",
-                      fontSize: "12px",
-                      backgroundColor: "#f0f7ff",
-                      fontWeight: "500",
-                    }}
-                  >
-                    {st.schoolYear || "N/A"}
-                  </td>
-                  <td style={{ textAlign: "center", fontSize: "12px" }}>
-                    {st.semester ? `Kì ${st.semester}` : "N/A"}
-                  </td>
                   <td style={{ textAlign: "right", fontWeight: "bold" }}>
                     {st.totalAmount.toLocaleString("vi-VN")}
                   </td>
@@ -509,45 +327,24 @@ export default function PaymentTab() {
                         </button>
                       </div>
                     ) : (
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <button
-                          onClick={() => {
-                            setEditingId(st._id);
-                            setEditingAmount(st.paidAmount);
-                            setEditingStatus(st.status);
-                          }}
-                          style={{
-                            padding: "6px 10px",
-                            background: "#FF9800",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                        >
-                          ✏️ Sửa
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDeleteStudentTuition(
-                              st._id,
-                              st.studentId?.name || "",
-                            )
-                          }
-                          style={{
-                            padding: "6px 10px",
-                            background: "#f44336",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                        >
-                          🗑️ Xóa
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingId(st._id);
+                          setEditingAmount(st.paidAmount);
+                          setEditingStatus(st.status);
+                        }}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#FF9800",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        ✏️ Sửa
+                      </button>
                     )}
                   </td>
                 </tr>

@@ -81,6 +81,7 @@ const UserSchema = new Schema<IUserDocument>(
       {
         day: { type: String },
         subject: { type: String },
+        teacher: { type: String, default: null },
         startTime: { type: String },
         endTime: { type: String },
       },

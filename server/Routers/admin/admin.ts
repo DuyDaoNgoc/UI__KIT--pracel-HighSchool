@@ -1446,3 +1446,97 @@ router.post(
     }
   },
 );
+
+/**
+ * POST /admin/sync/create-majors
+ * Create Major documents from existing Class data
+ */
+router.post(
+  "/sync/create-majors",
+  verifyToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const ClassModel =
+        require("../../models/Class").default || require("../../models/Class");
+
+      console.log("🔍 [AdminSync] Fetching all classes to extract majors...");
+
+      // Get all unique majors from classes
+      const classes = await ClassModel.find().lean();
+
+      if (classes.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No classes found to extract majors from",
+          created: 0,
+        });
+      }
+
+      // Extract unique majors
+      const uniqueMajors = new Set<string>();
+      classes.forEach((cls: any) => {
+        if (cls.major) {
+          uniqueMajors.add(cls.major);
+        }
+      });
+
+      console.log("📚 Found majors:", Array.from(uniqueMajors));
+
+      let createdCount = 0;
+
+      // Create Major documents for each unique major
+      for (const majorName of uniqueMajors) {
+        try {
+          // Check if already exists
+          const existing = await Major.findOne({ name: majorName });
+          if (existing) {
+            console.log(`⏭️ Major "${majorName}" already exists`);
+            continue;
+          }
+
+          // Create new Major
+          const majorCode = majorName
+            .split(" ")
+            .map((word: string) => word[0])
+            .join("")
+            .toUpperCase();
+
+          const newMajor = new Major({
+            name: majorName,
+            code: majorCode,
+          });
+
+          await newMajor.save();
+          createdCount++;
+          console.log(`✅ Created major: ${majorName} (${majorCode})`);
+        } catch (e: any) {
+          if (e.code === 11000) {
+            console.log(`⏭️ Major code already exists for "${majorName}"`);
+          } else {
+            console.error(
+              `❌ Failed to create major "${majorName}":`,
+              e.message,
+            );
+          }
+        }
+      }
+
+      console.log(`✅ Sync complete: created ${createdCount} majors`);
+
+      res.status(200).json({
+        success: true,
+        message: `Successfully created ${createdCount} majors`,
+        created: createdCount,
+        majors: Array.from(uniqueMajors),
+      });
+    } catch (err: any) {
+      console.error("❌ POST /admin/sync/create-majors error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi tạo majors",
+        error: err?.message || String(err),
+      });
+    }
+  },
+);
